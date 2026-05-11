@@ -19,15 +19,14 @@ class SubHeader extends StatelessWidget {
     return Column(
       children: [
         Padding(
-          padding:
-          const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Row(
             children: [
               // Title
               Expanded(
                 child: Text(
                   title,
-                  style:  TextStyle(
+                  style: TextStyle(
                     fontSize: 18.sp,
                     fontWeight: FontWeight.w600,
                     color: Color(0xFF322318),

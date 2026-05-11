@@ -1,6 +1,5 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:harismruti/utils/size_config.dart';
 
 class DetailAppbar extends StatelessWidget implements PreferredSizeWidget {
   final String title;

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:harismruti/utils/app_color.dart';
 
 class CustomBackground extends StatelessWidget {
-  Widget child;
+  final Widget child;
 
-  CustomBackground({super.key, required this.child});
+  const CustomBackground({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {

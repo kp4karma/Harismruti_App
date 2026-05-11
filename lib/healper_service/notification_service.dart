@@ -16,7 +16,8 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 @pragma('vm:entry-point')
 class NotificationService {
-  static final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
+  static final FlutterLocalNotificationsPlugin _plugin =
+      FlutterLocalNotificationsPlugin();
   static AndroidNotificationChannel? _channel;
   static bool _initialised = false;
 
@@ -51,7 +52,9 @@ class NotificationService {
     await FirebaseMessaging.instance.subscribeToTopic('all1');
 
     // Print token once (handy for Postman tests)
-    final token = Platform.isAndroid ? await FirebaseMessaging.instance.getToken() : await FirebaseMessaging.instance.getAPNSToken();
+    final token = Platform.isAndroid
+        ? await FirebaseMessaging.instance.getToken()
+        : await FirebaseMessaging.instance.getAPNSToken();
     debugPrint('🪪  FCM token: $token');
 
     // High-importance channel (Android 8+)
@@ -61,14 +64,19 @@ class NotificationService {
       description: 'Channel for important notifications',
       importance: Importance.high,
     );
-    await _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.createNotificationChannel(_channel!);
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(_channel!);
 
     // iOS: show notifications even when app is foreground
-    await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
-      alert: true,
-      sound: true,
-      badge: true,
-    );
+    await FirebaseMessaging.instance
+        .setForegroundNotificationPresentationOptions(
+          alert: true,
+          sound: true,
+          badge: true,
+        );
 
     _initialised = true;
   }
@@ -136,7 +144,8 @@ class NotificationService {
   }
 
   // Wrapper so existing FCM handlers call the new helper
-  static void _navigateFromMessage(RemoteMessage m) => _navigateFromData(m.data);
+  static void _navigateFromMessage(RemoteMessage m) =>
+      _navigateFromData(m.data);
 
   // ─────────────────────────────────────────────────────────────────────────
   // 6. Listen for taps from background / terminated state

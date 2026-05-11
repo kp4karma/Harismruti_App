@@ -1,0 +1,284 @@
+{
+  "info": {
+    "name": "PictoGallery Mobile API",
+    "_postman_id": "8f5b0a2e-1234-4abc-9876-1a2b3c4d5e6f",
+    "description": "All endpoints exposed under `/api/v1/mobile/*`, used by the Hari Smruti React Native app.\n\n## Setup\n\n1. Open the collection's **Variables** tab.\n2. Set `base_url` to the API root (default: `http://localhost:8000/api/v1/mobile`).\n3. Set `api_key` to the value of `MOBILE_API_KEY` from the backend `.env`.\n4. Run any request — auth is configured at the collection level (`X-API-Key` header).\n\n## Caching\n\nThe backend caches every response for **60 minutes** keyed on the full parameter set. Re-running the same request quickly returns the cached payload; change a query param to force a fresh computation.\n\n## Production server\n\nFlip `base_url` to `https://hpsmruti.suhrad.digital/api/v1/mobile` to hit the live server (same `api_key`).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000/api/v1/mobile", "type": "string" },
+    { "key": "api_key", "value": "REPLACE_WITH_MOBILE_API_KEY", "type": "string" }
+  ],
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      { "key": "key", "value": "X-API-Key", "type": "string" },
+      { "key": "value", "value": "{{api_key}}", "type": "string" },
+      { "key": "in", "value": "header", "type": "string" }
+    ]
+  },
+  "item": [
+    {
+      "name": "Home bundle",
+      "item": [
+        {
+          "name": "GET /home — single-call bundle (recent + collections + smruti-of + people)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/home?samples=4",
+              "host": ["{{base_url}}"],
+              "path": ["home"],
+              "query": [
+                { "key": "samples", "value": "4", "description": "Sample photos per card (1–10)" }
+              ]
+            },
+            "description": "One round-trip that returns the data for every section on the mobile home screen. The mobile app uses the response to prime each section's React Query cache, so subsequent screen hooks don't fire their own request."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Recent photos",
+      "item": [
+        {
+          "name": "GET /recent — most recent photos (paginated)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/recent?page=1&per_page=60",
+              "host": ["{{base_url}}"],
+              "path": ["recent"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "per_page", "value": "60", "description": "1–200" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Collections (year → month → day)",
+      "item": [
+        {
+          "name": "GET /collections — one card per year",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/collections?samples=4",
+              "host": ["{{base_url}}"],
+              "path": ["collections"],
+              "query": [
+                { "key": "samples", "value": "4", "description": "Sample photos per year card (1–10)" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /collections/{year}/months — months that have photos in the year",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/collections/2022/months?samples=3",
+              "host": ["{{base_url}}"],
+              "path": ["collections", "2022", "months"],
+              "query": [
+                { "key": "samples", "value": "3" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /collections/{year}/{month}/days — days within a month",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/collections/2022/7/days?samples=3",
+              "host": ["{{base_url}}"],
+              "path": ["collections", "2022", "7", "days"],
+              "query": [
+                { "key": "samples", "value": "3" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /collections/{year}/{month}/{day}/photos — paginated photos for a date",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/collections/2022/7/1/photos?page=1&per_page=60",
+              "host": ["{{base_url}}"],
+              "path": ["collections", "2022", "7", "1", "photos"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "per_page", "value": "60", "description": "1–200" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Attributes (Country / Location / Album / Subject / With / Person)",
+      "item": [
+        {
+          "name": "GET /attributes — master list of every attribute category and its values",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/attributes",
+              "host": ["{{base_url}}"],
+              "path": ["attributes"]
+            }
+          }
+        },
+        {
+          "name": "GET /smruti-of?type=person — cards for distinct values of an attribute",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/smruti-of?type=person&samples=4&limit=60",
+              "host": ["{{base_url}}"],
+              "path": ["smruti-of"],
+              "query": [
+                { "key": "type", "value": "person", "description": "person | location | album | with | subject" },
+                { "key": "samples", "value": "4" },
+                { "key": "limit", "value": "60" }
+              ]
+            },
+            "description": "Drives the home page's 'Smruti Of …' rails. Change `type` to switch attribute (person | location | album | with | subject)."
+          }
+        },
+        {
+          "name": "GET /by-attribute/{slug}/photos — paginated photos for one attribute value",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/by-attribute/person/photos?value=Swami&page=1&per_page=60",
+              "host": ["{{base_url}}"],
+              "path": ["by-attribute", "person", "photos"],
+              "query": [
+                { "key": "value", "value": "Swami", "description": "Attribute value to filter on (URL-decoded)" },
+                { "key": "page", "value": "1" },
+                { "key": "per_page", "value": "60" }
+              ]
+            },
+            "description": "`slug` ∈ {country, location, sub_location, album, subject, with, person}. The `value` query is the exact attribute value (case-sensitive)."
+          }
+        },
+        {
+          "name": "GET /photos/{id}/attributes — flat attribute row for one photo",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/photos/1/attributes",
+              "host": ["{{base_url}}"],
+              "path": ["photos", "1", "attributes"]
+            },
+            "description": "Returns 200 with all-null fields when no PhotoAttribute row exists for the photo, so the client can render a stable shape."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Locations",
+      "item": [
+        {
+          "name": "GET /locations/{location}/sub-locations — sub-locations within a location",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/locations/Vrindavan/sub-locations?samples=3",
+              "host": ["{{base_url}}"],
+              "path": ["locations", "Vrindavan", "sub-locations"],
+              "query": [
+                { "key": "samples", "value": "3" }
+              ]
+            },
+            "description": "Drill-down: pick a Location card → list its Sub-Locations, each with sample photos."
+          }
+        }
+      ]
+    },
+    {
+      "name": "People (identified PersonGroups)",
+      "item": [
+        {
+          "name": "GET /people — identified people list (home rail and full list)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/people?samples=4&limit=60&offset=0&sort=count",
+              "host": ["{{base_url}}"],
+              "path": ["people"],
+              "query": [
+                { "key": "samples", "value": "4", "description": "Sample photos per person (1–10)" },
+                { "key": "limit", "value": "60", "description": "Page size (1–500)" },
+                { "key": "offset", "value": "0", "description": "Pagination offset for the full list" },
+                { "key": "sort", "value": "count", "description": "count (default, photo_count desc) | name (A→Z)" },
+                { "key": "q", "value": "", "description": "Optional case-insensitive name substring", "disabled": true }
+              ]
+            },
+            "description": "One card per identified PersonGroup (face-clustering output where `is_identified=true` and a name is set). The mobile home rail uses sort=count limit=20; the full-list page uses sort=name with `q` for search and `offset` for pagination."
+          }
+        },
+        {
+          "name": "GET /people/{group_id}/photos — paginated photos for one person",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/people/1/photos?page=1&per_page=60",
+              "host": ["{{base_url}}"],
+              "path": ["people", "1", "photos"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "per_page", "value": "60" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /faces/{face_id}/thumbnail — representative face crop (binary)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/faces/1/thumbnail",
+              "host": ["{{base_url}}"],
+              "path": ["faces", "1", "thumbnail"]
+            },
+            "description": "Returns a JPEG (`image/jpeg`). Useful for the person tile thumbnails on the home rail and full-list page."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Photo files (binary)",
+      "item": [
+        {
+          "name": "GET /photos/{id}/thumbnail — thumbnail bytes",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/photos/1/thumbnail",
+              "host": ["{{base_url}}"],
+              "path": ["photos", "1", "thumbnail"]
+            }
+          }
+        },
+        {
+          "name": "GET /photos/{id}/full — full-resolution bytes",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/photos/1/full",
+              "host": ["{{base_url}}"],
+              "path": ["photos", "1", "full"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

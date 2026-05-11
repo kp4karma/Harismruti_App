@@ -3,18 +3,14 @@ import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/bootstrap.dart';
-import 'package:harismruti/healper_service/notification_service.dart';
 import 'package:harismruti/ui/controller/global_binding.dart';
-import 'package:harismruti/ui/view/Auth/login.dart';
-import 'package:harismruti/ui/view/Auth/login_home.dart';
 import 'package:harismruti/ui/view/home/home_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
-import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/size_config.dart';
 import 'package:harismruti/widget/internet_status_widget.dart';
 
 void main() async {
-  // await bootstrap();
+  await bootstrap();
   runApp(const MyApp());
 }
 
@@ -29,7 +25,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     // NotificationService.listenForInitialAndOpenedApp();
-    return  ScreenUtilInit(
+    return ScreenUtilInit(
       designSize: Size(430, 932),
       minTextAdapt: true,
       splitScreenMode: true,

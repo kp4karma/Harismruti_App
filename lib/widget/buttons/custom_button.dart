@@ -5,18 +5,18 @@ import 'package:harismruti/utils/size_config.dart';
 class CustomButton extends StatelessWidget {
   final String text;
   final VoidCallback onTap;
-  Color? color;
-  Color? textColor;
+  final Color? color;
+  final Color? textColor;
   final double widthFactor;
   final double heightFactor;
   final double borderRadius;
 
-  CustomButton({
+  const CustomButton({
     super.key,
     required this.text,
     required this.onTap,
-     this.color,
-     this.textColor,
+    this.color,
+    this.textColor,
     this.widthFactor = 80,
     this.heightFactor = 5,
     this.borderRadius = 12,
@@ -30,15 +30,15 @@ class CustomButton extends StatelessWidget {
         width: SizeConfig.widthMultiplier! * widthFactor,
         height: SizeConfig.heightMultiplier! * heightFactor,
         decoration: BoxDecoration(
-          color: color??primaryColor,
+          color: color ?? primaryColor,
           borderRadius: BorderRadius.circular(borderRadius),
         ),
         child: Center(
           child: Text(
             text,
-            style:  TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: textColor??Colors.white,
+              color: textColor ?? Colors.white,
               letterSpacing: 1,
               fontSize: 16,
             ),

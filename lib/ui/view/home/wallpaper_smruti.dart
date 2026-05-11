@@ -1,48 +1,43 @@
-
-
 import 'package:flutter/material.dart';
-import 'package:parallax_cards/parallax_cards.dart';
+import 'package:get/get.dart';
+import 'package:harismruti/ui/controller/gallery_controller.dart';
+import 'package:harismruti/widget/gallery/gallery_card_widgets.dart';
+import 'package:harismruti/widget/gallery/gallery_states.dart';
 
 class WallpaperSmruti extends StatelessWidget {
-  final List<String> wallpapers = [
-    "https://assets.epuzzle.info//puzzle/145/264/original.jpg",
-    "https://assets.epuzzle.info//puzzle/145/264/original.jpg",
-    "https://assets.epuzzle.info//puzzle/145/264/original.jpg",
-    "https://assets.epuzzle.info//puzzle/145/264/original.jpg",
-  ];
+  const WallpaperSmruti({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Optional: Responsive width/height
-    double cardWidth = 170;
-    double cardHeight = 300;
+    final galleryController = Get.find<GalleryController>();
 
-    return  ParallaxCards(
-        borderRadius: BorderRadius.circular(20),
-        scrollDirection: Axis.horizontal,
-        imagesList:wallpapers ,
-        width:cardWidth,
-        height: cardHeight,
-        thumbVisibility: false,
-        thickness: 0,margin: EdgeInsetsGeometry.symmetric(horizontal: 8),
-        onTap: (index) {},);
-    return SizedBox(
-      height: cardHeight,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: wallpapers.length,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemBuilder: (context, index) {
-          return Container(
-            width: cardWidth,
-            margin: const EdgeInsets.only(right: 16),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: Image.network(wallpapers[index], fit: BoxFit.cover),
-            ),
-          );
-        },
-      ),
-    );
+    return Obx(() {
+      final wallpapers = galleryController.wallpapers
+          .where((item) => item.coverUrl.isNotEmpty)
+          .toList();
+
+      if (galleryController.isLoading.value && wallpapers.isEmpty) {
+        return const GallerySectionLoader(height: 300);
+      }
+      if (wallpapers.isEmpty) {
+        return const GalleryEmptyState(height: 180);
+      }
+
+      return SizedBox(
+        height: 300,
+        child: ListView.builder(
+          physics: const BouncingScrollPhysics(),
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          itemCount: wallpapers.length,
+          itemBuilder: (context, index) => GalleryCoverCard(
+            card: wallpapers[index],
+            headers: galleryController.imageHeaders,
+            width: 170,
+            height: 285,
+          ),
+        ),
+      );
+    });
   }
 }

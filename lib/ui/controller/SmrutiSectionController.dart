@@ -32,7 +32,11 @@ class SmrutiSectionController extends GetxController {
     visibleCount.value = 3;
   }
 
-  void onHomeScroll(double offset, double maxScroll, AnimationController appBarController) {
+  void onHomeScroll(
+    double offset,
+    double maxScroll,
+    AnimationController appBarController,
+  ) {
     double delta = 10;
 
     if (offset > lastOffset && offset > 50) {
@@ -64,12 +68,11 @@ class SmrutiSectionController extends GetxController {
   void loadSections() {
     final stored = StorageHelper.loadSections();
     if (stored.isNotEmpty) {
-      sections.assignAll(stored.map((e) {
-        return {
-          ...e,
-          "widget": _getWidgetByTitle(e['title']),
-        };
-      }));
+      sections.assignAll(
+        stored.map((e) {
+          return {...e, "widget": _getWidgetByTitle(e['title'])};
+        }),
+      );
     } else {
       sections.assignAll(_defaultSections());
     }
@@ -96,11 +99,13 @@ class SmrutiSectionController extends GetxController {
 
   void saveSectionsToStorage() {
     final saveList = sections
-        .map((e) => {
-      "title": e['title'],
-      "order_index": e['order_index'],
-      "is_show": e['is_show'],
-    })
+        .map(
+          (e) => {
+            "title": e['title'],
+            "order_index": e['order_index'],
+            "is_show": e['is_show'],
+          },
+        )
         .toList();
     StorageHelper.setValue(
       key: StorageKeys.smrutiSectionConfig,
@@ -113,19 +118,19 @@ class SmrutiSectionController extends GetxController {
       case SmrutiSectionKeys.recent:
         return const RecentSmruti();
       case SmrutiSectionKeys.withSmruti:
-        return SmrutiWith();
+        return const SmrutiWith();
       case SmrutiSectionKeys.ofSmruti:
         return const SmrutiOf();
       case SmrutiSectionKeys.location:
-        return LocationSmruti();
+        return const LocationSmruti();
       case SmrutiSectionKeys.album:
-        return AlbumSmruti();
+        return const AlbumSmruti();
       case SmrutiSectionKeys.collections:
-        return CollectionSmruti();
+        return const CollectionSmruti();
       case SmrutiSectionKeys.people:
-        return PeopleSmruti();
+        return const PeopleSmruti();
       case SmrutiSectionKeys.wallpapers:
-        return WallpaperSmruti();
+        return const WallpaperSmruti();
       case SmrutiSectionKeys.pinnedCollection:
         return const SizedBox();
       default:
@@ -144,7 +149,7 @@ class SmrutiSectionController extends GetxController {
       "title": SmrutiSectionKeys.withSmruti,
       "order_index": 2,
       "is_show": true,
-      "widget": SmrutiWith(),
+      "widget": const SmrutiWith(),
     },
     {
       "title": SmrutiSectionKeys.ofSmruti,
@@ -156,31 +161,31 @@ class SmrutiSectionController extends GetxController {
       "title": SmrutiSectionKeys.location,
       "order_index": 4,
       "is_show": true,
-      "widget": LocationSmruti(),
+      "widget": const LocationSmruti(),
     },
     {
       "title": SmrutiSectionKeys.album,
       "order_index": 5,
       "is_show": true,
-      "widget": AlbumSmruti(),
+      "widget": const AlbumSmruti(),
     },
     {
       "title": SmrutiSectionKeys.collections,
       "order_index": 6,
       "is_show": true,
-      "widget": CollectionSmruti(),
+      "widget": const CollectionSmruti(),
     },
     {
       "title": SmrutiSectionKeys.people,
       "order_index": 7,
       "is_show": true,
-      "widget": PeopleSmruti(),
+      "widget": const PeopleSmruti(),
     },
     {
       "title": SmrutiSectionKeys.wallpapers,
       "order_index": 8,
       "is_show": true,
-      "widget": WallpaperSmruti(),
+      "widget": const WallpaperSmruti(),
     },
     {
       "title": SmrutiSectionKeys.pinnedCollection,

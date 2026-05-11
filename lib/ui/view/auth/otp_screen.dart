@@ -1,12 +1,12 @@
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:harismruti/ui/view/Auth/otp_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/size_config.dart';
 import 'package:harismruti/widget/buttons/custom_button.dart';
 import 'package:harismruti/widget/carousel/auto_scroll_carousel.dart';
 import 'package:flutter_pin_code_fields/flutter_pin_code_fields.dart';
+
 class OTPScreen extends StatelessWidget {
   const OTPScreen({super.key});
 
@@ -109,7 +109,11 @@ class OTPScreen extends StatelessWidget {
                                   child: Text(
                                     "+91 6352411412",
                                     textAlign: TextAlign.center,
-                                    style: TextStyle(fontSize: 16,fontWeight: FontWeight.bold,color: primaryColor),
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: primaryColor,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -147,9 +151,7 @@ class OTPScreen extends StatelessWidget {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 GestureDetector(
-                                  onTap: () {
-
-                                  },
+                                  onTap: () {},
                                   child: Text(
                                     "Resend Code",
                                     style: TextStyle(
@@ -176,7 +178,6 @@ class OTPScreen extends StatelessWidget {
                               },
                             ),
                             SizedBox(height: SizeConfig.heightMultiplier! * 4),
-
                           ],
                         ),
                       ),

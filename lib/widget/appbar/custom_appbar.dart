@@ -6,12 +6,12 @@ import 'package:harismruti/ui/view/Profile/profile_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
 
 class CustomAppbar extends StatelessWidget implements PreferredSizeWidget {
-  String? title;
-  String? subtitle;
-  bool? isShowSubTitle;
-  bool isLoginAppbar;
-  bool isCenterTitle;
-  CustomAppbar({
+  final String? title;
+  final String? subtitle;
+  final bool? isShowSubTitle;
+  final bool isLoginAppbar;
+  final bool isCenterTitle;
+  const CustomAppbar({
     super.key,
     this.isLoginAppbar = false,
     this.title,
@@ -71,8 +71,8 @@ class CustomAppbar extends StatelessWidget implements PreferredSizeWidget {
                       color: Colors.black,
                     ),
                   ),
-                  if (isShowSubTitle== true) SizedBox(height: 2),
-                  if (isShowSubTitle==true)
+                  if (isShowSubTitle == true) SizedBox(height: 2),
+                  if (isShowSubTitle == true)
                     Text(
                       subtitle ?? "He hari! Bas ek, tu raji tha...",
                       style: TextStyle(
@@ -89,9 +89,7 @@ class CustomAppbar extends StatelessWidget implements PreferredSizeWidget {
                   onTap: () {
                     Navigator.push(
                       context,
-                      CupertinoPageRoute(
-                        builder: (context) => ProfileScreen(),
-                      ),
+                      CupertinoPageRoute(builder: (context) => ProfileScreen()),
                     );
                   },
                   child: Container(
@@ -115,4 +113,3 @@ class CustomAppbar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight + 10);
 }
-

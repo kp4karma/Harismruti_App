@@ -5,7 +5,6 @@ import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/widget/internet_status_widget.dart';
 
-
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -13,16 +12,20 @@ class SplashScreen extends StatefulWidget {
   SplashScreenState createState() => SplashScreenState();
 }
 
-class SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
+class SplashScreenState extends State<SplashScreen>
+    with TickerProviderStateMixin {
   AnimationController? scaleController;
   Animation<double>? scaleAnimation;
 
   Future<void> _checkInternetAndNavigate() async {
-    List<ConnectivityResult> connectivity = await Connectivity().checkConnectivity();
-    bool hasInternet = connectivity.contains(ConnectivityResult.wifi) || connectivity.contains(ConnectivityResult.mobile) || connectivity.contains(ConnectivityResult.ethernet);
+    List<ConnectivityResult> connectivity = await Connectivity()
+        .checkConnectivity();
+    bool hasInternet =
+        connectivity.contains(ConnectivityResult.wifi) ||
+        connectivity.contains(ConnectivityResult.mobile) ||
+        connectivity.contains(ConnectivityResult.ethernet);
 
     if (StorageHelper.isLogin()) {
-
     } else {
       NavigationHelper.navigateAndReplace(AppRoutes.login);
     }
@@ -38,14 +41,20 @@ class SplashScreenState extends State<SplashScreen> with TickerProviderStateMixi
   void initState() {
     super.initState();
 
-    scaleController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500))
-      ..addStatusListener((status) {
-        if (status == AnimationStatus.completed) {
-          _checkInternetAndNavigate();
-        }
-      });
+    scaleController =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 500),
+        )..addStatusListener((status) {
+          if (status == AnimationStatus.completed) {
+            _checkInternetAndNavigate();
+          }
+        });
 
-    scaleAnimation = Tween<double>(begin: 1.0, end: 30.0).animate(scaleController!);
+    scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 30.0,
+    ).animate(scaleController!);
 
     scaleController!.forward();
   }
@@ -60,8 +69,7 @@ class SplashScreenState extends State<SplashScreen> with TickerProviderStateMixi
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body:
-        Center(child: Text("Coming Soon"),)
+      body: Center(child: Text("Coming Soon")),
     );
   }
 }

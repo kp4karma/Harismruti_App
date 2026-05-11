@@ -29,7 +29,7 @@ class RegisterScreen extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: GestureDetector(
-          onTap: (){
+          onTap: () {
             Navigator.pop(context);
           },
           child: Padding(
@@ -56,7 +56,7 @@ class RegisterScreen extends StatelessWidget {
             ),
           ),
         ),
-        title: Text("Register",style: TextStyle(letterSpacing: 1),),
+        title: Text("Register", style: TextStyle(letterSpacing: 1)),
       ),
       backgroundColor: Color(0xFFF5F5F5),
       body: SafeArea(
@@ -72,9 +72,9 @@ class RegisterScreen extends StatelessWidget {
             Align(
               alignment: Alignment.bottomCenter,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(isKeyboardOpen?0:30),
+                borderRadius: BorderRadius.circular(isKeyboardOpen ? 0 : 30),
                 child: Container(
-                  color: isKeyboardOpen ?Colors.white60:Colors.transparent,
+                  color: isKeyboardOpen ? Colors.white60 : Colors.transparent,
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
                     child: Container(
@@ -89,7 +89,9 @@ class RegisterScreen extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const TextField(
-                              decoration: InputDecoration(labelText: 'Full Name'),
+                              decoration: InputDecoration(
+                                labelText: 'Full Name',
+                              ),
                             ),
                             const SizedBox(height: 12),
                             const TextField(
@@ -97,7 +99,9 @@ class RegisterScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 12),
                             const TextField(
-                              decoration: InputDecoration(labelText: 'Location'),
+                              decoration: InputDecoration(
+                                labelText: 'Location',
+                              ),
                             ),
                             const SizedBox(height: 20),
                             const Align(
@@ -108,7 +112,6 @@ class RegisterScreen extends StatelessWidget {
                               ),
                             ),
                             Row(
-
                               children: [
                                 Expanded(
                                   child: RadioListTile(
@@ -159,8 +162,8 @@ class RegisterScreen extends StatelessWidget {
                               ],
                             ),
                             SizedBox(height: SizeConfig.heightMultiplier! * 4),
-                            CustomButton(text: "Register", onTap: (){}),
-                             SizedBox(height: SizeConfig.heightMultiplier! * 4),
+                            CustomButton(text: "Register", onTap: () {}),
+                            SizedBox(height: SizeConfig.heightMultiplier! * 4),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -169,7 +172,7 @@ class RegisterScreen extends StatelessWidget {
                                   onTap: () {
                                     // Navigate to Sign In
                                   },
-                                  child:  Text(
+                                  child: Text(
                                     "Sign In",
                                     style: TextStyle(
                                       color: Color(0xFF833737),

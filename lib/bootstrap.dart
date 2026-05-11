@@ -1,5 +1,6 @@
 // ignore_for_file: depend_on_referenced_packages
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -15,11 +16,24 @@ Future<void> bootstrap() async {
   // MediaKit.ensureInitialized();
 
   await StorageHelper.init();
-  // await ApiClient.init();
+  await ApiClient.init();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  final firebaseOptions = DefaultFirebaseOptions.currentPlatform;
+  final hasFirebaseConfig =
+      firebaseOptions.apiKey != '---' &&
+      firebaseOptions.appId != '---' &&
+      firebaseOptions.projectId != '---';
+
+  if (!hasFirebaseConfig) {
+    if (kDebugMode) {
+      debugPrint(
+        'Firebase is not configured yet; skipping notification bootstrap.',
+      );
+    }
+    return;
+  }
+
+  await Firebase.initializeApp(options: firebaseOptions);
 
   FirebaseMessaging.onBackgroundMessage(
     NotificationService.firebaseBackgroundHandler,

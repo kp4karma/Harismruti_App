@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:harismruti/helper/log_helper.dart'  show SecureLogger;
-
+import 'package:harismruti/helper/log_helper.dart' show SecureLogger;
 
 class ErrorLogScreen extends StatefulWidget {
   const ErrorLogScreen({super.key});
@@ -58,10 +57,7 @@ class _ErrorLogScreenState extends State<ErrorLogScreen> {
         child: SingleChildScrollView(
           child: SelectableText(
             _logContent,
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 14,
-            ),
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 14),
           ),
         ),
       ),

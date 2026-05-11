@@ -10,7 +10,9 @@ class ProfileController extends GetxController {
   var profileImage = Rxn<File>();
 
   Future<void> pickAndCropImage() async {
-    final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
+    final pickedFile = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+    );
     if (pickedFile == null) return;
 
     final croppedFile = await ImageCropper().cropImage(

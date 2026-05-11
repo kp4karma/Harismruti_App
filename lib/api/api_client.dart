@@ -26,25 +26,51 @@ class ApiClient {
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
     currentAppVersion = Platform.isAndroid ? "1" : packageInfo.buildNumber;
     if (_client == null) {
-      _client = Dio(BaseOptions(
-        baseUrl: ApiEndpoints.mainDomain,
-        connectTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(seconds: 15),
-        headers: {'Content-Type': 'application/json'},
-      ));
+      _client = Dio(
+        BaseOptions(
+          baseUrl: ApiEndpoints.mainDomain,
+          connectTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(seconds: 15),
+          headers: {'Content-Type': 'application/json'},
+        ),
+      );
 
       _client!.interceptors.add(
         InterceptorsWrapper(
           onRequest: (options, handler) async {
             String? token = await _getAccessToken();
 
-            bool shouldSkipAuth = skipAuthEndpoints.any((endpoint) => options.path.endsWith(endpoint) || options.uri.path.endsWith(endpoint));
+            bool shouldSkipAuth = skipAuthEndpoints.any(
+              (endpoint) =>
+                  options.path.endsWith(endpoint) ||
+                  options.uri.path.endsWith(endpoint),
+            );
             if (kDebugMode) {
               print("$shouldSkipAuth API CLIENT TOKEN :: $token");
             }
 
             final osType = Platform.isAndroid ? 'Android' : 'iOS';
-            if (!shouldSkipAuth && token != null && token.isNotEmpty) {
+            final isGalleryApi =
+                options.path.contains('/api/v1/mobile') ||
+                options.path.startsWith('/home') ||
+                options.path.startsWith('/recent') ||
+                options.path.startsWith('/collections') ||
+                options.path.startsWith('/attributes') ||
+                options.path.startsWith('/smruti-of') ||
+                options.path.startsWith('/by-attribute') ||
+                options.path.startsWith('/locations') ||
+                options.path.startsWith('/people') ||
+                options.path.startsWith('/faces') ||
+                options.path.startsWith('/photos');
+
+            if (ApiEndpoints.mobileApiKey.isNotEmpty) {
+              options.headers['X-API-Key'] = ApiEndpoints.mobileApiKey;
+            }
+
+            if (!isGalleryApi &&
+                !shouldSkipAuth &&
+                token != null &&
+                token.isNotEmpty) {
               options.headers['Authorization'] = 'Bearer $token';
             }
 
@@ -79,7 +105,13 @@ class ApiClient {
             if (response.statusCode == 200 || response.statusCode == 201) {
               return handler.next(response);
             }
-            return handler.reject(DioException(requestOptions: response.requestOptions, response: response, type: DioExceptionType.badResponse));
+            return handler.reject(
+              DioException(
+                requestOptions: response.requestOptions,
+                response: response,
+                type: DioExceptionType.badResponse,
+              ),
+            );
           },
           onError: (DioException error, handler) async {
             if (kDebugMode) {
@@ -91,10 +123,12 @@ class ApiClient {
             String url = error.requestOptions.uri.toString();
             String method = error.requestOptions.method;
             int? statusCode = error.response?.statusCode;
-            String responseData = error.response?.data.toString() ?? 'No response data';
+            String responseData =
+                error.response?.data.toString() ?? 'No response data';
 
             // Create a structured log
-            String log = '''
+            String log =
+                '''
 🔻 ERROR LOG 🔻
 URL: $url
 METHOD: $method
@@ -107,10 +141,14 @@ DATA: $responseData
             if (error.response != null) {
               switch (statusCode) {
                 case 400:
-                  if (kDebugMode) print("🔴 400 Bad Request Error: $responseData");
+                  if (kDebugMode) {
+                    print("400 Bad Request Error: $responseData");
+                  }
                   break;
                 case 401:
-                  if (kDebugMode) print("🔴 401 Invalid Token Error: $responseData");
+                  if (kDebugMode) {
+                    print("401 Invalid Token Error: $responseData");
+                  }
                   break;
                 case 403:
                   if (await _shouldRetry(error)) {
@@ -118,16 +156,24 @@ DATA: $responseData
                   }
                   break;
                 case 404:
-                  if (kDebugMode) print("🔴 404 API Error: $responseData");
+                  if (kDebugMode) {
+                    print("404 API Error: $responseData");
+                  }
                   break;
                 case 440:
-                  if (kDebugMode) print("🔴 440 Forced Login Error: $responseData");
+                  if (kDebugMode) {
+                    print("440 Forced Login Error: $responseData");
+                  }
                   break;
                 case 500:
-                  if (kDebugMode) print("🛑 500 Server Error: Internal Server Error (500)");
+                  if (kDebugMode) {
+                    print("500 Server Error: Internal Server Error");
+                  }
                   break;
                 default:
-                  if (kDebugMode) print("⚠️ Unhandled Error: $statusCode");
+                  if (kDebugMode) {
+                    print("Unhandled Error: $statusCode");
+                  }
               }
             }
 
@@ -155,27 +201,37 @@ DATA: $responseData
   static Future<String?> _refreshToken() async {
     StorageHelper.setValue(key: StorageKeys.accessToken, value: "");
 
-    String? refreshToken = StorageHelper.getValue(key: StorageKeys.refreshToken);
+    String? refreshToken = StorageHelper.getValue(
+      key: StorageKeys.refreshToken,
+    );
     if (refreshToken == null || refreshToken.isEmpty) {
       _forceLogout();
       return null;
     }
 
     try {
-      final response = await _client!.post(ApiEndpoints.refresh,
-          options: Options(
-            headers: {
-              'Content-Type': 'application/json',
-            },
+      final response = await _client!.post(
+        ApiEndpoints.refresh,
+        options: Options(headers: {'Content-Type': 'application/json'}),
+        data: addExtraParameters({
+          "refresh_token": StorageHelper.getValue(
+            key: StorageKeys.refreshToken,
           ),
-          data: addExtraParameters({"refresh_token": StorageHelper.getValue(key: StorageKeys.refreshToken)}));
+        }),
+      );
 
       if (response.statusCode == 200) {
         String newAccessToken = response.data['access'];
         String newRefreshToken = response.data['refresh'];
 
-        StorageHelper.setValue(key: StorageKeys.accessToken, value: newAccessToken);
-        StorageHelper.setValue(key: StorageKeys.refreshToken, value: newRefreshToken);
+        StorageHelper.setValue(
+          key: StorageKeys.accessToken,
+          value: newAccessToken,
+        );
+        StorageHelper.setValue(
+          key: StorageKeys.refreshToken,
+          value: newRefreshToken,
+        );
 
         if (kDebugMode) {
           print("✅ Token refreshed successfully!");
@@ -212,8 +268,11 @@ DATA: $responseData
   }
 
   static Future<bool> _shouldRetry(DioException error) async {
-    if (error.response?.data['detail'].toString() == "Authentication error: Invalid or expired token.") {
-      String? refreshToken = StorageHelper.getValue(key: StorageKeys.refreshToken);
+    if (error.response?.data['detail'].toString() ==
+        "Authentication error: Invalid or expired token.") {
+      String? refreshToken = StorageHelper.getValue(
+        key: StorageKeys.refreshToken,
+      );
       if (refreshToken != null && refreshToken.isNotEmpty) {
         if (kDebugMode) {
           print("🔄 Should retry: 403 detected & refresh token is available.");
@@ -225,18 +284,34 @@ DATA: $responseData
         }
         return false;
       }
-    } else if (error.response?.data['detail'].toString() == "Authentication error: Please install latest app version") {
-      EasyLoading.showError(error.response!.data['detail'].toString().split(":").last.trim().toString(), duration: Duration(days: 3));
+    } else if (error.response?.data['detail'].toString() ==
+        "Authentication error: Please install latest app version") {
+      EasyLoading.showError(
+        error.response!.data['detail']
+            .toString()
+            .split(":")
+            .last
+            .trim()
+            .toString(),
+        duration: Duration(days: 3),
+      );
     }
     return false;
   }
 
-  static Future<Response<dynamic>> get(String path, {Map<String, dynamic>? queryParams, Map<String, dynamic>? customHeaders}) async {
+  static Future<Response<dynamic>> get(
+    String path, {
+    Map<String, dynamic>? queryParams,
+    Map<String, dynamic>? customHeaders,
+  }) async {
     try {
-      Response response = await _client!.get(path, queryParameters: addExtraParameters(queryParams ?? {}), options: Options(headers: customHeaders));
+      Response response = await _client!.get(
+        path,
+        queryParameters: addExtraParameters(queryParams ?? {}),
+        options: Options(headers: customHeaders),
+      );
       return response;
     } on DioException catch (e) {
-
       if (kDebugMode) {
         print("Messsssss ${e.error}");
         print("Messsssss ${e.response}");
@@ -246,9 +321,18 @@ DATA: $responseData
     }
   }
 
-  static Future<Response<dynamic>> post(String path, {Map<String, dynamic>? data, Map<String, dynamic>? queryParams, Map<String, dynamic>? customHeaders}) async {
+  static Future<Response<dynamic>> post(
+    String path, {
+    Map<String, dynamic>? data,
+    Map<String, dynamic>? queryParams,
+    Map<String, dynamic>? customHeaders,
+  }) async {
     try {
-      Response response = await _client!.post(path, data: addExtraParameters(data ?? {}), queryParameters: queryParams);
+      Response response = await _client!.post(
+        path,
+        data: addExtraParameters(data ?? {}),
+        queryParameters: queryParams,
+      );
       return response;
     } on DioException catch (e) {
       if (kDebugMode) {
@@ -258,7 +342,10 @@ DATA: $responseData
     }
   }
 
-  static Future<Response<dynamic>> postMedia(String path, {required FormData data}) async {
+  static Future<Response<dynamic>> postMedia(
+    String path, {
+    required FormData data,
+  }) async {
     try {
       final processedData = addExtraParametersFromData(data);
       Response response = await _client!.post(
@@ -275,21 +362,40 @@ DATA: $responseData
     }
   }
 
-  static Future<Response<dynamic>> put(String path, {Map<String, dynamic>? data, Map<String, dynamic>? queryParams, Map<String, dynamic>? customHeaders}) async {
+  static Future<Response<dynamic>> put(
+    String path, {
+    Map<String, dynamic>? data,
+    Map<String, dynamic>? queryParams,
+    Map<String, dynamic>? customHeaders,
+  }) async {
     try {
       if (kDebugMode) {
         print(addExtraParameters(data ?? {}));
       }
-      Response response = await _client!.put(path, data: addExtraParameters(data ?? {}), queryParameters: queryParams);
+      Response response = await _client!.put(
+        path,
+        data: addExtraParameters(data ?? {}),
+        queryParameters: queryParams,
+      );
       return response;
     } on DioException catch (e) {
       throw _handleError(e);
     }
   }
 
-  static Future<Response<dynamic>> delete(String path, {Map<String, dynamic>? data, Map<String, dynamic>? queryParams, Map<String, dynamic>? customHeaders}) async {
+  static Future<Response<dynamic>> delete(
+    String path, {
+    Map<String, dynamic>? data,
+    Map<String, dynamic>? queryParams,
+    Map<String, dynamic>? customHeaders,
+  }) async {
     try {
-      Response response = await _client!.delete(path, data: addExtraParameters(data ?? {}), queryParameters: queryParams, options: Options(headers: customHeaders));
+      Response response = await _client!.delete(
+        path,
+        data: addExtraParameters(data ?? {}),
+        queryParameters: queryParams,
+        options: Options(headers: customHeaders),
+      );
       return response;
     } on DioException catch (e) {
       throw _handleError(e);
@@ -300,9 +406,14 @@ DATA: $responseData
     if (error.response != null) {
       final statusCode = error.response?.statusCode;
       final errorData = error.response?.data;
-      final message = errorData['detail'] ?? errorData['message'] ?? 'Unknown error message';
+      final message = errorData is Map
+          ? errorData['detail'] ??
+                errorData['message'] ??
+                'Unknown error message'
+          : errorData?.toString() ?? 'Unknown error message';
 
-      final logMessage = 'Status: $statusCode, Message: $message, Response: $errorData';
+      final logMessage =
+          'Status: $statusCode, Message: $message, Response: $errorData';
 
       if (kDebugMode) {
         print("Logsssss $logMessage");
@@ -332,7 +443,9 @@ DATA: $responseData
   static dynamic addExtraParametersFromData(dynamic data) {
     if (data is FormData) {
       final extraFields = {};
-      data.fields.addAll(extraFields.entries.map((e) => MapEntry(e.key, e.value.toString())));
+      data.fields.addAll(
+        extraFields.entries.map((e) => MapEntry(e.key, e.value.toString())),
+      );
       return data;
     } else {
       return data;

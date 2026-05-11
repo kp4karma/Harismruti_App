@@ -101,7 +101,9 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
                           child: Padding(
                             padding: const EdgeInsets.all(8.0),
                             child: Row(
-                              children: List.generate(widget.tabs.length, (index) {
+                              children: List.generate(widget.tabs.length, (
+                                index,
+                              ) {
                                 final isSelected = selectedIndex == index;
                                 return GestureDetector(
                                   onTap: () {
@@ -113,20 +115,28 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
                                   },
                                   child: AnimatedContainer(
                                     duration: const Duration(milliseconds: 300),
-                                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                                    margin: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                    ),
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 16, vertical: 10),
+                                      horizontal: 16,
+                                      vertical: 10,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: isSelected
                                           ? const Color(0xFF823D3D)
                                           : Colors.transparent,
                                       borderRadius: BorderRadius.circular(30),
                                     ),
-                                    constraints: const BoxConstraints(minWidth: 150),
+                                    constraints: const BoxConstraints(
+                                      minWidth: 150,
+                                    ),
                                     child: Text(
                                       widget.tabs[index],
                                       style: TextStyle(
-                                        color: isSelected ? Colors.white : Colors.black87,
+                                        color: isSelected
+                                            ? Colors.white
+                                            : Colors.black87,
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),

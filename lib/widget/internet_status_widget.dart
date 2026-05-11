@@ -48,7 +48,10 @@ class InternetStatusWidgetState extends State<InternetStatusWidget> {
       stream: _internetStream,
       builder: (context, snapshot) {
         if (snapshot.hasData) {
-          bool hasInternet = snapshot.data!.contains(ConnectivityResult.wifi) || snapshot.data!.contains(ConnectivityResult.mobile) || snapshot.data!.contains(ConnectivityResult.ethernet);
+          bool hasInternet =
+              snapshot.data!.contains(ConnectivityResult.wifi) ||
+              snapshot.data!.contains(ConnectivityResult.mobile) ||
+              snapshot.data!.contains(ConnectivityResult.ethernet);
 
           SchedulerBinding.instance.addPostFrameCallback((_) {
             if (!hasInternet && !_isDialogOpen) {

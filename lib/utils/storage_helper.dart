@@ -33,6 +33,7 @@ class StorageHelper {
   static bool hasKey(String key) {
     return _box.hasData(key);
   }
+
   static List<Map<String, dynamic>> loadSections() {
     final data = _box.read<List>(StorageKeys.smrutiSectionConfig);
     if (data != null) {
@@ -61,5 +62,4 @@ class StorageHelper {
     String? accessToken = getValue(key: StorageKeys.accessToken);
     return accessToken != null && accessToken != "" && accessToken.isNotEmpty;
   }
-
 }

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -12,10 +10,10 @@ import 'package:harismruti/utils/size_config.dart';
 import 'package:harismruti/widget/appbar/detail_appbar.dart';
 import 'package:harismruti/widget/background/custom_background.dart';
 
-
 class ProfileScreen extends StatelessWidget {
   final ProfileController profileController = Get.put(ProfileController());
-  final SmrutiSectionController smrutiController = Get.put(SmrutiSectionController());
+  final SmrutiSectionController smrutiController =
+      Get.find<SmrutiSectionController>();
 
   ProfileScreen({super.key});
 
@@ -48,15 +46,25 @@ class ProfileScreen extends StatelessWidget {
                             Column(
                               children: [
                                 GestureDetector(
-                                  onTap: () => profileController.pickAndCropImage(),
+                                  onTap: () =>
+                                      profileController.pickAndCropImage(),
                                   child: Obx(() {
-                                    final image = profileController.profileImage.value;
+                                    final image =
+                                        profileController.profileImage.value;
                                     return CircleAvatar(
-                                      radius: SizeConfig.widthMultiplier! *15,
-                                      backgroundColor:backgroundColor,
-                                      backgroundImage: image != null ? FileImage(image) : null,
+                                      radius: SizeConfig.widthMultiplier! * 15,
+                                      backgroundColor: backgroundColor,
+                                      backgroundImage: image != null
+                                          ? FileImage(image)
+                                          : null,
                                       child: image == null
-                                          ?  Icon(CupertinoIcons.person, color: primaryColor, size:  SizeConfig.widthMultiplier! *10)
+                                          ? Icon(
+                                              CupertinoIcons.person,
+                                              color: primaryColor,
+                                              size:
+                                                  SizeConfig.widthMultiplier! *
+                                                  10,
+                                            )
                                           : null,
                                     );
                                   }),
@@ -106,26 +114,43 @@ class ProfileScreen extends StatelessWidget {
                         ),
                       );
                     },
-                  ), const SizedBox(height: 12),
+                  ),
+                  const SizedBox(height: 12),
                   _ProfileOption(
                     icon: Icons.logout,
                     label: 'Logout',
                     onTap: () {
-                      Navigator.pushReplacement(context, CupertinoPageRoute(builder: (context) => LoginScreen(),));
+                      Navigator.pushReplacement(
+                        context,
+                        CupertinoPageRoute(builder: (context) => LoginScreen()),
+                      );
                     },
                   ),
                 ],
               ),
             ),
-            
-            SafeArea(child: Row(mainAxisAlignment: MainAxisAlignment.center,children: [Text("V 1.0.0",style: TextStyle(fontSize: 16,color: primaryColor,fontWeight: FontWeight.w600),)],))
+
+            SafeArea(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "V 1.0.0",
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: primaryColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 }
-
 
 class _ProfileOption extends StatelessWidget {
   final IconData icon;
@@ -155,13 +180,14 @@ class _ProfileOption extends StatelessWidget {
               Expanded(
                 child: Text(
                   label,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: Colors.black87,
-                  ),
+                  style: const TextStyle(fontSize: 16, color: Colors.black87),
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Colors.grey),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16,
+                color: Colors.grey,
+              ),
             ],
           ),
         ),

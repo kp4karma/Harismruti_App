@@ -1,13 +1,3 @@
-import 'package:flutter/cupertino.dart';
-import 'package:harismruti/ui/view/home/album_smruti.dart';
-import 'package:harismruti/ui/view/home/collection_smruti.dart';
-import 'package:harismruti/ui/view/home/location_smruti.dart';
-import 'package:harismruti/ui/view/home/people_smruti.dart';
-import 'package:harismruti/ui/view/home/recent_smruti.dart';
-import 'package:harismruti/ui/view/home/smruti_of.dart';
-import 'package:harismruti/ui/view/home/smruti_with.dart';
-import 'package:harismruti/ui/view/home/wallpaper_smruti.dart';
-
 class AppText {
   static const recentSmruti = "Recent Smruti";
 }
@@ -24,46 +14,15 @@ class SmrutiSectionKeys {
   static const pinnedCollection = "Pinned Collection";
 }
 
-
-
 final List<Map<String, dynamic>> photoAlbumList = [
-  {
-    'title': 'Surat',
-    'subtitle': '12 Photos',
-    'images': imageUrls,
-  },
-  {
-    'title': 'Ahmedabad',
-    'subtitle': '18 Photos',
-    'images': imageUrls,
-  }, {
-    'title': 'Surat',
-    'subtitle': '12 Photos',
-    'images': imageUrls,
-  },
-  {
-    'title': 'Ahmedabad',
-    'subtitle': '18 Photos',
-    'images': imageUrls,
-  }, {
-    'title': 'Surat',
-    'subtitle': '12 Photos',
-    'images': imageUrls,
-  },
-  {
-    'title': 'Ahmedabad',
-    'subtitle': '18 Photos',
-    'images': imageUrls,
-  }, {
-    'title': 'Surat',
-    'subtitle': '12 Photos',
-    'images': imageUrls,
-  },
-  {
-    'title': 'Ahmedabad',
-    'subtitle': '18 Photos',
-    'images': imageUrls,
-  },
+  {'title': 'Surat', 'subtitle': '12 Photos', 'images': imageUrls},
+  {'title': 'Ahmedabad', 'subtitle': '18 Photos', 'images': imageUrls},
+  {'title': 'Surat', 'subtitle': '12 Photos', 'images': imageUrls},
+  {'title': 'Ahmedabad', 'subtitle': '18 Photos', 'images': imageUrls},
+  {'title': 'Surat', 'subtitle': '12 Photos', 'images': imageUrls},
+  {'title': 'Ahmedabad', 'subtitle': '18 Photos', 'images': imageUrls},
+  {'title': 'Surat', 'subtitle': '12 Photos', 'images': imageUrls},
+  {'title': 'Ahmedabad', 'subtitle': '18 Photos', 'images': imageUrls},
 ];
 
 final List<Map<String, dynamic>> eventList = [
@@ -78,8 +37,6 @@ final List<Map<String, dynamic>> eventList = [
     'images': imageUrls,
   },
 ];
-
-
 
 final List<String> imageUrls = const [
   "https://assets.epuzzle.info//puzzle/145/264/original.jpg",
@@ -107,4 +64,3 @@ final List<String> imageUrls = const [
   "https://assets.epuzzle.info//puzzle/145/264/original.jpg",
   "https://assets.epuzzle.info//puzzle/145/264/original.jpg",
 ];
-

@@ -30,7 +30,7 @@ class LoginScreen extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: GestureDetector(
-          onTap: (){
+          onTap: () {
             Navigator.pop(context);
           },
           child: Padding(
@@ -57,7 +57,7 @@ class LoginScreen extends StatelessWidget {
             ),
           ),
         ),
-        title: Text("Sign In",style: TextStyle(letterSpacing: 1),),
+        title: Text("Sign In", style: TextStyle(letterSpacing: 1)),
       ),
       backgroundColor: Color(0xFFF5F5F5),
       body: SafeArea(
@@ -73,10 +73,10 @@ class LoginScreen extends StatelessWidget {
             Align(
               alignment: Alignment.bottomCenter,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(isKeyboardOpen?0:30),
+                borderRadius: BorderRadius.circular(isKeyboardOpen ? 0 : 30),
                 child: Container(
                   height: SizeConfig.heightMultiplier! * 60,
-                  color: isKeyboardOpen ?Colors.white60:Colors.transparent,
+                  color: isKeyboardOpen ? Colors.white60 : Colors.transparent,
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
                     child: Container(
@@ -97,10 +97,10 @@ class LoginScreen extends StatelessWidget {
                                   items: ['+91', '+1', '+44']
                                       .map(
                                         (e) => DropdownMenuItem(
-                                      value: e,
-                                      child: Text(e),
-                                    ),
-                                  )
+                                          value: e,
+                                          child: Text(e),
+                                        ),
+                                      )
                                       .toList(),
                                   onChanged: (val) {},
                                 ),
@@ -124,7 +124,6 @@ class LoginScreen extends StatelessWidget {
                               ),
                             ),
                             Row(
-
                               children: [
                                 Expanded(
                                   child: RadioListTile(
@@ -150,10 +149,18 @@ class LoginScreen extends StatelessWidget {
                             ),
 
                             SizedBox(height: SizeConfig.heightMultiplier! * 4),
-                            CustomButton(text: "Sign In", onTap: (){
-                              Navigator.push(context, CupertinoPageRoute(builder: (context) => OTPScreen(),));
-                            }),
-                             SizedBox(height: SizeConfig.heightMultiplier! * 4),
+                            CustomButton(
+                              text: "Sign In",
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  CupertinoPageRoute(
+                                    builder: (context) => OTPScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                            SizedBox(height: SizeConfig.heightMultiplier! * 4),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -162,12 +169,12 @@ class LoginScreen extends StatelessWidget {
                                   onTap: () {
                                     // Navigate to Sign In
                                   },
-                                  child:  Text(
+                                  child: Text(
                                     "Register",
                                     style: TextStyle(
                                       color: Color(0xFF833737),
                                       fontWeight: FontWeight.bold,
-decorationColor: primaryColor,
+                                      decorationColor: primaryColor,
 
                                       decoration: TextDecoration.underline,
                                     ),

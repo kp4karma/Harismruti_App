@@ -29,13 +29,15 @@ class SecureLogger {
     if (!await file.exists()) return 'No logs found.';
 
     final lines = await file.readAsLines();
-    final decryptedLogs = lines.map((line) {
-      try {
-        return _encrypter.decrypt64(line, iv: _iv);
-      } catch (_) {
-        return '⚠️ Failed to decrypt a log entry.';
-      }
-    }).join('\n');
+    final decryptedLogs = lines
+        .map((line) {
+          try {
+            return _encrypter.decrypt64(line, iv: _iv);
+          } catch (_) {
+            return '⚠️ Failed to decrypt a log entry.';
+          }
+        })
+        .join('\n');
 
     return decryptedLogs;
   }

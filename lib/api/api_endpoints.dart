@@ -3,17 +3,40 @@ enum Environment { debug, profile, production }
 class ApiEndpoints {
   static Environment currentEnvironment = Environment.debug;
 
-  static const String _testDomain = "<Your Local Domain>";
-  static const String _liveDomain = "<Your Server Domain>";
-
+  static const String _defaultLiveDomain =
+      "https://hpsmruti.suhrad.digital/api/v1/mobile";
+  static  final String _apiBaseUrl = String.fromEnvironment("API_BASE_URL",defaultValue: _defaultLiveDomain);
+  static final String mobileApiKey = String.fromEnvironment("MOBILE_API_KEY",defaultValue: "9606245936490b64a8ed41ccc0c8ebfb2022c9ac714a2e20094a5bb49bc98f47");
 
   static String get mainDomain {
-    return currentEnvironment == Environment.production ? _liveDomain : _testDomain;
+    if (_apiBaseUrl.isNotEmpty) return _apiBaseUrl;
+    return currentEnvironment == Environment.production
+        ? _defaultLiveDomain
+        : _defaultLiveDomain;
   }
 
-  static String get login => "$mainDomain/api/login/";
-  static String get refresh => "$mainDomain/api/login/";
+  static String get home => "/home";
+  static String get recent => "/recent";
+  static String get collections => "/collections";
+  static String get attributes => "/attributes";
+  static String get smrutiOf => "/smruti-of";
+  static String get people => "/people";
+  static String get login => "/api/login/";
+  static String get refresh => "/api/login/";
 
-
-
+  static String collectionMonths(int year) => "/collections/$year/months";
+  static String collectionDays(int year, int month) =>
+      "/collections/$year/$month/days";
+  static String collectionDayPhotos(int year, int month, int day) =>
+      "/collections/$year/$month/$day/photos";
+  static String byAttributePhotos(String slug) => "/by-attribute/$slug/photos";
+  static String photoAttributes(int photoId) => "/photos/$photoId/attributes";
+  static String subLocations(String location) =>
+      "/locations/${Uri.encodeComponent(location)}/sub-locations";
+  static String personPhotos(int groupId) => "/people/$groupId/photos";
+  static String faceThumbnail(int faceId) =>
+      "$mainDomain/faces/$faceId/thumbnail";
+  static String photoThumbnail(int photoId) =>
+      "$mainDomain/photos/$photoId/thumbnail";
+  static String photoFull(int photoId) => "$mainDomain/photos/$photoId/full";
 }

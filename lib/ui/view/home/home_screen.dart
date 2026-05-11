@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_tilt/flutter_tilt.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
+import 'package:harismruti/ui/controller/gallery_controller.dart';
+import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/widget/appbar/custom_appbar.dart';
 import 'package:harismruti/widget/appbar/sub_header.dart';
 import 'package:harismruti/widget/background/custom_background.dart';
@@ -19,13 +21,13 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
-  final SmrutiSectionController sectionController = Get.put(
-    SmrutiSectionController(),
-  );
+  final SmrutiSectionController sectionController =
+      Get.find<SmrutiSectionController>();
+  final GalleryController galleryController = Get.find<GalleryController>();
 
   late AnimationController _appBarAnimationController;
   final StreamController<TiltStreamModel> streamController =
-  StreamController<TiltStreamModel>.broadcast();
+      StreamController<TiltStreamModel>.broadcast();
 
   @override
   void initState() {
@@ -104,26 +106,32 @@ class _HomeScreenState extends State<HomeScreen>
                       )
                     : const SizedBox.shrink(),
               ),
-              body: SingleChildScrollView(
-                controller: _scrollController,
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  children: [
-                    sectionController.getVerticalSizeBox(),
-                    SizedBox(
-                      height:
-                          kToolbarHeight + MediaQuery.of(context).padding.top,
-                    ),
-                    ...displaySections.map(
-                      (section) => Column(
-                        children: [
-                          SubHeader(title: section['title']),
-                          section['widget'],
-                        ],
+              body: RefreshIndicator(
+                color: primaryColor,
+                onRefresh: galleryController.refreshHome,
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  child: Column(
+                    children: [
+                      sectionController.getVerticalSizeBox(),
+                      SizedBox(
+                        height:
+                            kToolbarHeight + MediaQuery.of(context).padding.top,
                       ),
-                    ),
-                    const SizedBox(height: kBottomNavigationBarHeight),
-                  ],
+                      ...displaySections.map(
+                        (section) => Column(
+                          children: [
+                            SubHeader(title: section['title']),
+                            section['widget'],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: kBottomNavigationBarHeight),
+                    ],
+                  ),
                 ),
               ),
             ),

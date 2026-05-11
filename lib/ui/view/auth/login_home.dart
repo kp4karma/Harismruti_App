@@ -1,11 +1,7 @@
-import 'dart:async';
-import 'dart:math';
-import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:harismruti/ui/view/Auth/login.dart';
 import 'package:harismruti/ui/view/Auth/register.dart';
-import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_string.dart';
 import 'package:harismruti/utils/size_config.dart';
 import 'package:harismruti/widget/appbar/custom_appbar.dart';
@@ -19,8 +15,6 @@ class LoginHomeScreen extends StatefulWidget {
 }
 
 class _LoginHomeScreenState extends State<LoginHomeScreen> {
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -45,14 +39,17 @@ class _LoginHomeScreenState extends State<LoginHomeScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       SizedBox(height: SizeConfig.heightMultiplier! * 4),
-                      CustomButton(text: "Sign In", onTap: () {
-                        Navigator.push(
-                          context,
-                          CupertinoPageRoute(
-                            builder: (context) => LoginScreen(),
-                          ),
-                        );
-                      }),
+                      CustomButton(
+                        text: "Sign In",
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            CupertinoPageRoute(
+                              builder: (context) => LoginScreen(),
+                            ),
+                          );
+                        },
+                      ),
                       SizedBox(height: SizeConfig.heightMultiplier! * 2),
                       CustomButton(
                         text: "Register",

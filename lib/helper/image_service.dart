@@ -68,10 +68,17 @@ class ImagePickerHelper {
         final path = await _cropIfNeeded(file.path, enableCrop, cropStyle);
         if (path != null) pickedPaths.add(path);
       }
-        } else {
-      final pickedFile = await picker.pickImage(source: source, imageQuality: 85);
+    } else {
+      final pickedFile = await picker.pickImage(
+        source: source,
+        imageQuality: 85,
+      );
       if (pickedFile != null) {
-        final path = await _cropIfNeeded(pickedFile.path, enableCrop, cropStyle);
+        final path = await _cropIfNeeded(
+          pickedFile.path,
+          enableCrop,
+          cropStyle,
+        );
         if (path != null) pickedPaths.add(path);
       }
     }
@@ -79,7 +86,11 @@ class ImagePickerHelper {
     return pickedPaths;
   }
 
-  static Future<String?> _cropIfNeeded(String path, bool enableCrop, CropStyle cropStyle) async {
+  static Future<String?> _cropIfNeeded(
+    String path,
+    bool enableCrop,
+    CropStyle cropStyle,
+  ) async {
     if (!enableCrop) return path;
 
     final croppedFile = await ImageCropper().cropImage(
@@ -91,10 +102,7 @@ class ImagePickerHelper {
           toolbarWidgetColor: Colors.white,
           cropStyle: cropStyle,
         ),
-        IOSUiSettings(
-          title: 'Crop Image',
-          cropStyle: cropStyle,
-        ),
+        IOSUiSettings(title: 'Crop Image', cropStyle: cropStyle),
       ],
     );
     return croppedFile?.path;
