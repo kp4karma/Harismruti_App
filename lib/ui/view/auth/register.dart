@@ -1,22 +1,39 @@
 import 'dart:ui';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:harismruti/ui/controller/auth_controller.dart';
+import 'package:harismruti/ui/view/auth/otp_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/size_config.dart';
 import 'package:harismruti/widget/buttons/custom_button.dart';
-import 'package:harismruti/widget/carousel/auto_scroll_carousel.dart';
+import 'package:harismruti/widget/carousel/auth_recent_carousel.dart';
 
-class RegisterScreen extends StatelessWidget {
+class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
-  final List<String> imageUrls = const [
-    "https://assets.epuzzle.info/puzzle/145/264/original.jpg",
-    "https://assets.epuzzle.info/puzzle/145/264/original.jpg",
-    "https://assets.epuzzle.info/puzzle/145/264/original.jpg",
-    "https://assets.epuzzle.info/puzzle/145/264/original.jpg",
-    "https://assets.epuzzle.info/puzzle/145/264/original.jpg",
-    "https://assets.epuzzle.info/puzzle/145/264/original.jpg",
-  ];
+  @override
+  State<RegisterScreen> createState() => _RegisterScreenState();
+}
+
+class _RegisterScreenState extends State<RegisterScreen> {
+  final AuthController _authController = Get.find<AuthController>();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _cityController = TextEditingController();
+  final TextEditingController _mobileController = TextEditingController();
+  String _countryCode = '+91';
+  String _validationMethod = 'whatsapp';
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _cityController.dispose();
+    _mobileController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,8 +59,7 @@ class RegisterScreen extends StatelessWidget {
                     color: Colors.white,
                     shape: BoxShape.circle,
                   ),
-
-                  child: Padding(
+                  child: const Padding(
                     padding: EdgeInsets.all(6.0),
                     child: Icon(
                       CupertinoIcons.left_chevron,
@@ -56,19 +72,17 @@ class RegisterScreen extends StatelessWidget {
             ),
           ),
         ),
-        title: Text("Register", style: TextStyle(letterSpacing: 1)),
+        title: const Text("Register", style: TextStyle(letterSpacing: 1)),
       ),
-      backgroundColor: Color(0xFFF5F5F5),
+      backgroundColor: const Color(0xFFF5F5F5),
       body: SafeArea(
         child: Stack(
           alignment: Alignment.topCenter,
           children: [
-            // Background Swami images
             SizedBox(
               height: SizeConfig.heightMultiplier! * 30,
-              child: AutoScrollCarousel(imageUrls: imageUrls),
+              child: const AuthRecentCarousel(),
             ),
-
             Align(
               alignment: Alignment.bottomCenter,
               child: ClipRRect(
@@ -88,19 +102,25 @@ class RegisterScreen extends StatelessWidget {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const TextField(
-                              decoration: InputDecoration(
+                            TextField(
+                              controller: _nameController,
+                              decoration: const InputDecoration(
                                 labelText: 'Full Name',
                               ),
                             ),
                             const SizedBox(height: 12),
-                            const TextField(
-                              decoration: InputDecoration(labelText: 'Email'),
+                            TextField(
+                              controller: _emailController,
+                              keyboardType: TextInputType.emailAddress,
+                              decoration: const InputDecoration(
+                                labelText: 'Email',
+                              ),
                             ),
                             const SizedBox(height: 12),
-                            const TextField(
-                              decoration: InputDecoration(
-                                labelText: 'Location',
+                            TextField(
+                              controller: _cityController,
+                              decoration: const InputDecoration(
+                                labelText: 'City',
                               ),
                             ),
                             const SizedBox(height: 20),
@@ -111,50 +131,51 @@ class RegisterScreen extends StatelessWidget {
                                 style: TextStyle(fontWeight: FontWeight.w500),
                               ),
                             ),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: RadioListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    visualDensity: VisualDensity.compact,
-                                    title: const Text("Whatsapp"),
-                                    value: "whatsapp",
-                                    groupValue: "whatsapp",
-                                    onChanged: (_) {},
+                            SizedBox(
+                              width: double.infinity,
+                              child: SegmentedButton<String>(
+                                segments: const [
+                                  ButtonSegment(
+                                    value: 'whatsapp',
+                                    label: Text('Whatsapp'),
                                   ),
-                                ),
-                                Expanded(
-                                  child: RadioListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    visualDensity: VisualDensity.compact,
-                                    title: const Text("Email"),
-                                    value: "email",
-                                    groupValue: "whatsapp",
-                                    onChanged: (_) {},
+                                  ButtonSegment(
+                                    value: 'email',
+                                    label: Text('Email'),
                                   ),
-                                ),
-                              ],
+                                ],
+                                selected: {_validationMethod},
+                                onSelectionChanged: (selected) {
+                                  setState(
+                                    () => _validationMethod = selected.first,
+                                  );
+                                },
+                              ),
                             ),
                             const SizedBox(height: 8),
                             Row(
                               children: [
                                 DropdownButton<String>(
-                                  value: '+91',
+                                  value: _countryCode,
                                   items: ['+91', '+1', '+44']
                                       .map(
-                                        (e) => DropdownMenuItem(
-                                          value: e,
-                                          child: Text(e),
+                                        (code) => DropdownMenuItem(
+                                          value: code,
+                                          child: Text(code),
                                         ),
                                       )
                                       .toList(),
-                                  onChanged: (val) {},
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    setState(() => _countryCode = value);
+                                  },
                                 ),
                                 const SizedBox(width: 10),
-                                const Expanded(
+                                Expanded(
                                   child: TextField(
+                                    controller: _mobileController,
                                     keyboardType: TextInputType.phone,
-                                    decoration: InputDecoration(
+                                    decoration: const InputDecoration(
                                       hintText: '98540 02451',
                                     ),
                                   ),
@@ -162,20 +183,41 @@ class RegisterScreen extends StatelessWidget {
                               ],
                             ),
                             SizedBox(height: SizeConfig.heightMultiplier! * 4),
-                            CustomButton(text: "Register", onTap: () {}),
+                            Obx(
+                              () => CustomButton(
+                                text: _authController.isLoading.value
+                                    ? "Please wait..."
+                                    : "Register",
+                                onTap: () async {
+                                  final registered = await _authController.register(
+                                    fullName: _nameController.text,
+                                    mobile:
+                                        '$_countryCode${_mobileController.text}',
+                                    city: _cityController.text,
+                                    validationMethod: _validationMethod,
+                                    email: _emailController.text,
+                                  );
+                                  if (!context.mounted || !registered) return;
+                                  Navigator.push(
+                                    context,
+                                    CupertinoPageRoute(
+                                      builder: (context) => const OTPScreen(),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
                             SizedBox(height: SizeConfig.heightMultiplier! * 4),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 const Text("Already have an account? "),
                                 GestureDetector(
-                                  onTap: () {
-                                    // Navigate to Sign In
-                                  },
+                                  onTap: () => Navigator.pop(context),
                                   child: Text(
                                     "Sign In",
                                     style: TextStyle(
-                                      color: Color(0xFF833737),
+                                      color: const Color(0xFF833737),
                                       fontWeight: FontWeight.bold,
                                       decorationColor: primaryColor,
                                       decoration: TextDecoration.underline,

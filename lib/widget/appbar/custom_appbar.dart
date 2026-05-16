@@ -57,51 +57,55 @@ class CustomAppbar extends StatelessWidget implements PreferredSizeWidget {
                 ? MainAxisAlignment.center
                 : MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: isCenterTitle
-                    ? CrossAxisAlignment.center
-                    : CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title ?? "HariPrabodham Smruti",
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1,
-                      color: Colors.black,
-                    ),
-                  ),
-                  if (isShowSubTitle == true) SizedBox(height: 2),
-                  if (isShowSubTitle == true)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: isCenterTitle
+                      ? CrossAxisAlignment.center
+                      : CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      subtitle ?? "He hari! Bas ek, tu raji tha...",
+                      title ?? "HariPrabodham Smruti",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 16,
-                        color: primaryColor,
+                        fontSize: 22,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 1,
+                        color: Colors.black,
                       ),
                     ),
-                ],
+                    if (isShowSubTitle == true) SizedBox(height: 2),
+                    if (isShowSubTitle == true)
+                      Text(
+                        subtitle ?? "He hari! Bas ek, tu raji tha...",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: primaryColor,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                  ],
+                ),
               ),
               if (isLoginAppbar == false)
-                GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      CupertinoPageRoute(builder: (context) => ProfileScreen()),
-                    );
-                  },
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFEDEDED),
-                      shape: BoxShape.circle,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _RoundAppbarButton(
+                      icon: CupertinoIcons.person,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          CupertinoPageRoute(
+                            builder: (context) => ProfileScreen(),
+                          ),
+                        );
+                      },
                     ),
-                    child: Padding(
-                      padding: EdgeInsets.all(12.0),
-                      child: Icon(CupertinoIcons.person, color: primaryColor),
-                    ),
-                  ),
+                  ],
                 ),
             ],
           ),
@@ -112,4 +116,28 @@ class CustomAppbar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight + 10);
+}
+
+class _RoundAppbarButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _RoundAppbarButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFFEDEDED),
+          shape: BoxShape.circle,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Icon(icon, color: primaryColor),
+        ),
+      ),
+    );
+  }
 }

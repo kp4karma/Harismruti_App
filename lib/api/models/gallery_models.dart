@@ -20,6 +20,16 @@ int? _readInt(Map<String, dynamic> json, List<String> keys) {
   return null;
 }
 
+double? _readDouble(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+  }
+  return null;
+}
+
 List<dynamic> _readList(dynamic source, List<String> keys) {
   if (source is List) return source;
   if (source is Map) {
@@ -44,6 +54,12 @@ class GalleryPhoto {
   final String? title;
   final String? subtitle;
   final DateTime? takenAt;
+  final int? width;
+  final int? height;
+  final int? fileSizeBytes;
+  final String? fileSizeLabel;
+  final double? latitude;
+  final double? longitude;
 
   const GalleryPhoto({
     required this.id,
@@ -52,6 +68,12 @@ class GalleryPhoto {
     this.title,
     this.subtitle,
     this.takenAt,
+    this.width,
+    this.height,
+    this.fileSizeBytes,
+    this.fileSizeLabel,
+    this.latitude,
+    this.longitude,
   });
 
   factory GalleryPhoto.fromJson(dynamic raw) {
@@ -85,7 +107,60 @@ class GalleryPhoto {
       takenAt: DateTime.tryParse(
         _readString(json, const ['taken_at', 'created_at', 'date']) ?? '',
       ),
+      width: _readInt(json, const ['width', 'image_width', 'imageWidth', 'w']),
+      height: _readInt(json, const [
+        'height',
+        'image_height',
+        'imageHeight',
+        'h',
+      ]),
+      fileSizeBytes: _readInt(json, const [
+        'file_size',
+        'fileSize',
+        'file_size_bytes',
+        'fileSizeBytes',
+        'size_bytes',
+        'sizeBytes',
+        'bytes',
+      ]),
+      fileSizeLabel: _readString(json, const [
+        'file_size_label',
+        'fileSizeLabel',
+        'size_label',
+        'sizeLabel',
+      ]),
+      latitude: _readDouble(json, const [
+        'latitude',
+        'lat',
+        'gps_latitude',
+        'gpsLatitude',
+      ]),
+      longitude: _readDouble(json, const [
+        'longitude',
+        'lng',
+        'lon',
+        'long',
+        'gps_longitude',
+        'gpsLongitude',
+      ]),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'thumbnail_url': thumbnailUrl,
+      'full_url': fullUrl,
+      if (title != null) 'title': title,
+      if (subtitle != null) 'subtitle': subtitle,
+      if (takenAt != null) 'taken_at': takenAt!.toIso8601String(),
+      if (width != null) 'width': width,
+      if (height != null) 'height': height,
+      if (fileSizeBytes != null) 'file_size_bytes': fileSizeBytes,
+      if (fileSizeLabel != null) 'file_size_label': fileSizeLabel,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+    };
   }
 
   static String _absoluteUrl(String? value, int id, {required bool fullSize}) {
@@ -114,6 +189,8 @@ class GalleryCard {
   final String type;
   final String value;
   final int? count;
+  final int? locationCount;
+  final int? tagCount;
   final int? faceId;
   final List<GalleryPhoto> photos;
 
@@ -124,6 +201,8 @@ class GalleryCard {
     required this.type,
     required this.value,
     this.count,
+    this.locationCount,
+    this.tagCount,
     this.faceId,
     this.photos = const [],
   });
@@ -175,6 +254,22 @@ class GalleryCard {
       value:
           _readString(json, const ['value', 'name', 'title', 'year']) ?? title,
       count: count,
+      locationCount: _readInt(json, const [
+        'location_count',
+        'locations_count',
+        'locationCount',
+        'locationsCount',
+        'city_count',
+        'cities_count',
+      ]),
+      tagCount: _readInt(json, const [
+        'tag_count',
+        'tags_count',
+        'tagCount',
+        'tagsCount',
+        'attribute_count',
+        'attributes_count',
+      ]),
       faceId: _readInt(json, const [
         'face_id',
         'representative_face_id',
@@ -237,9 +332,194 @@ class GalleryPage<T> {
   }
 }
 
+class GalleryPhotoAttributes {
+  final int photoId;
+  final String? country;
+  final String? location;
+  final String? subLocation;
+  final String? album;
+  final String? subject;
+  final String? withPeople;
+  final String? person;
+
+  const GalleryPhotoAttributes({
+    required this.photoId,
+    this.country,
+    this.location,
+    this.subLocation,
+    this.album,
+    this.subject,
+    this.withPeople,
+    this.person,
+  });
+
+  factory GalleryPhotoAttributes.fromJson(dynamic raw) {
+    final json = asJsonMap(raw);
+    return GalleryPhotoAttributes(
+      photoId: _readInt(json, const ['photo_id', 'photoId', 'id']) ?? 0,
+      country: _readString(json, const ['country']),
+      location: _readString(json, const ['location', 'city']),
+      subLocation: _readString(json, const ['sub_location', 'subLocation']),
+      album: _readString(json, const ['album']),
+      subject: _readString(json, const ['subject']),
+      withPeople: _readString(json, const ['with', 'with_attr', 'withPeople']),
+      person: _readString(json, const ['person']),
+    );
+  }
+
+  List<MapEntry<String, String>> get entries {
+    final values = <MapEntry<String, String>>[
+      if (country != null) MapEntry('Country', country!),
+      if (location != null) MapEntry('City', location!),
+      if (subLocation != null) MapEntry('Location', subLocation!),
+      if (album != null) MapEntry('Album', album!),
+      if (subject != null) MapEntry('Subject', subject!),
+      if (withPeople != null) MapEntry('With', withPeople!),
+      if (person != null) MapEntry('Person', person!),
+    ];
+    return values;
+  }
+
+  String get placeLabel {
+    return [
+      subLocation,
+      location,
+      country,
+    ].where((value) => value != null && value.isNotEmpty).join(', ');
+  }
+}
+
+class GalleryTimeBucket {
+  final int year;
+  final int? month;
+  final int? day;
+  final int count;
+  final int? locationCount;
+  final int? tagCount;
+  final List<GalleryPhoto> photos;
+
+  const GalleryTimeBucket({
+    required this.year,
+    this.month,
+    this.day,
+    required this.count,
+    this.locationCount,
+    this.tagCount,
+    this.photos = const [],
+  });
+
+  factory GalleryTimeBucket.fromJson(dynamic raw) {
+    final json = asJsonMap(raw);
+    return GalleryTimeBucket(
+      year: _readInt(json, const ['year']) ?? 0,
+      month: _readInt(json, const ['month']),
+      day: _readInt(json, const ['day']),
+      count:
+          _readInt(json, const ['photo_count', 'count', 'total', 'photos']) ??
+          0,
+      locationCount: _readInt(json, const [
+        'location_count',
+        'locations_count',
+        'locationCount',
+        'locationsCount',
+        'city_count',
+        'cities_count',
+      ]),
+      tagCount: _readInt(json, const [
+        'tag_count',
+        'tags_count',
+        'tagCount',
+        'tagsCount',
+        'attribute_count',
+        'attributes_count',
+      ]),
+      photos: _readList(json, const [
+        'sample_photos',
+        'photos',
+        'items',
+      ]).map(GalleryPhoto.fromJson).toList(),
+    );
+  }
+
+  String get title {
+    if (day != null) return day.toString().padLeft(2, '0');
+    if (month != null) return _monthName(month!);
+    return year.toString();
+  }
+
+  static String _monthName(int month) {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    if (month < 1 || month > 12) return month.toString();
+    return months[month - 1];
+  }
+}
+
+class GalleryFilterOption {
+  final String value;
+  final String label;
+  final int count;
+
+  const GalleryFilterOption({
+    required this.value,
+    required this.label,
+    required this.count,
+  });
+
+  factory GalleryFilterOption.fromJson(dynamic raw) {
+    final json = asJsonMap(raw);
+    final value = _readString(json, const ['value', 'id']) ?? '';
+    return GalleryFilterOption(
+      value: value,
+      label: _readString(json, const ['label', 'name', 'value']) ?? value,
+      count:
+          _readInt(json, const ['photo_count', 'count', 'total', 'photos']) ??
+          0,
+    );
+  }
+}
+
+class GalleryFilterGroup {
+  final String slug;
+  final String title;
+  final List<GalleryFilterOption> options;
+
+  const GalleryFilterGroup({
+    required this.slug,
+    required this.title,
+    required this.options,
+  });
+
+  factory GalleryFilterGroup.fromJson(dynamic raw) {
+    final json = asJsonMap(raw);
+    final slug = _readString(json, const ['slug', 'type']) ?? '';
+    return GalleryFilterGroup(
+      slug: slug,
+      title: _readString(json, const ['title', 'name', 'label']) ?? slug,
+      options: _readList(json, const ['items', 'values', 'options'])
+          .map(GalleryFilterOption.fromJson)
+          .where((option) => option.value.isNotEmpty)
+          .toList(),
+    );
+  }
+}
+
 class GalleryHomeBundle {
   final List<GalleryPhoto> recent;
   final List<GalleryCard> collections;
+  final List<GalleryCard> smrutiWith;
   final List<GalleryCard> smrutiOf;
   final List<GalleryCard> locations;
   final List<GalleryCard> albums;
@@ -249,6 +529,7 @@ class GalleryHomeBundle {
   const GalleryHomeBundle({
     this.recent = const [],
     this.collections = const [],
+    this.smrutiWith = const [],
     this.smrutiOf = const [],
     this.locations = const [],
     this.albums = const [],
@@ -270,15 +551,26 @@ class GalleryHomeBundle {
     }
 
     List<GalleryCard> cardsFor(List<String> keys, String type) {
-      return _readList(
-        payload,
-        keys,
-      ).map((item) => GalleryCard.fromJson(item, fallbackType: type)).toList();
+      dynamic source;
+      for (final key in keys) {
+        if (payload.containsKey(key)) {
+          source = payload[key];
+          break;
+        }
+      }
+      source ??= asJsonMap(payload['smruti_of'])[type];
+      if (source is Map && source[type] != null) {
+        source = source[type];
+      }
+      return _readList(source, const [
+        'items',
+      ]).map((item) => GalleryCard.fromJson(item, fallbackType: type)).toList();
     }
 
     return GalleryHomeBundle(
       recent: photosFor(const ['recent', 'recent_photos', 'photos']),
       collections: cardsFor(const ['collections', 'years'], 'collection'),
+      smrutiWith: cardsFor(const ['with', 'smruti_with', 'smrutiWith'], 'with'),
       smrutiOf: cardsFor(const [
         'smruti_of',
         'smrutiOf',
@@ -295,6 +587,7 @@ class GalleryHomeBundle {
   GalleryHomeBundle mergeFallback({
     List<GalleryPhoto>? recent,
     List<GalleryCard>? collections,
+    List<GalleryCard>? smrutiWith,
     List<GalleryCard>? smrutiOf,
     List<GalleryCard>? locations,
     List<GalleryCard>? albums,
@@ -306,6 +599,9 @@ class GalleryHomeBundle {
       collections: this.collections.isNotEmpty
           ? this.collections
           : collections ?? const [],
+      smrutiWith: this.smrutiWith.isNotEmpty
+          ? this.smrutiWith
+          : smrutiWith ?? const [],
       smrutiOf: this.smrutiOf.isNotEmpty ? this.smrutiOf : smrutiOf ?? const [],
       locations: this.locations.isNotEmpty
           ? this.locations

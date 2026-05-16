@@ -24,11 +24,11 @@ class WallpaperSmruti extends StatelessWidget {
       }
 
       return SizedBox(
-        height: 300,
+        height: 305,
         child: ListView.builder(
           physics: const BouncingScrollPhysics(),
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 22),
           itemCount: wallpapers.length,
           itemBuilder: (context, index) => GalleryCoverCard(
             card: wallpapers[index],

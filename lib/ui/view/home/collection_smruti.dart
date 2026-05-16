@@ -21,16 +21,16 @@ class CollectionSmruti extends StatelessWidget {
       }
 
       return SizedBox(
-        height: 235,
+        height: 250,
         child: ListView.builder(
           physics: const BouncingScrollPhysics(),
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 22),
           itemCount: collections.length,
-          itemBuilder: (context, index) => GalleryMosaicCard(
+          itemBuilder: (context, index) => GalleryCollectionCollageCard(
             card: collections[index],
             headers: galleryController.imageHeaders,
-            width: 210,
+            width: 310,
           ),
         ),
       );

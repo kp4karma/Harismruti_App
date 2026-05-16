@@ -1,23 +1,25 @@
 import 'dart:ui';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_pin_code_fields/flutter_pin_code_fields.dart';
+import 'package:get/get.dart';
+import 'package:harismruti/ui/controller/auth_controller.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/size_config.dart';
 import 'package:harismruti/widget/buttons/custom_button.dart';
-import 'package:harismruti/widget/carousel/auto_scroll_carousel.dart';
-import 'package:flutter_pin_code_fields/flutter_pin_code_fields.dart';
+import 'package:harismruti/widget/carousel/auth_recent_carousel.dart';
 
-class OTPScreen extends StatelessWidget {
+class OTPScreen extends StatefulWidget {
   const OTPScreen({super.key});
 
-  final List<String> imageUrls = const [
-    "https://assets.epuzzle.info/puzzle/145/264/original.jpg",
-    "https://assets.epuzzle.info/puzzle/145/264/original.jpg",
-    "https://assets.epuzzle.info/puzzle/145/264/original.jpg",
-    "https://assets.epuzzle.info/puzzle/145/264/original.jpg",
-    "https://assets.epuzzle.info/puzzle/145/264/original.jpg",
-    "https://assets.epuzzle.info/puzzle/145/264/original.jpg",
-  ];
+  @override
+  State<OTPScreen> createState() => _OTPScreenState();
+}
+
+class _OTPScreenState extends State<OTPScreen> {
+  final AuthController _authController = Get.find<AuthController>();
+  String _otp = '';
 
   @override
   Widget build(BuildContext context) {
@@ -43,8 +45,7 @@ class OTPScreen extends StatelessWidget {
                     color: Colors.white,
                     shape: BoxShape.circle,
                   ),
-
-                  child: Padding(
+                  child: const Padding(
                     padding: EdgeInsets.all(6.0),
                     child: Icon(
                       CupertinoIcons.left_chevron,
@@ -57,19 +58,20 @@ class OTPScreen extends StatelessWidget {
             ),
           ),
         ),
-        title: Text("OTP Verification", style: TextStyle(letterSpacing: 1)),
+        title: const Text(
+          "OTP Verification",
+          style: TextStyle(letterSpacing: 1),
+        ),
       ),
-      backgroundColor: Color(0xFFF5F5F5),
+      backgroundColor: const Color(0xFFF5F5F5),
       body: SafeArea(
         child: Stack(
           alignment: Alignment.topCenter,
           children: [
-            // Background Swami images
             SizedBox(
               height: SizeConfig.heightMultiplier! * 30,
-              child: AutoScrollCarousel(imageUrls: imageUrls),
+              child: const AuthRecentCarousel(),
             ),
-
             Align(
               alignment: Alignment.bottomCenter,
               child: ClipRRect(
@@ -90,44 +92,30 @@ class OTPScreen extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const SizedBox(height: 24),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    "We have sent a one time verification\ncode to your number.",
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(fontSize: 16),
-                                  ),
-                                ),
-                              ],
+                            const Text(
+                              "We have sent a one time verification\ncode to your number.",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 16),
                             ),
                             const SizedBox(height: 16),
-
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    "+91 6352411412",
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: primaryColor,
-                                    ),
-                                  ),
+                            Obx(
+                              () => Text(
+                                _authController.lastMobile.value,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: primaryColor,
                                 ),
-                              ],
+                              ),
                             ),
                             SizedBox(height: SizeConfig.heightMultiplier! * 4),
-
                             PinCodeFields(
                               length: 6,
                               fieldBorderStyle: FieldBorderStyle.square,
                               responsive: true,
                               fieldHeight: SizeConfig.widthMultiplier! * 12,
-                              // fieldWidth:  SizeConfig.widthMultiplier! * 10,
                               borderWidth: 1.0,
-
                               activeBorderColor: primaryColor,
                               activeBackgroundColor: Colors.transparent,
                               borderRadius: BorderRadius.circular(12.0),
@@ -135,47 +123,34 @@ class OTPScreen extends StatelessWidget {
                               autoHideKeyboard: true,
                               fieldBackgroundColor: Colors.transparent,
                               borderColor: Colors.grey,
-                              textStyle: TextStyle(
+                              textStyle: const TextStyle(
                                 fontSize: 18.0,
                                 fontWeight: FontWeight.bold,
                               ),
-
-                              onComplete: (output) {
-                                // Your logic with pin code
-                                print(output);
-                              },
+                              onComplete: (value) => _otp = value,
                             ),
                             SizedBox(height: SizeConfig.heightMultiplier! * 4),
-
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                GestureDetector(
-                                  onTap: () {},
-                                  child: Text(
-                                    "Resend Code",
-                                    style: TextStyle(
-                                      color: Color(0xFF833737),
-                                      fontWeight: FontWeight.bold,
-                                      decorationColor: primaryColor,
-
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                  ),
+                            GestureDetector(
+                              onTap: _authController.resendOtp,
+                              child: Text(
+                                "Resend Code",
+                                style: TextStyle(
+                                  color: const Color(0xFF833737),
+                                  fontWeight: FontWeight.bold,
+                                  decorationColor: primaryColor,
+                                  decoration: TextDecoration.underline,
                                 ),
-                              ],
+                              ),
                             ),
                             SizedBox(height: SizeConfig.heightMultiplier! * 4),
-                            CustomButton(
-                              text: "Verify",
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  CupertinoPageRoute(
-                                    builder: (context) => OTPScreen(),
-                                  ),
-                                );
-                              },
+                            Obx(
+                              () => CustomButton(
+                                text: _authController.isLoading.value
+                                    ? "Please wait..."
+                                    : "Verify",
+                                onTap: () =>
+                                    _authController.verifyOtp(otp: _otp),
+                              ),
                             ),
                             SizedBox(height: SizeConfig.heightMultiplier! * 4),
                           ],

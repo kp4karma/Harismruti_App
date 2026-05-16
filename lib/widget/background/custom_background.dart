@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/widget/background/animated_gallery_background.dart';
 
 class CustomBackground extends StatelessWidget {
   final Widget child;
@@ -8,11 +8,6 @@ class CustomBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.maxFinite,
-      height: double.maxFinite,
-      color: backgroundColor,
-      child: child,
-    );
+    return AnimatedGalleryBackground(tileOpacity: 0.18, child: child);
   }
 }

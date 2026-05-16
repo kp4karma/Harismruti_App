@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 class AutoScrollCarousel extends StatefulWidget {
   final List<String> imageUrls;
+  final Map<String, String> imageHeaders;
   final double viewportFraction;
   final double height;
   final double width;
@@ -11,6 +12,7 @@ class AutoScrollCarousel extends StatefulWidget {
   const AutoScrollCarousel({
     super.key,
     required this.imageUrls,
+    this.imageHeaders = const {},
     this.viewportFraction = 0.7,
     this.height = 400,
     this.width = 300,
@@ -60,6 +62,10 @@ class _AutoScrollCarouselState extends State<AutoScrollCarousel> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.imageUrls.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return PageView.builder(
       controller: _pageController,
       physics: const NeverScrollableScrollPhysics(),
@@ -114,7 +120,7 @@ class _AutoScrollCarouselState extends State<AutoScrollCarousel> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
               image: DecorationImage(
-                image: NetworkImage(imageUrl),
+                image: NetworkImage(imageUrl, headers: widget.imageHeaders),
                 fit: BoxFit.cover,
               ),
               boxShadow: [

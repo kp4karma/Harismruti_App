@@ -5,7 +5,9 @@ import 'package:flutter_tilt/flutter_tilt.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
+import 'package:harismruti/ui/view/gallery/gallery_filter_sheet.dart';
 import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/utils/app_string.dart';
 import 'package:harismruti/widget/appbar/custom_appbar.dart';
 import 'package:harismruti/widget/appbar/sub_header.dart';
 import 'package:harismruti/widget/background/custom_background.dart';
@@ -63,7 +65,11 @@ class _HomeScreenState extends State<HomeScreen>
   Widget build(BuildContext context) {
     return Obx(() {
       final sortedVisibleSections =
-          sectionController.sections.where((e) => e['is_show'] == true).toList()
+          sectionController.sections
+              .where(
+                (e) => e['is_show'] == true && _hasVisibleSectionContent(e),
+              )
+              .toList()
             ..sort((a, b) => a['order_index'].compareTo(b['order_index']));
       final displaySections = sortedVisibleSections
           .take(sectionController.visibleCount.value)
@@ -103,6 +109,7 @@ class _HomeScreenState extends State<HomeScreen>
                     ? SwamiTabBar(
                         tabs: ["P.P.Prabodh Swamiji", "P.P.Hariprasad Swamiji"],
                         onTabSelected: (index) {},
+                        onSearchTap: () => showGalleryFilterSheet(context),
                       )
                     : const SizedBox.shrink(),
               ),
@@ -139,5 +146,19 @@ class _HomeScreenState extends State<HomeScreen>
         ),
       );
     });
+  }
+
+  bool _hasVisibleSectionContent(Map<String, dynamic> section) {
+    switch (section['title']) {
+      case SmrutiSectionKeys.myFavorite:
+      case "My Favot":
+      case "My Favorites":
+        return galleryController.favoritePhotos.isNotEmpty;
+      case SmrutiSectionKeys.myCollection:
+      case "My Collectino":
+        return galleryController.userCollections.isNotEmpty;
+      default:
+        return true;
+    }
   }
 }

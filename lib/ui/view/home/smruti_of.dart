@@ -19,17 +19,17 @@ class SmrutiOf extends StatelessWidget {
         return const GalleryEmptyState(height: 180);
       }
       return SizedBox(
-        height: 235,
+        height: 225,
         child: ListView.builder(
           physics: const BouncingScrollPhysics(),
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 22),
           itemCount: cards.length,
           itemBuilder: (context, index) => GalleryCoverCard(
             card: cards[index],
             headers: galleryController.imageHeaders,
             width: 165,
-            height: 220,
+            height: 205,
           ),
         ),
       );

@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 class SwamiTabBar extends StatefulWidget {
   final List<String> tabs;
   final Function(int index)? onTabSelected;
+  final VoidCallback? onSearchTap;
   final int initialIndex;
 
   const SwamiTabBar({
     super.key,
     required this.tabs,
     this.onTabSelected,
+    this.onSearchTap,
     this.initialIndex = 0,
   });
 
@@ -196,14 +198,17 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
                 const SizedBox(width: 10),
 
                 // Search Button
-                Container(
-                  height: 48,
-                  width: 48,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color(0xFF823D3D),
+                GestureDetector(
+                  onTap: widget.onSearchTap,
+                  child: Container(
+                    height: 48,
+                    width: 48,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0xFF823D3D),
+                    ),
+                    child: const Icon(Icons.search, color: Colors.white),
                   ),
-                  child: const Icon(Icons.search, color: Colors.white),
                 ),
               ],
             ),

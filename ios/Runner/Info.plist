@@ -28,6 +28,12 @@
 	<true/>
 	<key>NSMotionUsageDescription</key>
 	<string>Used to enable motion-based visual effects.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Hari Smruti uses your location to center the photo map near you.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Hari Smruti uses the camera to capture face training photos for My Smruti.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Hari Smruti uses your photo library to select training photos for My Smruti.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

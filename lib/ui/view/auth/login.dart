@@ -1,23 +1,33 @@
 import 'dart:ui';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:harismruti/ui/view/Auth/otp_screen.dart';
+import 'package:get/get.dart';
+import 'package:harismruti/ui/controller/auth_controller.dart';
+import 'package:harismruti/ui/view/auth/otp_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/size_config.dart';
 import 'package:harismruti/widget/buttons/custom_button.dart';
-import 'package:harismruti/widget/carousel/auto_scroll_carousel.dart';
+import 'package:harismruti/widget/carousel/auth_recent_carousel.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
-  final List<String> imageUrls = const [
-    "https://assets.epuzzle.info/puzzle/145/264/original.jpg",
-    "https://assets.epuzzle.info/puzzle/145/264/original.jpg",
-    "https://assets.epuzzle.info/puzzle/145/264/original.jpg",
-    "https://assets.epuzzle.info/puzzle/145/264/original.jpg",
-    "https://assets.epuzzle.info/puzzle/145/264/original.jpg",
-    "https://assets.epuzzle.info/puzzle/145/264/original.jpg",
-  ];
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final AuthController _authController = Get.find<AuthController>();
+  final TextEditingController _mobileController = TextEditingController();
+  String _countryCode = '+91';
+  String _validationMethod = 'whatsapp';
+
+  @override
+  void dispose() {
+    _mobileController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,8 +53,7 @@ class LoginScreen extends StatelessWidget {
                     color: Colors.white,
                     shape: BoxShape.circle,
                   ),
-
-                  child: Padding(
+                  child: const Padding(
                     padding: EdgeInsets.all(6.0),
                     child: Icon(
                       CupertinoIcons.left_chevron,
@@ -57,19 +66,17 @@ class LoginScreen extends StatelessWidget {
             ),
           ),
         ),
-        title: Text("Sign In", style: TextStyle(letterSpacing: 1)),
+        title: const Text("Sign In", style: TextStyle(letterSpacing: 1)),
       ),
-      backgroundColor: Color(0xFFF5F5F5),
+      backgroundColor: const Color(0xFFF5F5F5),
       body: SafeArea(
         child: Stack(
           alignment: Alignment.topCenter,
           children: [
-            // Background Swami images
             SizedBox(
               height: SizeConfig.heightMultiplier! * 30,
-              child: AutoScrollCarousel(imageUrls: imageUrls),
+              child: const AuthRecentCarousel(),
             ),
-
             Align(
               alignment: Alignment.bottomCenter,
               child: ClipRRect(
@@ -93,22 +100,26 @@ class LoginScreen extends StatelessWidget {
                             Row(
                               children: [
                                 DropdownButton<String>(
-                                  value: '+91',
+                                  value: _countryCode,
                                   items: ['+91', '+1', '+44']
                                       .map(
-                                        (e) => DropdownMenuItem(
-                                          value: e,
-                                          child: Text(e),
+                                        (code) => DropdownMenuItem(
+                                          value: code,
+                                          child: Text(code),
                                         ),
                                       )
                                       .toList(),
-                                  onChanged: (val) {},
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    setState(() => _countryCode = value);
+                                  },
                                 ),
                                 const SizedBox(width: 10),
-                                const Expanded(
+                                Expanded(
                                   child: TextField(
+                                    controller: _mobileController,
                                     keyboardType: TextInputType.phone,
-                                    decoration: InputDecoration(
+                                    decoration: const InputDecoration(
                                       hintText: '98540 02451',
                                     ),
                                   ),
@@ -123,59 +134,62 @@ class LoginScreen extends StatelessWidget {
                                 style: TextStyle(fontWeight: FontWeight.w500),
                               ),
                             ),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: RadioListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    visualDensity: VisualDensity.compact,
-                                    title: const Text("Whatsapp"),
-                                    value: "whatsapp",
-                                    groupValue: "whatsapp",
-                                    onChanged: (_) {},
+                            SizedBox(
+                              width: double.infinity,
+                              child: SegmentedButton<String>(
+                                segments: const [
+                                  ButtonSegment(
+                                    value: 'whatsapp',
+                                    label: Text('Whatsapp'),
                                   ),
-                                ),
-                                Expanded(
-                                  child: RadioListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    visualDensity: VisualDensity.compact,
-                                    title: const Text("Email"),
-                                    value: "email",
-                                    groupValue: "whatsapp",
-                                    onChanged: (_) {},
+                                  ButtonSegment(
+                                    value: 'email',
+                                    label: Text('Email'),
                                   ),
-                                ),
-                              ],
+                                ],
+                                selected: {_validationMethod},
+                                onSelectionChanged: (selected) {
+                                  setState(
+                                    () => _validationMethod = selected.first,
+                                  );
+                                },
+                              ),
                             ),
-
                             SizedBox(height: SizeConfig.heightMultiplier! * 4),
-                            CustomButton(
-                              text: "Sign In",
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  CupertinoPageRoute(
-                                    builder: (context) => OTPScreen(),
-                                  ),
-                                );
-                              },
+                            Obx(
+                              () => CustomButton(
+                                text: _authController.isLoading.value
+                                    ? "Please wait..."
+                                    : "Sign In",
+                                onTap: () async {
+                                  final sent = await _authController.login(
+                                    mobile:
+                                        '$_countryCode${_mobileController.text}',
+                                    validationMethod: _validationMethod,
+                                  );
+                                  if (!context.mounted || !sent) return;
+                                  Navigator.push(
+                                    context,
+                                    CupertinoPageRoute(
+                                      builder: (context) => const OTPScreen(),
+                                    ),
+                                  );
+                                },
+                              ),
                             ),
                             SizedBox(height: SizeConfig.heightMultiplier! * 4),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Text("Don’t have an account? "),
+                                const Text("Don't have an account? "),
                                 GestureDetector(
-                                  onTap: () {
-                                    // Navigate to Sign In
-                                  },
+                                  onTap: () => Get.toNamed('/register'),
                                   child: Text(
                                     "Register",
                                     style: TextStyle(
-                                      color: Color(0xFF833737),
+                                      color: const Color(0xFF833737),
                                       fontWeight: FontWeight.bold,
                                       decorationColor: primaryColor,
-
                                       decoration: TextDecoration.underline,
                                     ),
                                   ),

@@ -4,7 +4,17 @@ class StorageKeys {
   static const String authData = 'authData';
   static const String accessToken = 'accessToken';
   static const String refreshToken = 'refreshToken';
+  static const String tokenExpiresAt = 'tokenExpiresAt';
+  static const String currentDeviceId = 'currentDeviceId';
+  static const String deviceId = 'deviceId';
+  static const String userProfile = 'userProfile';
   static const String smrutiSectionConfig = 'smrutiSectionConfig';
+  static const String myPhotos = 'myPhotos';
+  static const String myPhotosSubmitted = 'myPhotosSubmitted';
+  static const String favoritePhotos = 'favoritePhotos';
+  static const String galleryPhotoSnapshots = 'galleryPhotoSnapshots';
+  static const String photoUserTags = 'photoUserTags';
+  static const String userCollections = 'userCollections';
 }
 
 class StorageHelper {

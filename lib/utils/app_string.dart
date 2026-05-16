@@ -10,6 +10,9 @@ class SmrutiSectionKeys {
   static const album = "Album";
   static const collections = "Collections";
   static const people = "People";
+  static const myPhotos = "My Smruti";
+  static const myFavorite = "My Favorite";
+  static const myCollection = "My Collection";
   static const wallpapers = "Wallpapers";
   static const pinnedCollection = "Pinned Collection";
 }

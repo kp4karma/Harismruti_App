@@ -2,11 +2,21 @@ enum Environment { debug, profile, production }
 
 class ApiEndpoints {
   static Environment currentEnvironment = Environment.debug;
-
+  //
+  // static const String _defaultLiveDomain =
+  //     "https://hpsmruti.suhrad.digital/api/v1/mobile";
   static const String _defaultLiveDomain =
-      "https://hpsmruti.suhrad.digital/api/v1/mobile";
-  static  final String _apiBaseUrl = String.fromEnvironment("API_BASE_URL",defaultValue: _defaultLiveDomain);
-  static final String mobileApiKey = String.fromEnvironment("MOBILE_API_KEY",defaultValue: "9606245936490b64a8ed41ccc0c8ebfb2022c9ac714a2e20094a5bb49bc98f47");
+      // "http://192.168.31.71:8000/api/v1/mobile";
+  "http://10.0.2.2:8000/api/v1/mobile";
+  static final String _apiBaseUrl = String.fromEnvironment(
+    "API_BASE_URL",
+    defaultValue: _defaultLiveDomain,
+  );
+  static final String mobileApiKey = String.fromEnvironment(
+    "MOBILE_API_KEY",
+    defaultValue:
+        "9606245936490b64a8ed41ccc0c8ebfb2022c9ac714a2e20094a5bb49bc98f47",
+  );
 
   static String get mainDomain {
     if (_apiBaseUrl.isNotEmpty) return _apiBaseUrl;
@@ -19,16 +29,20 @@ class ApiEndpoints {
   static String get recent => "/recent";
   static String get collections => "/collections";
   static String get attributes => "/attributes";
+  static String get filters => "/filters";
   static String get smrutiOf => "/smruti-of";
   static String get people => "/people";
-  static String get login => "/api/login/";
-  static String get refresh => "/api/login/";
+  static String get login => "/auth/login";
+  static String get verifyOtp => "/auth/verify-otp";
+  static String get register => "/auth/register";
+  static String get refresh => "/auth/refresh";
 
   static String collectionMonths(int year) => "/collections/$year/months";
   static String collectionDays(int year, int month) =>
       "/collections/$year/$month/days";
   static String collectionDayPhotos(int year, int month, int day) =>
       "/collections/$year/$month/$day/photos";
+  static String collectionYearPhotos(int year) => "/collections/$year/photos";
   static String byAttributePhotos(String slug) => "/by-attribute/$slug/photos";
   static String photoAttributes(int photoId) => "/photos/$photoId/attributes";
   static String subLocations(String location) =>

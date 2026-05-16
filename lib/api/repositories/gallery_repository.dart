@@ -8,7 +8,7 @@ class GalleryRepository {
 
   Map<String, String> get imageHeaders {
     if (ApiEndpoints.mobileApiKey.isEmpty) return const {};
-    return  {'X-API-Key': ApiEndpoints.mobileApiKey};
+    return {'X-API-Key': ApiEndpoints.mobileApiKey};
   }
 
   Future<GalleryHomeBundle> getHomeBundle({int samples = 4}) async {
@@ -33,6 +33,22 @@ class GalleryRepository {
       queryParams: {'page': page, 'per_page': perPage},
     );
     return GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items;
+  }
+
+  Future<List<GalleryFilterGroup>> getFilters({int limit = 200}) async {
+    final response = await ApiClient.get(
+      ApiEndpoints.filters,
+      queryParams: {'limit': limit},
+    );
+    return GalleryPage.fromJson(
+      response.data,
+      GalleryFilterGroup.fromJson,
+    ).items;
+  }
+
+  Future<GalleryPhotoAttributes> getPhotoAttributes(int photoId) async {
+    final response = await ApiClient.get(ApiEndpoints.photoAttributes(photoId));
+    return GalleryPhotoAttributes.fromJson(response.data);
   }
 
   Future<List<GalleryCard>> getCollections({int samples = 4}) async {
@@ -95,6 +111,61 @@ class GalleryRepository {
     return GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items;
   }
 
+  Future<List<GalleryPhoto>> getCollectionYearPhotos({
+    required int year,
+    int page = 1,
+    int perPage = 60,
+  }) async {
+    final response = await ApiClient.get(
+      ApiEndpoints.collectionYearPhotos(year),
+      queryParams: {'page': page, 'per_page': perPage},
+    );
+    return GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items;
+  }
+
+  Future<List<GalleryTimeBucket>> getCollectionMonths({
+    required int year,
+    int samples = 4,
+  }) async {
+    final response = await ApiClient.get(
+      ApiEndpoints.collectionMonths(year),
+      queryParams: {'samples': samples},
+    );
+    return GalleryPage.fromJson(
+      response.data,
+      GalleryTimeBucket.fromJson,
+    ).items;
+  }
+
+  Future<List<GalleryTimeBucket>> getCollectionDays({
+    required int year,
+    required int month,
+    int samples = 4,
+  }) async {
+    final response = await ApiClient.get(
+      ApiEndpoints.collectionDays(year, month),
+      queryParams: {'samples': samples},
+    );
+    return GalleryPage.fromJson(
+      response.data,
+      GalleryTimeBucket.fromJson,
+    ).items;
+  }
+
+  Future<List<GalleryPhoto>> getCollectionDayPhotos({
+    required int year,
+    required int month,
+    required int day,
+    int page = 1,
+    int perPage = 120,
+  }) async {
+    final response = await ApiClient.get(
+      ApiEndpoints.collectionDayPhotos(year, month, day),
+      queryParams: {'page': page, 'per_page': perPage},
+    );
+    return GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items;
+  }
+
   Future<List<GalleryPhoto>> getPersonPhotos({
     required int groupId,
     int page = 1,
@@ -114,10 +185,12 @@ class GalleryRepository {
     final shouldFetch =
         bundle.recent.isEmpty ||
         bundle.collections.isEmpty ||
+        bundle.smrutiWith.isEmpty ||
         bundle.smrutiOf.isEmpty ||
         bundle.people.isEmpty ||
         bundle.locations.isEmpty ||
-        bundle.albums.isEmpty;
+        bundle.albums.isEmpty ||
+        bundle.wallpapers.isEmpty;
 
     if (!shouldFetch) return bundle;
 
@@ -125,6 +198,7 @@ class GalleryRepository {
     return bundle.mergeFallback(
       recent: fallback.recent,
       collections: fallback.collections,
+      smrutiWith: fallback.smrutiWith,
       smrutiOf: fallback.smrutiOf,
       locations: fallback.locations,
       albums: fallback.albums,
@@ -148,6 +222,7 @@ class GalleryRepository {
     final results = await Future.wait<dynamic>([
       safe(getRecent(perPage: 60), <GalleryPhoto>[]),
       safe(getCollections(samples: samples), <GalleryCard>[]),
+      safe(getSmrutiOf(type: 'with', samples: samples), <GalleryCard>[]),
       safe(getSmrutiOf(type: 'person', samples: samples), <GalleryCard>[]),
       safe(getSmrutiOf(type: 'location', samples: samples), <GalleryCard>[]),
       safe(getSmrutiOf(type: 'album', samples: samples), <GalleryCard>[]),
@@ -158,11 +233,12 @@ class GalleryRepository {
     return GalleryHomeBundle(
       recent: results[0] as List<GalleryPhoto>,
       collections: results[1] as List<GalleryCard>,
-      smrutiOf: results[2] as List<GalleryCard>,
-      locations: results[3] as List<GalleryCard>,
-      albums: results[4] as List<GalleryCard>,
-      people: results[5] as List<GalleryCard>,
-      wallpapers: results[6] as List<GalleryCard>,
+      smrutiWith: results[2] as List<GalleryCard>,
+      smrutiOf: results[3] as List<GalleryCard>,
+      locations: results[4] as List<GalleryCard>,
+      albums: results[5] as List<GalleryCard>,
+      people: results[6] as List<GalleryCard>,
+      wallpapers: results[7] as List<GalleryCard>,
     );
   }
 }

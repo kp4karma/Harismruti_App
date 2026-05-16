@@ -21,18 +21,63 @@ class LocationSmruti extends StatelessWidget {
       }
 
       return SizedBox(
-        height: 250,
+        height: 310,
         child: ListView.builder(
           physics: const BouncingScrollPhysics(),
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          itemCount: locations.length,
-          itemBuilder: (context, index) => GalleryCoverCard(
-            card: locations[index],
-            headers: galleryController.imageHeaders,
-            width: 180,
-            height: 230,
-          ),
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+          itemCount: (locations.length / 3).ceil(),
+          itemBuilder: (context, index) {
+            final layoutWidth = MediaQuery.of(context).size.width * 0.8;
+            final firstIndex = index * 3;
+            final secondIndex = firstIndex + 1;
+            final thirdIndex = firstIndex + 2;
+            final bottomCards = [
+              if (secondIndex < locations.length) locations[secondIndex],
+              if (thirdIndex < locations.length) locations[thirdIndex],
+            ];
+            final bigCard = GalleryGridCard(
+              card: locations[firstIndex],
+              headers: galleryController.imageHeaders,
+              aspectRatio: 1,
+              fillParent: true,
+            );
+            final smallRow = Row(
+              children: [
+                for (var item = 0; item < bottomCards.length; item++) ...[
+                  Expanded(
+                    child: GalleryGridCard(
+                      card: bottomCards[item],
+                      headers: galleryController.imageHeaders,
+                      aspectRatio: 1,
+                      fillParent: true,
+                    ),
+                  ),
+                  if (item != bottomCards.length - 1) const SizedBox(width: 6),
+                ],
+              ],
+            );
+
+            return SizedBox(
+              width: layoutWidth,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 5),
+                child: Column(
+                  children: index.isEven
+                      ? [
+                          Expanded(flex: 6, child: bigCard),
+                          const SizedBox(height: 6),
+                          Expanded(flex: 4, child: smallRow),
+                        ]
+                      : [
+                          Expanded(flex: 4, child: smallRow),
+                          const SizedBox(height: 6),
+                          Expanded(flex: 6, child: bigCard),
+                        ],
+                ),
+              ),
+            );
+          },
         ),
       );
     });

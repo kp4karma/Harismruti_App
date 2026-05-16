@@ -3,11 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:harismruti/ui/view/home/album_smruti.dart';
 import 'package:harismruti/ui/view/home/collection_smruti.dart';
 import 'package:harismruti/ui/view/home/location_smruti.dart';
-import 'package:harismruti/ui/view/home/people_smruti.dart';
+import 'package:harismruti/ui/view/home/my_collection_smruti.dart';
+import 'package:harismruti/ui/view/home/my_favorite_smruti.dart';
+import 'package:harismruti/ui/view/home/my_photos_smruti.dart';
 import 'package:harismruti/ui/view/home/recent_smruti.dart';
 import 'package:harismruti/ui/view/home/smruti_of.dart';
 import 'package:harismruti/ui/view/home/smruti_with.dart';
-import 'package:harismruti/ui/view/home/wallpaper_smruti.dart';
 import 'package:harismruti/utils/app_string.dart';
 import 'package:harismruti/utils/size_config.dart';
 import 'package:harismruti/utils/storage_helper.dart';
@@ -66,13 +67,28 @@ class SmrutiSectionController extends GetxController {
   }
 
   void loadSections() {
-    final stored = StorageHelper.loadSections();
+    final stored = StorageHelper.loadSections()
+        .where((e) => !_isRemovedHomeSection(e['title']))
+        .toList();
     if (stored.isNotEmpty) {
-      sections.assignAll(
-        stored.map((e) {
+      final defaults = _defaultSections();
+      final storedTitles = stored.map((e) => e['title']).toSet();
+      final missingDefaults = defaults
+          .where((section) => !storedTitles.contains(section['title']))
+          .toList();
+
+      sections.assignAll([
+        ...stored.map((e) {
           return {...e, "widget": _getWidgetByTitle(e['title'])};
         }),
-      );
+        ...missingDefaults.map(
+          (e) => {
+            ...e,
+            'order_index': stored.length + missingDefaults.indexOf(e) + 1,
+          },
+        ),
+      ]);
+      saveSectionsToStorage();
     } else {
       sections.assignAll(_defaultSections());
     }
@@ -82,6 +98,54 @@ class SmrutiSectionController extends GetxController {
     sections[index]['is_show'] = value;
     saveSectionsToStorage();
     sections.refresh();
+  }
+
+  List<Map<String, dynamic>> customizableSections() {
+    return sections
+        .where((section) => !_isHiddenFromPreferences(section['title']))
+        .toList();
+  }
+
+  void updateSectionVisibilityByTitle(String title, bool value) {
+    final index = sections.indexWhere((section) => section['title'] == title);
+    if (index == -1) return;
+    updateSectionVisibility(index, value);
+  }
+
+  void reorderCustomizableSections(int oldIndex, int newIndex) {
+    final editableTitles = customizableSections()
+        .map((section) => section['title'])
+        .toList();
+    if (newIndex > oldIndex) newIndex--;
+
+    final movedTitle = editableTitles.removeAt(oldIndex);
+    editableTitles.insert(newIndex, movedTitle);
+
+    final sectionsByTitle = {
+      for (final section in sections) section['title']: section,
+    };
+    final sortedSlots = sections.toList()
+      ..sort((a, b) => a['order_index'].compareTo(b['order_index']));
+    final reordered = <Map<String, dynamic>>[];
+    var editableIndex = 0;
+    for (var slotIndex = 0; slotIndex < sortedSlots.length; slotIndex++) {
+      final section = sortedSlots[slotIndex];
+      if (_isHiddenFromPreferences(section['title'])) {
+        reordered.add({...section, 'order_index': slotIndex + 1});
+        continue;
+      }
+      final title = editableTitles[editableIndex];
+      reordered.add({
+        ...?sectionsByTitle[title],
+        'title': title,
+        'order_index': slotIndex + 1,
+        'widget': _getWidgetByTitle(title),
+      });
+      editableIndex++;
+    }
+
+    sections.assignAll(reordered);
+    saveSectionsToStorage();
   }
 
   void reorderSections(int oldIndex, int newIndex) {
@@ -127,12 +191,17 @@ class SmrutiSectionController extends GetxController {
         return const AlbumSmruti();
       case SmrutiSectionKeys.collections:
         return const CollectionSmruti();
-      case SmrutiSectionKeys.people:
-        return const PeopleSmruti();
-      case SmrutiSectionKeys.wallpapers:
-        return const WallpaperSmruti();
-      case SmrutiSectionKeys.pinnedCollection:
-        return const SizedBox();
+      case SmrutiSectionKeys.myPhotos:
+      case "My Phone":
+      case "My Photos":
+        return const MyPhotosSmruti();
+      case SmrutiSectionKeys.myFavorite:
+      case "My Favot":
+      case "My Favorites":
+        return const MyFavoriteSmruti();
+      case SmrutiSectionKeys.myCollection:
+      case "My Collectino":
+        return const MyCollectionSmruti();
       default:
         return const SizedBox();
     }
@@ -176,22 +245,30 @@ class SmrutiSectionController extends GetxController {
       "widget": const CollectionSmruti(),
     },
     {
-      "title": SmrutiSectionKeys.people,
+      "title": SmrutiSectionKeys.myPhotos,
       "order_index": 7,
       "is_show": true,
-      "widget": const PeopleSmruti(),
+      "widget": const MyPhotosSmruti(),
     },
     {
-      "title": SmrutiSectionKeys.wallpapers,
+      "title": SmrutiSectionKeys.myFavorite,
       "order_index": 8,
       "is_show": true,
-      "widget": const WallpaperSmruti(),
+      "widget": const MyFavoriteSmruti(),
     },
     {
-      "title": SmrutiSectionKeys.pinnedCollection,
+      "title": SmrutiSectionKeys.myCollection,
       "order_index": 9,
       "is_show": true,
-      "widget": const SizedBox(),
+      "widget": const MyCollectionSmruti(),
     },
   ];
+
+  bool _isHiddenFromPreferences(dynamic title) => false;
+
+  bool _isRemovedHomeSection(dynamic title) {
+    return title == SmrutiSectionKeys.wallpapers ||
+        title == SmrutiSectionKeys.people ||
+        title == SmrutiSectionKeys.pinnedCollection;
+  }
 }

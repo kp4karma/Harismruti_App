@@ -25,6 +25,7 @@ dependencies:
   connectivity_plus: ^6.1.3
   package_info_plus: ^8.3.0
   image_picker: ^1.1.2
+  camera: ^0.11.2+1
   image_cropper: ^9.1.0
   path_provider: ^2.1.5
   encrypt: ^5.0.3
@@ -34,6 +35,10 @@ dependencies:
   flutter_screenutil: ^5.9.3
   parallax_cards: ^1.0.2
   flutter_tilt: ^3.2.1
+  flutter_map: ^8.3.0
+  latlong2: ^0.9.1
+  geolocator: ^14.0.2
+  google_mlkit_face_detection: ^0.13.2
 
 
 

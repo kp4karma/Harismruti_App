@@ -16,19 +16,17 @@ class SmrutiSectionSettingsScreen extends StatelessWidget {
       child: Scaffold(
         appBar: DetailAppbar(
           onBackTap: () => Navigator.pop(context),
-          title: "Customize Sections",
+          title: "Customize Preferences",
         ),
-        body: Obx(
-          () => ReorderableListView.builder(
+        body: Obx(() {
+          final sections = controller.customizableSections();
+          return ReorderableListView.builder(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
             physics: const BouncingScrollPhysics(),
-            itemCount: controller.sections.length,
-            onReorder: (oldIndex, newIndex) {
-              controller.reorderSections(oldIndex, newIndex);
-              controller.saveSectionsToStorage();
-            },
+            itemCount: sections.length,
+            onReorder: controller.reorderCustomizableSections,
             itemBuilder: (context, index) {
-              final section = controller.sections[index];
+              final section = sections[index];
               return Card(
                 key: ValueKey(section['title']),
                 margin: const EdgeInsets.symmetric(vertical: 6),
@@ -47,15 +45,17 @@ class SmrutiSectionSettingsScreen extends StatelessWidget {
                   trailing: Switch(
                     value: section['is_show'],
                     onChanged: (val) {
-                      controller.updateSectionVisibility(index, val);
-                      controller.saveSectionsToStorage();
+                      controller.updateSectionVisibilityByTitle(
+                        section['title'],
+                        val,
+                      );
                     },
                   ),
                 ),
               );
             },
-          ),
-        ),
+          );
+        }),
       ),
     );
   }

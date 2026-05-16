@@ -12,7 +12,7 @@ class SmrutiWith extends StatelessWidget {
     final galleryController = Get.find<GalleryController>();
 
     return Obx(() {
-      final items = galleryController.people
+      final items = galleryController.smrutiWith
           .where((item) => item.coverUrl.isNotEmpty)
           .take(8)
           .toList();
@@ -24,17 +24,16 @@ class SmrutiWith extends StatelessWidget {
       }
 
       return SizedBox(
-        height: 300,
+        height: 210,
         child: ListView.builder(
           physics: const BouncingScrollPhysics(),
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 22),
           itemCount: items.length,
-          itemBuilder: (context, index) => GalleryCoverCard(
+          itemBuilder: (context, index) => GalleryWithFeatureCard(
             card: items[index],
             headers: galleryController.imageHeaders,
-            width: 210,
-            height: 285,
+            width: index.isEven ? 284 : 258,
           ),
         ),
       );

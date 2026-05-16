@@ -1,15 +1,14 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:harismruti/ui/view/Auth/login.dart';
-import 'package:harismruti/ui/view/Auth/register.dart';
-import 'package:harismruti/utils/app_string.dart';
+import 'package:harismruti/ui/view/auth/login.dart';
+import 'package:harismruti/ui/view/auth/register.dart';
 import 'package:harismruti/utils/size_config.dart';
 import 'package:harismruti/widget/appbar/custom_appbar.dart';
 import 'package:harismruti/widget/buttons/custom_button.dart';
-import 'package:harismruti/widget/carousel/auto_scroll_carousel.dart';
+import 'package:harismruti/widget/carousel/auth_recent_carousel.dart';
 
 class LoginHomeScreen extends StatefulWidget {
-  const LoginHomeScreen({Key? key}) : super(key: key);
+  const LoginHomeScreen({super.key});
   @override
   State<LoginHomeScreen> createState() => _LoginHomeScreenState();
 }
@@ -22,7 +21,7 @@ class _LoginHomeScreenState extends State<LoginHomeScreen> {
       appBar: CustomAppbar(isCenterTitle: true),
       body: Column(
         children: [
-          Expanded(child: AutoScrollCarousel(imageUrls: imageUrls)),
+          const Expanded(child: AuthRecentCarousel()),
           Card(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(24),

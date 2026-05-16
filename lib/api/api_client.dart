@@ -20,7 +20,11 @@ class ApiClient {
   static String currentAppVersion = '';
   ApiClient._internal();
 
-  static List<String> skipAuthEndpoints = [];
+  static List<String> skipAuthEndpoints = [
+    ApiEndpoints.login,
+    ApiEndpoints.verifyOtp,
+    ApiEndpoints.register,
+  ];
 
   static Future<void> init() async {
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
@@ -199,8 +203,6 @@ DATA: $responseData
   }
 
   static Future<String?> _refreshToken() async {
-    StorageHelper.setValue(key: StorageKeys.accessToken, value: "");
-
     String? refreshToken = StorageHelper.getValue(
       key: StorageKeys.refreshToken,
     );
@@ -213,16 +215,20 @@ DATA: $responseData
       final response = await _client!.post(
         ApiEndpoints.refresh,
         options: Options(headers: {'Content-Type': 'application/json'}),
-        data: addExtraParameters({
-          "refresh_token": StorageHelper.getValue(
-            key: StorageKeys.refreshToken,
-          ),
-        }),
+        data: addExtraParameters({}),
       );
 
       if (response.statusCode == 200) {
-        String newAccessToken = response.data['access'];
-        String newRefreshToken = response.data['refresh'];
+        final data = response.data is Map ? response.data['data'] : null;
+        String newAccessToken = data is Map
+            ? data['token']?.toString() ?? ''
+            : '';
+        String newRefreshToken = newAccessToken;
+
+        if (newAccessToken.isEmpty) {
+          _forceLogout();
+          return null;
+        }
 
         StorageHelper.setValue(
           key: StorageKeys.accessToken,
@@ -231,6 +237,14 @@ DATA: $responseData
         StorageHelper.setValue(
           key: StorageKeys.refreshToken,
           value: newRefreshToken,
+        );
+        StorageHelper.setValue(
+          key: StorageKeys.tokenExpiresAt,
+          value: data is Map ? data['token_expires_at']?.toString() ?? '' : '',
+        );
+        StorageHelper.setValue(
+          key: StorageKeys.currentDeviceId,
+          value: data is Map ? data['current_device_id']?.toString() ?? '' : '',
         );
 
         if (kDebugMode) {
@@ -406,11 +420,7 @@ DATA: $responseData
     if (error.response != null) {
       final statusCode = error.response?.statusCode;
       final errorData = error.response?.data;
-      final message = errorData is Map
-          ? errorData['detail'] ??
-                errorData['message'] ??
-                'Unknown error message'
-          : errorData?.toString() ?? 'Unknown error message';
+      final message = _extractErrorMessage(errorData);
 
       final logMessage =
           'Status: $statusCode, Message: $message, Response: $errorData';
@@ -438,6 +448,29 @@ DATA: $responseData
 
     SecureLogger.write("Unknown Dio Error: ${error.message}");
     return Exception("⚠️ Unknown Error: ${error.message}");
+  }
+
+  static String _extractErrorMessage(dynamic errorData) {
+    if (errorData is Map) {
+      final detail = errorData['detail'];
+      if (detail is Map) {
+        final nestedMessage = detail['message'];
+        if (nestedMessage is String && nestedMessage.isNotEmpty) {
+          return nestedMessage;
+        }
+        if (nestedMessage is Map && nestedMessage['message'] != null) {
+          return nestedMessage['message'].toString();
+        }
+      }
+      if (detail is String && detail.isNotEmpty) return detail;
+
+      final message = errorData['message'];
+      if (message is String && message.isNotEmpty) return message;
+      if (message is Map && message['message'] != null) {
+        return message['message'].toString();
+      }
+    }
+    return errorData?.toString() ?? 'Unknown error message';
   }
 
   static dynamic addExtraParametersFromData(dynamic data) {

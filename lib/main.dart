@@ -4,8 +4,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/bootstrap.dart';
 import 'package:harismruti/ui/controller/global_binding.dart';
-import 'package:harismruti/ui/view/home/home_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/size_config.dart';
 import 'package:harismruti/widget/internet_status_widget.dart';
 
@@ -38,10 +38,8 @@ class _MyAppState extends State<MyApp> {
             initialBinding: GlobalBindings(),
             title: 'Hari Smurti',
 
-            // initialRoute: AppRoutes.splash,
-            // Set the initial screen
-            // getPages: AppRoutes.routes,
-            home: HomeScreen(),
+            initialRoute: AppRoutes.splash,
+            getPages: AppRoutes.routes,
             theme: ThemeData(
               scaffoldBackgroundColor: Colors.transparent,
               useMaterial3: true,
