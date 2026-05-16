@@ -1,0 +1,1547 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:math' as math;
+import 'dart:ui';
+
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:camera/camera.dart';
+import 'package:get/get.dart';
+import 'package:harismruti/helper/image_service.dart';
+import 'package:harismruti/ui/controller/my_photos_controller.dart';
+import 'package:harismruti/utils/app_color.dart';
+
+class MyPhotosSmruti extends StatelessWidget {
+  const MyPhotosSmruti({super.key});
+
+  MyPhotosController get controller => Get.find<MyPhotosController>();
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final requiredDone = controller.requiredPoses
+          .where((pose) => controller.photoForPose(pose) != null)
+          .length;
+      final status = controller.reviewLocked
+          ? 'Verification submitted'
+          : '$requiredDone/3 face views ready';
+
+      return GestureDetector(
+        onTap: () => Navigator.push(
+          context,
+          CupertinoPageRoute(builder: (_) => const MyPhoneGuideScreen()),
+        ),
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 22),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(14),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                height: 54,
+                width: 54,
+                decoration: BoxDecoration(
+                  color: primaryColor.withAlpha(20),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Icon(
+                  CupertinoIcons.person_crop_circle_badge_checkmark,
+                  color: primaryColor,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'My Smruti',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Add training photos to find your smruti.',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.black.withAlpha(140),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      status,
+                      style: TextStyle(
+                        color: primaryColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(CupertinoIcons.chevron_right, color: primaryColor),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+}
+
+class MyPhoneGuideScreen extends StatelessWidget {
+  const MyPhoneGuideScreen({super.key});
+
+  MyPhotosController get controller => Get.find<MyPhotosController>();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      backgroundColor: const Color(0xFFF8F6F3),
+      appBar: AppBar(
+        centerTitle: true,
+        title: const Text(
+          'My Smruti',
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900),
+        ),
+        leading: IconButton(
+          icon: Icon(CupertinoIcons.chevron_left, color: primaryColor),
+          onPressed: () => Navigator.pop(context),
+        ),
+        backgroundColor: Colors.white.withAlpha(135),
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: Obx(() {
+        return CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  MediaQuery.of(context).padding.top + kToolbarHeight + 10,
+                  16,
+                  12,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _TrainingHero(controller: controller),
+                    const SizedBox(height: 12),
+                    _RequiredCaptureGrid(controller: controller),
+                    const SizedBox(height: 12),
+                    _GalleryUploadCard(controller: controller),
+                    if (controller.helperMessage.value.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      _MessageBox(message: controller.helperMessage.value),
+                    ],
+                    const SizedBox(height: 12),
+                    _SubmitCard(controller: controller),
+                    const SizedBox(height: 16),
+                    _MatchedPhotosSection(controller: controller),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      }),
+    );
+  }
+}
+
+class _TrainingHero extends StatelessWidget {
+  final MyPhotosController controller;
+
+  const _TrainingHero({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final status = controller.reviewLocked
+        ? 'Photos are locked after upload'
+        : 'Capture clear views for AI training';
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Face training setup',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  status,
+                  style: TextStyle(
+                    color: Colors.black.withAlpha(145),
+                    fontWeight: FontWeight.w700,
+                    height: 1.3,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _QualityOrb(value: controller.trainingProgress),
+        ],
+      ),
+    );
+  }
+}
+
+class _QualityOrb extends StatelessWidget {
+  final double value;
+
+  const _QualityOrb({required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      width: 56,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CircularProgressIndicator(
+            value: value,
+            strokeWidth: 5,
+            backgroundColor: primaryColor.withAlpha(24),
+            color: primaryColor,
+          ),
+          Text(
+            '${(value * 100).round()}%',
+            style: const TextStyle(fontWeight: FontWeight.w900),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/*
+class _StepGuide extends StatelessWidget {
+  final MyPhotosController controller;
+
+  const _StepGuide({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final steps = [
+      _GuideStep(
+        '1',
+        'Take Front Pic',
+        controller.photoForPose(MyPhotoPose.front) != null,
+      ),
+      _GuideStep(
+        '2',
+        'Take Left Side Pic',
+        controller.photoForPose(MyPhotoPose.left) != null,
+      ),
+      _GuideStep(
+        '3',
+        'Take Right Side Pic',
+        controller.photoForPose(MyPhotoPose.right) != null,
+      ),
+      _GuideStep(
+        '4',
+        'Add any 4 gallery images',
+        controller.otherPhotos.length >= 4,
+      ),
+    ];
+
+    if (MediaQuery.of(context).size.width > 0) {
+      return Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          children: [
+            for (final step in steps)
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircleAvatar(
+                      radius: 11,
+                      backgroundColor: step.done
+                          ? const Color(0xFF167A3C)
+                          : primaryColor.withAlpha(24),
+                      child: Text(
+                        step.done ? '✓' : step.index,
+                        style: TextStyle(
+                          color: step.done ? Colors.white : primaryColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Flexible(
+                      child: Text(
+                        step.title
+                            .replaceAll('Take ', '')
+                            .replaceAll(' Pic', '')
+                            .replaceAll('Add any 4 gallery images', 'Gallery'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        for (final step in steps)
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 15,
+                  backgroundColor: step.done
+                      ? const Color(0xFF167A3C)
+                      : primaryColor.withAlpha(24),
+                  child: Text(
+                    step.done ? '✓' : step.index,
+                    style: TextStyle(
+                      color: step.done ? Colors.white : primaryColor,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    step.title,
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _GuideStep {
+  final String index;
+  final String title;
+  final bool done;
+
+  const _GuideStep(this.index, this.title, this.done);
+}
+
+*/
+class _RequiredCaptureGrid extends StatelessWidget {
+  final MyPhotosController controller;
+
+  const _RequiredCaptureGrid({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    height: 34,
+                    width: 34,
+                    decoration: BoxDecoration(
+                      color: primaryColor.withAlpha(18),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      CupertinoIcons.camera_viewfinder,
+                      color: primaryColor,
+                      size: 19,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Required live captures',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  _StatusPill(
+                    label:
+                        '${controller.requiredPoses.where((pose) => controller.photoForPose(pose) != null).length}/3',
+                    color: primaryColor,
+                    background: primaryColor.withAlpha(14),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              for (final pose in controller.requiredPoses) ...[
+                _CapturePoseRow(
+                  pose: pose,
+                  item: controller.photoForPose(pose),
+                  locked: controller.isPoseLocked(pose),
+                  onTap: () => _openCapture(context, pose),
+                ),
+                if (pose != MyPhotoPose.right) const SizedBox(height: 8),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _openCapture(BuildContext context, MyPhotoPose pose) {
+    if (controller.isPoseLocked(pose)) {
+      controller.helperMessage.value =
+          'This photo is locked. Retake is available only if admin rejects it.';
+      return;
+    }
+    Navigator.push(
+      context,
+      CupertinoPageRoute(builder: (_) => MyPhoneCaptureScreen(pose: pose)),
+    );
+  }
+}
+
+class _CapturePoseRow extends StatelessWidget {
+  final MyPhotoPose pose;
+  final MyPhotoItem? item;
+  final bool locked;
+  final VoidCallback onTap;
+
+  const _CapturePoseRow({
+    required this.pose,
+    required this.item,
+    required this.locked,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final statusLabel = item == null
+        ? 'Capture'
+        : locked
+        ? item!.reviewStatus.label
+        : 'Retake';
+    final statusColor = item == null || !locked
+        ? primaryColor
+        : item!.reviewStatus.color;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 78,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8F6F3),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 76,
+              child: item == null
+                  ? _FaceFramePlaceholder(pose: pose)
+                  : Image.file(File(item!.path), fit: BoxFit.cover),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${pose.label} face',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    pose.instruction,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.black.withAlpha(130),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+                decoration: BoxDecoration(
+                  color: statusColor.withAlpha(16),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  statusLabel,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FaceFramePlaceholder extends StatelessWidget {
+  final MyPhotoPose pose;
+
+  const _FaceFramePlaceholder({required this.pose});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFFEDE8E5),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Icon(
+            CupertinoIcons.person_crop_rectangle,
+            color: primaryColor,
+            size: 34,
+          ),
+          Positioned(
+            left: 14,
+            top: 14,
+            child: _Corner(color: primaryColor, topLeft: true),
+          ),
+          Positioned(
+            right: 14,
+            top: 14,
+            child: _Corner(color: primaryColor, topRight: true),
+          ),
+          Positioned(
+            left: 14,
+            bottom: 14,
+            child: _Corner(color: primaryColor, bottomLeft: true),
+          ),
+          Positioned(
+            right: 14,
+            bottom: 14,
+            child: _Corner(color: primaryColor, bottomRight: true),
+          ),
+          Positioned(
+            bottom: 34,
+            left: 8,
+            right: 8,
+            child: Text(
+              pose.instruction,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Corner extends StatelessWidget {
+  final Color color;
+  final bool topLeft;
+  final bool topRight;
+  final bool bottomLeft;
+  final bool bottomRight;
+
+  const _Corner({
+    required this.color,
+    this.topLeft = false,
+    this.topRight = false,
+    this.bottomLeft = false,
+    this.bottomRight = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 18,
+      width: 18,
+      child: CustomPaint(
+        painter: _CornerPainter(
+          color: color,
+          topLeft: topLeft,
+          topRight: topRight,
+          bottomLeft: bottomLeft,
+          bottomRight: bottomRight,
+        ),
+      ),
+    );
+  }
+}
+
+class _CornerPainter extends CustomPainter {
+  final Color color;
+  final bool topLeft;
+  final bool topRight;
+  final bool bottomLeft;
+  final bool bottomRight;
+
+  _CornerPainter({
+    required this.color,
+    required this.topLeft,
+    required this.topRight,
+    required this.bottomLeft,
+    required this.bottomRight,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final path = Path();
+    if (topLeft) {
+      path
+        ..moveTo(size.width, 0)
+        ..lineTo(0, 0)
+        ..lineTo(0, size.height);
+    } else if (topRight) {
+      path
+        ..moveTo(0, 0)
+        ..lineTo(size.width, 0)
+        ..lineTo(size.width, size.height);
+    } else if (bottomLeft) {
+      path
+        ..moveTo(0, 0)
+        ..lineTo(0, size.height)
+        ..lineTo(size.width, size.height);
+    } else if (bottomRight) {
+      path
+        ..moveTo(size.width, 0)
+        ..lineTo(size.width, size.height)
+        ..lineTo(0, size.height);
+    }
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _GalleryUploadCard extends StatelessWidget {
+  final MyPhotosController controller;
+
+  const _GalleryUploadCard({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final otherPhotos = controller.otherPhotos;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Gallery photos',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                ),
+              ),
+              TextButton.icon(
+                onPressed:
+                    controller.canEditUploads && controller.remainingSlots > 0
+                    ? () => _pickOtherPhotos(context)
+                    : null,
+                icon: const Icon(CupertinoIcons.add, size: 16),
+                label: const Text('Add'),
+                style: TextButton.styleFrom(foregroundColor: primaryColor),
+              ),
+            ],
+          ),
+          Text(
+            '${otherPhotos.length}/4 required. Add any clear four images from gallery.',
+            style: TextStyle(
+              color: Colors.black.withAlpha(130),
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 70,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: math.max(4, otherPhotos.length),
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                if (index < otherPhotos.length) {
+                  return _SmallPhotoTile(item: otherPhotos[index]);
+                }
+                return _EmptyGallerySlot(
+                  onTap: () => _pickOtherPhotos(context),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _pickOtherPhotos(BuildContext context) {
+    if (!controller.canEditUploads) {
+      controller.helperMessage.value =
+          'Uploaded photos are locked unless admin rejects them.';
+      return;
+    }
+    ImagePickerHelper.showPickerSheet(
+      context: context,
+      themeColor: primaryColor,
+      allowMultiple: true,
+      enableCrop: false,
+      onImagesPicked: (paths) async {
+        final allowed = paths.take(controller.remainingSlots).toList();
+        await controller.addOtherPhotos(allowed);
+      },
+    );
+  }
+}
+
+class _SmallPhotoTile extends StatelessWidget {
+  final MyPhotoItem item;
+
+  const _SmallPhotoTile({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = Get.find<MyPhotosController>();
+    return GestureDetector(
+      onTap: () => _showPhotoActions(context, item),
+      child: SizedBox(
+        width: 70,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.file(File(item.path), fit: BoxFit.cover),
+            ),
+            if (controller.canEditPhoto(item))
+              Positioned(
+                right: 5,
+                top: 5,
+                child: GestureDetector(
+                  onTap: () => controller.removePhoto(item),
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withAlpha(115),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      CupertinoIcons.xmark,
+                      color: Colors.white,
+                      size: 12,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyGallerySlot extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _EmptyGallerySlot({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 70,
+        decoration: BoxDecoration(
+          color: primaryColor.withAlpha(14),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Icon(CupertinoIcons.photo, color: primaryColor),
+      ),
+    );
+  }
+}
+
+class _SubmitCard extends StatelessWidget {
+  final MyPhotosController controller;
+
+  const _SubmitCard({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final canSubmit =
+        controller.canSubmitTrainingSet && !controller.isUploading.value;
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: canSubmit ? controller.submitForReview : null,
+        icon: controller.isUploading.value
+            ? const SizedBox(
+                height: 18,
+                width: 18,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : const Icon(CupertinoIcons.checkmark_shield),
+        label: Text(
+          controller.reviewLocked
+              ? 'Submitted for Admin Review'
+              : 'Upload Training Photos',
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primaryColor,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: Colors.grey.shade300,
+          disabledForegroundColor: Colors.grey.shade700,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(vertical: 15),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MessageBox extends StatelessWidget {
+  final String message;
+
+  const _MessageBox({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: primaryColor.withAlpha(14),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        message,
+        style: TextStyle(
+          color: primaryColor,
+          fontWeight: FontWeight.w800,
+          height: 1.3,
+        ),
+      ),
+    );
+  }
+}
+
+class _MatchedPhotosSection extends StatelessWidget {
+  final MyPhotosController controller;
+
+  const _MatchedPhotosSection({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final photos = controller.photos;
+    if (photos.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Found photos',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 10),
+        GridView.builder(
+          shrinkWrap: true,
+          primary: false,
+          padding: EdgeInsets.zero,
+          itemCount: photos.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 0.86,
+          ),
+          itemBuilder: (context, index) {
+            final item = photos[index];
+            return GestureDetector(
+              onTap: () => _showPhotoActions(context, item),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.file(File(item.path), fit: BoxFit.cover),
+                    Positioned(
+                      left: 8,
+                      bottom: 8,
+                      child: _StatusPill(
+                        label: item.pose.label,
+                        color: Colors.white,
+                        background: Colors.black.withAlpha(115),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+void _showPhotoActions(BuildContext context, MyPhotoItem item) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    builder: (context) => ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          color: Colors.white.withAlpha(235),
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ActionRow(
+                icon: CupertinoIcons.hand_thumbsup,
+                label: 'Like',
+                onTap: () => Navigator.pop(context),
+              ),
+              _ActionRow(
+                icon: CupertinoIcons.share,
+                label: 'Share',
+                onTap: () => Navigator.pop(context),
+              ),
+              _ActionRow(
+                icon: CupertinoIcons.arrow_down_to_line,
+                label: 'Download',
+                onTap: () => Navigator.pop(context),
+              ),
+              _ActionRow(
+                icon: CupertinoIcons.exclamationmark_bubble,
+                label: 'Report irrelevant',
+                color: const Color(0xFFC62828),
+                onTap: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _ActionRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color? color;
+  final VoidCallback onTap;
+
+  const _ActionRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final resolved = color ?? primaryColor;
+    return ListTile(
+      leading: Icon(icon, color: resolved),
+      title: Text(
+        label,
+        style: TextStyle(color: color, fontWeight: FontWeight.w800),
+      ),
+      onTap: onTap,
+    );
+  }
+}
+
+class MyPhoneCaptureScreen extends StatefulWidget {
+  final MyPhotoPose pose;
+
+  const MyPhoneCaptureScreen({super.key, required this.pose});
+
+  @override
+  State<MyPhoneCaptureScreen> createState() => _MyPhoneCaptureScreenState();
+}
+
+class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  double _quality = 0.18;
+  Timer? _timer;
+  CameraController? _cameraController;
+  bool _taking = false;
+  bool _checking = false;
+  bool _cameraReady = false;
+  String _reason = 'Place your face inside the frame';
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _initCamera();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _cameraController?.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initCamera() async {
+    try {
+      final cameras = await availableCameras();
+      final camera = cameras.firstWhere(
+        (item) => item.lensDirection == CameraLensDirection.front,
+        orElse: () => cameras.first,
+      );
+      final controller = CameraController(
+        camera,
+        ResolutionPreset.medium,
+        enableAudio: false,
+      );
+      await controller.initialize();
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+      setState(() {
+        _cameraController = controller;
+        _cameraReady = true;
+        _reason = 'Hold your face inside the frame';
+      });
+      _timer = Timer.periodic(const Duration(milliseconds: 900), (_) {
+        _probeFaceQuality();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _cameraReady = false;
+        _quality = 0.12;
+        _reason = 'Camera permission required';
+      });
+    }
+  }
+
+  Future<void> _probeFaceQuality() async {
+    final camera = _cameraController;
+    if (camera == null ||
+        !camera.value.isInitialized ||
+        camera.value.isTakingPicture ||
+        _checking ||
+        _taking) {
+      return;
+    }
+    _checking = true;
+    try {
+      final file = await camera.takePicture();
+      final controller = Get.find<MyPhotosController>();
+      final result = await controller.validatePhoto(file.path, widget.pose);
+      if (!mounted) return;
+
+      if (result.isValid) {
+        setState(() {
+          _quality = 1;
+          _reason = 'Face recognized successfully';
+        });
+        await _acceptCapturedFile(file.path);
+        return;
+      }
+
+      final nextScore = _scoreForReason(result.message);
+      setState(() {
+        _quality = nextScore;
+        _reason = result.message;
+      });
+      unawaited(File(file.path).delete().catchError((_) => File(file.path)));
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _quality = 0.2;
+          _reason = 'Keep still while scanning';
+        });
+      }
+    } finally {
+      _checking = false;
+    }
+  }
+
+  Future<void> _capture() async {
+    if (_taking) return;
+    final camera = _cameraController;
+    if (camera == null || !camera.value.isInitialized) {
+      setState(() => _reason = 'Camera is not ready');
+      return;
+    }
+    _taking = true;
+    final file = await camera.takePicture();
+    await _acceptCapturedFile(file.path);
+  }
+
+  Future<void> _acceptCapturedFile(String path) async {
+    _taking = true;
+    final controller = Get.find<MyPhotosController>();
+    final ok = await controller.addRequiredPhoto(path: path, pose: widget.pose);
+    if (!mounted) return;
+    if (ok) {
+      Navigator.pop(context);
+      return;
+    }
+    setState(() {
+      _taking = false;
+      _quality = 0.52;
+      _reason = controller.helperMessage.value;
+    });
+  }
+
+  double _scoreForReason(String reason) {
+    final lower = reason.toLowerCase();
+    if (lower.contains('no face') || lower.contains('center')) return 0.28;
+    if (lower.contains('multiple')) return 0.32;
+    if (lower.contains('far') || lower.contains('closer')) return 0.48;
+    if (lower.contains('left') || lower.contains('right')) return 0.62;
+    if (lower.contains('small') || lower.contains('framed')) return 0.55;
+    if (lower.contains('direction') || lower.contains('angle')) return 0.68;
+    return 0.74;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final score = (_quality * 100).clamp(0, 100).round();
+    final ready = score >= 95;
+    final good = score >= 82;
+    final statusColor = ready
+        ? const Color(0xFF167A3C)
+        : good
+        ? primaryColor
+        : const Color(0xFFC62828);
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F6F3),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 14, 22, 18),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      height: 34,
+                      width: 34,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        CupertinoIcons.chevron_left,
+                        color: primaryColor,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 34),
+              const Text(
+                'Face Recognition',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Please into the camera and hold still',
+                style: TextStyle(
+                  color: Colors.black.withAlpha(120),
+                  fontSize: 11,
+                ),
+              ),
+              const Spacer(),
+              _AnimatedFaceScanner(
+                animation: _controller,
+                quality: _quality,
+                pose: widget.pose,
+                color: statusColor,
+                cameraController: _cameraController,
+                cameraReady: _cameraReady,
+              ),
+              const SizedBox(height: 34),
+              _ScanStatusPill(reason: _reason, color: statusColor),
+              const SizedBox(height: 18),
+              _ProgressBubble(score: score, color: statusColor, ready: ready),
+              const SizedBox(height: 16),
+              _QualityChecklist(score: score, color: statusColor),
+              const Spacer(),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _capture,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: ready ? statusColor : primaryColor,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: Text(ready ? 'Taking Photo...' : 'Open Camera'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AnimatedFaceScanner extends StatelessWidget {
+  final Animation<double> animation;
+  final double quality;
+  final MyPhotoPose pose;
+  final Color color;
+  final CameraController? cameraController;
+  final bool cameraReady;
+
+  const _AnimatedFaceScanner({
+    required this.animation,
+    required this.quality,
+    required this.pose,
+    required this.color,
+    required this.cameraController,
+    required this.cameraReady,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        return SizedBox(
+          height: 360,
+          width: 280,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(34),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                  child: Container(
+                    height: 286,
+                    width: 262,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(190),
+                      borderRadius: BorderRadius.circular(34),
+                      border: Border.all(color: Colors.white.withAlpha(150)),
+                    ),
+                  ),
+                ),
+              ),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(88),
+                child: Container(
+                  height: 216,
+                  width: 198,
+                  color: color.withAlpha(22),
+                  child:
+                      cameraReady &&
+                          cameraController != null &&
+                          cameraController!.value.isInitialized
+                      ? CameraPreview(cameraController!)
+                      : Icon(
+                          CupertinoIcons.camera_viewfinder,
+                          color: color.withAlpha(130),
+                          size: 72,
+                        ),
+                ),
+              ),
+              CustomPaint(
+                size: const Size(220, 264),
+                painter: _OvalFramePainter(color: color),
+              ),
+              Positioned(
+                left: 42,
+                right: 42,
+                top: 68 + animation.value * 142,
+                child: Container(
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(99),
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withAlpha(150),
+                        blurRadius: 18,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _OvalFramePainter extends CustomPainter {
+  final Color color;
+
+  const _OvalFramePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTWH(12, 8, size.width - 24, size.height - 16);
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawArc(rect, math.pi, math.pi, false, paint);
+    canvas.drawArc(rect, 0, math.pi, false, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _OvalFramePainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+class _ScanStatusPill extends StatelessWidget {
+  final String reason;
+  final Color color;
+
+  const _ScanStatusPill({required this.reason, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(210),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withAlpha(55)),
+      ),
+      child: Text(
+        reason,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _ProgressBubble extends StatelessWidget {
+  final int score;
+  final Color color;
+  final bool ready;
+
+  const _ProgressBubble({
+    required this.score,
+    required this.color,
+    required this.ready,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 58,
+      width: 58,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CircularProgressIndicator(
+            value: score / 100,
+            strokeWidth: 2.5,
+            color: color,
+            backgroundColor: Colors.black.withAlpha(14),
+          ),
+          Container(
+            height: 42,
+            width: 42,
+            decoration: BoxDecoration(
+              color: color.withAlpha(28),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: ready
+                  ? Icon(CupertinoIcons.checkmark_alt, color: color, size: 20)
+                  : Text(
+                      '$score%',
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QualityChecklist extends StatelessWidget {
+  final int score;
+  final Color color;
+
+  const _QualityChecklist({required this.score, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final checks = [
+      _Check('Same person', score >= 82),
+      _Check('Eyes open', score >= 86),
+      _Check('Good exposure', score >= 90),
+      _Check('Not blurry', score >= 94),
+    ];
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.center,
+      children: checks
+          .map(
+            (check) => _StatusPill(
+              label: check.label,
+              color: check.done ? color : const Color(0xFFC62828),
+              background: Colors.white.withAlpha(210),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+class _Check {
+  final String label;
+  final bool done;
+
+  const _Check(this.label, this.done);
+}
+
+class _StatusPill extends StatelessWidget {
+  final String label;
+  final Color color;
+  final Color background;
+
+  const _StatusPill({
+    required this.label,
+    required this.color,
+    required this.background,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}

@@ -1,0 +1,242 @@
+{
+  "info": {
+    "name": "Hari Smruti Auth Proxy",
+    "description": "Postman collection for testing the Flutter app auth proxy endpoints on the FastAPI backend. The app should call these endpoints, and the backend calls https://staging-admin.suhrad.digital/api/v1/*.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://192.168.31.71:8000/api/v1/mobile",
+      "type": "string"
+    },
+    {
+      "key": "mobile_api_key",
+      "value": "9606245936490b64a8ed41ccc0c8ebfb2022c9ac714a2e20094a5bb49bc98f47",
+      "type": "string"
+    },
+    {
+      "key": "mobile",
+      "value": "+916352411412",
+      "type": "string"
+    },
+    {
+      "key": "validation_method",
+      "value": "whatsapp",
+      "type": "string"
+    },
+    {
+      "key": "otp",
+      "value": "123456",
+      "type": "string"
+    },
+    {
+      "key": "device_id",
+      "value": "postman_harismruti",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "full_name",
+      "value": "Amit Shah",
+      "type": "string"
+    },
+    {
+      "key": "city",
+      "value": "Anand",
+      "type": "string"
+    },
+    {
+      "key": "email",
+      "value": "amit@example.com",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "noauth"
+  },
+  "item": [
+    {
+      "name": "Login - Send OTP",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "X-API-Key",
+            "value": "{{mobile_api_key}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"mobile\": \"{{mobile}}\",\n  \"validation_method\": \"{{validation_method}}\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/auth/login",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": "Calls FastAPI /api/v1/mobile/auth/login, which proxies to staging /api/v1/login."
+      },
+      "response": []
+    },
+    {
+      "name": "Verify OTP",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let json = {};",
+              "try { json = pm.response.json(); } catch (e) {}",
+              "if (json && json.data && json.data.token) {",
+              "  pm.collectionVariables.set('token', json.data.token);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "X-API-Key",
+            "value": "{{mobile_api_key}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{mobile}}\",\n  \"otp\": \"{{otp}}\",\n  \"device_id\": \"{{device_id}}\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/auth/verify-otp",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "auth",
+            "verify-otp"
+          ]
+        },
+        "description": "Calls FastAPI /api/v1/mobile/auth/verify-otp, which proxies to staging /api/v1/verify_otp. On success, saves data.token into the collection variable token."
+      },
+      "response": []
+    },
+    {
+      "name": "Refresh Token",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let json = {};",
+              "try { json = pm.response.json(); } catch (e) {}",
+              "if (json && json.data && json.data.token) {",
+              "  pm.collectionVariables.set('token', json.data.token);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "X-API-Key",
+            "value": "{{mobile_api_key}}"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": {
+          "raw": "{{base_url}}/auth/refresh",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "auth",
+            "refresh"
+          ]
+        },
+        "description": "Calls FastAPI /api/v1/mobile/auth/refresh, which proxies to staging /api/v1/token/refresh with Authorization: Bearer token."
+      },
+      "response": []
+    },
+    {
+      "name": "Register",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "X-API-Key",
+            "value": "{{mobile_api_key}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"full_name\": \"{{full_name}}\",\n  \"mobile\": \"{{mobile}}\",\n  \"city\": \"{{city}}\",\n  \"validation_method\": \"{{validation_method}}\",\n  \"email\": \"{{email}}\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/auth/register",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": "Calls FastAPI /api/v1/mobile/auth/register, which proxies to staging /api/v1/register."
+      },
+      "response": []
+    }
+  ]
+}
