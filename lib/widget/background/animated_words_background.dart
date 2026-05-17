@@ -9,6 +9,7 @@ class AnimatedWordsBackground extends StatefulWidget {
   final double opacity;
   final int veilAlpha;
   final bool chipBackground;
+  final Duration? animateFor;
 
   const AnimatedWordsBackground({
     super.key,
@@ -17,6 +18,7 @@ class AnimatedWordsBackground extends StatefulWidget {
     this.opacity = 0.62,
     this.veilAlpha = 178,
     this.chipBackground = true,
+    this.animateFor,
   });
 
   @override
@@ -123,6 +125,12 @@ class _AnimatedWordsBackgroundState extends State<AnimatedWordsBackground>
       vsync: this,
       duration: const Duration(seconds: 18),
     )..repeat();
+    final animateFor = widget.animateFor;
+    if (animateFor != null) {
+      Future.delayed(animateFor, () {
+        if (mounted) _controller.stop();
+      });
+    }
   }
 
   @override

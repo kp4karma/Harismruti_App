@@ -36,7 +36,7 @@ class GalleryCoverCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(12),
           boxShadow: const [
             BoxShadow(
               color: Colors.black12,
@@ -48,9 +48,7 @@ class GalleryCoverCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              height: height * 0.68,
-              width: double.infinity,
+            Expanded(
               child: card.coverUrl.isEmpty
                   ? Icon(Icons.photo, color: primaryColor)
                   : NetworkImageWithLoader(
@@ -60,7 +58,7 @@ class GalleryCoverCard extends StatelessWidget {
                     ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
+              padding: const EdgeInsets.fromLTRB(10, 7, 10, 1),
               child: Text(
                 card.title,
                 maxLines: 1,
@@ -72,7 +70,7 @@ class GalleryCoverCard extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 7),
               child: Text(
                 card.subtitle,
                 maxLines: 1,
@@ -515,7 +513,7 @@ class GalleryWithFeatureCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: const Color(0xFFF2E9E4),
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withAlpha(18),

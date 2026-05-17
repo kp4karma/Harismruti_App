@@ -184,17 +184,56 @@ class _ProfileAvatar extends StatelessWidget {
     return CircleAvatar(
       radius: 28,
       backgroundColor: Colors.white.withAlpha(170),
-      child: CircleAvatar(
-        radius: 25,
-        backgroundColor: backgroundColor,
-        backgroundImage: image != null
-            ? FileImage(image)
-            : avatarUrl.isNotEmpty
-            ? NetworkImage(avatarUrl)
-            : null,
-        child: image == null && avatarUrl.isEmpty
-            ? Icon(CupertinoIcons.person, color: primaryColor, size: 24)
-            : null,
+      child: ClipOval(
+        child: SizedBox(
+          width: 50,
+          height: 50,
+          child: image != null
+              ? Image.file(
+                  image,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _ProfileInitialAvatar(
+                    initial: profileController.avatarInitial,
+                  ),
+                )
+              : avatarUrl.isNotEmpty
+              ? Image.network(
+                  avatarUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _ProfileInitialAvatar(
+                    initial: profileController.avatarInitial,
+                  ),
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return _ProfileInitialAvatar(
+                      initial: profileController.avatarInitial,
+                    );
+                  },
+                )
+              : _ProfileInitialAvatar(initial: profileController.avatarInitial),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileInitialAvatar extends StatelessWidget {
+  final String initial;
+
+  const _ProfileInitialAvatar({required this.initial});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: primaryColor.withAlpha(24),
+      alignment: Alignment.center,
+      child: Text(
+        initial,
+        style: TextStyle(
+          color: primaryColor,
+          fontSize: 24,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }

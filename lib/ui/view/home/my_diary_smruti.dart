@@ -237,11 +237,13 @@ class MyDiaryScreen extends StatelessWidget {
 
 class DiaryEntryDetailScreen extends StatefulWidget {
   final DateTime date;
+  final String? entryId;
   final List<String> initialImages;
 
   const DiaryEntryDetailScreen({
     super.key,
     required this.date,
+    this.entryId,
     this.initialImages = const [],
   });
 
@@ -267,7 +269,7 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
   @override
   void initState() {
     super.initState();
-    final entry = controller.entryForDate(widget.date);
+    final entry = _selectedEntry();
     _titleController = TextEditingController();
     _noteController = TextEditingController();
     _tagController = TextEditingController();
@@ -276,6 +278,17 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
     if (entry == null && widget.initialImages.isNotEmpty) {
       _images.addAll(widget.initialImages);
     }
+  }
+
+  DiaryEntry? _selectedEntry() {
+    final id = widget.entryId;
+    if (id != null) {
+      final entry = controller.entries.firstWhereOrNull(
+        (item) => item.id == id,
+      );
+      if (entry != null) return entry;
+    }
+    return controller.entryForDate(widget.date);
   }
 
   @override
@@ -308,7 +321,7 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final entry = controller.entryForDate(widget.date);
+      final entry = _selectedEntry();
       if (_loadedEntryId == null &&
           entry != null &&
           _titleController.text.isEmpty &&

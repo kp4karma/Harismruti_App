@@ -13,6 +13,7 @@ class CustomBackground extends StatelessWidget {
       opacity: 0.28,
       veilAlpha: 142,
       chipBackground: false,
+      animateFor: const Duration(seconds: 3),
       child: child,
     );
   }

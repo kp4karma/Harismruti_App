@@ -45,6 +45,12 @@ class ProfileController extends GetxController {
     ]);
   }
 
+  String get avatarInitial {
+    final name = displayName.trim();
+    if (name.isEmpty) return 'H';
+    return name.characters.first.toUpperCase();
+  }
+
   String get displayId {
     return _firstNonEmpty([profile['id'], '']);
   }

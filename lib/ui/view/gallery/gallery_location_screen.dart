@@ -238,9 +238,21 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
   List<GalleryCard> get _matchingCities {
     final locations = _controller.locations.toList(growable: false);
     if (_query.isEmpty) return locations;
-    return locations
-        .where((card) => card.title.toLowerCase().contains(_query))
-        .toList();
+    return locations.where(_matchesLocationQuery).toList();
+  }
+
+  bool _matchesLocationQuery(GalleryCard card) {
+    final searchableText = [
+      card.title,
+      card.subtitle,
+      card.value,
+      card.type,
+      for (final photo in card.photos) ...[
+        photo.title ?? '',
+        photo.subtitle ?? '',
+      ],
+    ].join(' ').toLowerCase();
+    return searchableText.contains(_query);
   }
 
   @override
@@ -821,7 +833,7 @@ class _CitySearchField extends StatelessWidget {
         controller: controller,
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
-          hintText: 'Search city',
+          hintText: 'Search city or country',
           prefixIcon: Icon(CupertinoIcons.search, color: primaryColor),
           filled: true,
           fillColor: Colors.white.withAlpha(170),

@@ -4,13 +4,13 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 class SubHeader extends StatelessWidget {
   final String title;
   final VoidCallback? onTap;
-  final bool showIcon;
+  final bool showAction;
 
   const SubHeader({
     super.key,
     required this.title,
     this.onTap,
-    this.showIcon = true,
+    this.showAction = true,
   });
 
   @override
@@ -32,8 +32,7 @@ class SubHeader extends StatelessWidget {
                   ),
                 ),
               ),
-              // Icon button
-              if (showIcon)
+              if (showAction && onTap != null)
                 GestureDetector(
                   onTap: onTap,
                   child: Container(
@@ -44,13 +43,15 @@ class SubHeader extends StatelessWidget {
                     child: const Padding(
                       padding: EdgeInsets.all(6.0),
                       child: Icon(
-                        Icons.drag_handle_rounded,
+                        Icons.chevron_right_rounded,
                         color: Color(0xFF322318),
                         size: 20,
                       ),
                     ),
                   ),
-                ),
+                )
+              else
+                const SizedBox.shrink(),
             ],
           ),
         ),

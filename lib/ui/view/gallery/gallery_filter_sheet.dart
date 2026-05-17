@@ -155,7 +155,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
               ),
               Expanded(
                 child: Obx(() {
-                  final groups = _controller.filters;
+                  final groups = _controller.filtersWithUserTags;
                   if (groups.isEmpty) return const _FilterSheetLoading();
                   final safeIndex = _selectedIndex >= groups.length
                       ? groups.length - 1

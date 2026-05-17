@@ -7,8 +7,8 @@ import 'package:harismruti/helper/auth_redirect_helper.dart';
 import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
-import 'package:harismruti/ui/view/Profile/smruti_section_setting.dart';
 import 'package:harismruti/ui/view/gallery/gallery_filter_sheet.dart';
+import 'package:harismruti/ui/view/home/home_section_detail_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_string.dart';
 import 'package:harismruti/widget/appbar/custom_appbar.dart';
@@ -140,7 +140,12 @@ class _HomeScreenState extends State<HomeScreen>
                           children: [
                             SubHeader(
                               title: section['title'],
-                              onTap: _openCustomizePreferences,
+                              showAction: _hasSectionDetailAction(
+                                section['title'].toString(),
+                              ),
+                              onTap: () => _openSectionDetails(
+                                section['title'].toString(),
+                              ),
                             ),
                             section['widget'],
                           ],
@@ -159,14 +164,6 @@ class _HomeScreenState extends State<HomeScreen>
     });
   }
 
-  void _openCustomizePreferences() {
-    if (!AuthRedirectHelper.ensureLoggedIn()) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => SmrutiSectionSettingsScreen()),
-    );
-  }
-
   bool _hasVisibleSectionContent(Map<String, dynamic> section) {
     switch (section['title']) {
       case SmrutiSectionKeys.myFavorite:
@@ -179,6 +176,48 @@ class _HomeScreenState extends State<HomeScreen>
       default:
         return true;
     }
+  }
+
+  void _openSectionDetails(String title) {
+    if (title == SmrutiSectionKeys.myPhotos ||
+        title == SmrutiSectionKeys.myDiary ||
+        title == SmrutiSectionKeys.myFavorite ||
+        title == SmrutiSectionKeys.myCollection ||
+        title == 'My Phone' ||
+        title == 'My Photos' ||
+        title == 'My Diray' ||
+        title == 'My Favot' ||
+        title == 'My Favorites' ||
+        title == 'My Collectino') {
+      if (!AuthRedirectHelper.ensureLoggedIn()) return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => HomeSectionDetailScreen(title: title)),
+    );
+  }
+
+  bool _hasSectionDetailAction(String title) {
+    return switch (title) {
+      SmrutiSectionKeys.withSmruti ||
+      SmrutiSectionKeys.ofSmruti ||
+      SmrutiSectionKeys.location ||
+      SmrutiSectionKeys.album ||
+      SmrutiSectionKeys.collections ||
+      SmrutiSectionKeys.myPhotos ||
+      SmrutiSectionKeys.myDiary ||
+      SmrutiSectionKeys.myCollection ||
+      SmrutiSectionKeys.myFavorite ||
+      'Collection' ||
+      'My Phone' ||
+      'My Photos' ||
+      'My Diray' ||
+      'My Collectino' ||
+      'My Favot' ||
+      'My Favorites' => true,
+      _ => false,
+    };
   }
 }
 

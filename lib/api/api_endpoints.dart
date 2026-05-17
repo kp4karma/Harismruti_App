@@ -2,11 +2,11 @@ enum Environment { debug, profile, production }
 
 class ApiEndpoints {
   static Environment currentEnvironment = Environment.debug;
-  //
-  // static const String _defaultLiveDomain =
-  //     "https://hpsmruti.suhrad.digital/api/v1/mobile";
+
   static const String _defaultLiveDomain =
-      "http://192.168.31.71:8000/api/v1/mobile";
+      "https://hpsmruti.suhrad.digital/api/v1/mobile";
+  // static const String _defaultLiveDomain =
+      // "http://192.168.31.71:8000/api/v1/mobile";
   // "http://10.0.2.2:8000/api/v1/mobile";
   static final String _apiBaseUrl = String.fromEnvironment(
     "API_BASE_URL",
@@ -70,3 +70,4 @@ class ApiEndpoints {
       "$mainDomain/photos/$photoId/thumbnail";
   static String photoFull(int photoId) => "$mainDomain/photos/$photoId/full";
 }
+

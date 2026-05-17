@@ -2,7 +2,9 @@ import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:harismruti/helper/auth_redirect_helper.dart';
+import 'package:harismruti/ui/controller/ProfileController.dart';
 import 'package:harismruti/ui/view/Profile/profile_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
 
@@ -95,8 +97,7 @@ class CustomAppbar extends StatelessWidget implements PreferredSizeWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _RoundAppbarButton(
-                      icon: CupertinoIcons.person,
+                    _ProfileAppbarButton(
                       onTap: () {
                         if (!AuthRedirectHelper.ensureLoggedIn()) return;
                         Navigator.push(
@@ -120,26 +121,38 @@ class CustomAppbar extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => const Size.fromHeight(kToolbarHeight + 10);
 }
 
-class _RoundAppbarButton extends StatelessWidget {
-  final IconData icon;
+class _ProfileAppbarButton extends StatelessWidget {
   final VoidCallback onTap;
 
-  const _RoundAppbarButton({required this.icon, required this.onTap});
+  const _ProfileAppbarButton({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFFEDEDED),
-          shape: BoxShape.circle,
+    final controller = Get.isRegistered<ProfileController>()
+        ? Get.find<ProfileController>()
+        : Get.put(ProfileController());
+    return Obx(() {
+      return GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 44,
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: primaryColor.withAlpha(22),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white.withAlpha(180)),
+          ),
+          child: Text(
+            controller.avatarInitial,
+            style: TextStyle(
+              color: primaryColor,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Icon(icon, color: primaryColor),
-        ),
-      ),
-    );
+      );
+    });
   }
 }

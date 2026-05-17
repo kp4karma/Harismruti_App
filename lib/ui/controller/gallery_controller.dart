@@ -110,6 +110,28 @@ class GalleryController extends GetxController {
     return tags;
   }
 
+  List<GalleryFilterGroup> get filtersWithUserTags {
+    final groups = filters.toList();
+    final customTagGroup = _buildUserTagFilterGroup();
+    if (customTagGroup == null) return groups;
+
+    final tagGroupIndex = groups.indexWhere(
+      (group) => _tagFilterSlugs.contains(group.slug.toLowerCase()),
+    );
+    if (tagGroupIndex == -1) return [customTagGroup, ...groups];
+
+    final existing = groups[tagGroupIndex];
+    groups.removeAt(tagGroupIndex);
+    return [
+      GalleryFilterGroup(
+        slug: existing.slug,
+        title: 'MyTag',
+        options: _mergeFilterOptions(existing.options, customTagGroup.options),
+      ),
+      ...groups,
+    ];
+  }
+
   List<String> get allUserCollectionNames {
     final names = userCollections.map((collection) => collection.name).toList();
     names.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
@@ -587,5 +609,60 @@ class GalleryController extends GetxController {
     if (photo.id <= 0) return;
     savedPhotos[photo.id] = photo;
     savedPhotos.refresh();
+  }
+
+  static const Set<String> _tagFilterSlugs = {
+    'tag',
+    'tags',
+    'user_tag',
+    'user_tags',
+    'custom_tag',
+    'custom_tags',
+  };
+
+  GalleryFilterGroup? _buildUserTagFilterGroup() {
+    final tags = allUserTags;
+    if (tags.isEmpty) return null;
+
+    final counts = <String, int>{};
+    for (final values in userTags.values) {
+      for (final tag in values) {
+        final key = tag.trim().toLowerCase();
+        if (key.isEmpty) continue;
+        counts[key] = (counts[key] ?? 0) + 1;
+      }
+    }
+
+    return GalleryFilterGroup(
+      slug: 'tag',
+      title: 'MyTag',
+      options: tags
+          .map(
+            (tag) => GalleryFilterOption(
+              value: tag,
+              label: tag,
+              count: counts[tag.toLowerCase()] ?? 0,
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  List<GalleryFilterOption> _mergeFilterOptions(
+    List<GalleryFilterOption> existing,
+    List<GalleryFilterOption> custom,
+  ) {
+    final byValue = <String, GalleryFilterOption>{};
+    for (final option in existing) {
+      byValue[option.value.toLowerCase()] = option;
+    }
+    for (final option in custom) {
+      byValue.putIfAbsent(option.value.toLowerCase(), () => option);
+    }
+    final merged = byValue.values.toList();
+    merged.sort(
+      (a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()),
+    );
+    return merged;
   }
 }

@@ -6,6 +6,7 @@ class SwamiTabBar extends StatefulWidget {
   final List<String> tabs;
   final Function(int index)? onTabSelected;
   final VoidCallback? onSearchTap;
+  final VoidCallback? onFilterTap;
   final int initialIndex;
 
   const SwamiTabBar({
@@ -13,6 +14,7 @@ class SwamiTabBar extends StatefulWidget {
     required this.tabs,
     this.onTabSelected,
     this.onSearchTap,
+    this.onFilterTap,
     this.initialIndex = 0,
   });
 
@@ -26,7 +28,8 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
 
   final double itemPadding = 4;
   final double itemWidth = 200;
-  static const double _scrollEndPadding = 112;
+  static const double _actionsEndPadding = 168;
+  static const double _plainEndPadding = 16;
 
   @override
   void initState() {
@@ -60,6 +63,9 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
 
   @override
   Widget build(BuildContext context) {
+    final showActions =
+        widget.onSearchTap != null || widget.onFilterTap != null;
+
     return Stack(
       children: [
         // Background Blur
@@ -153,7 +159,11 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
                                     ),
                                   );
                                 }),
-                                const SizedBox(width: _scrollEndPadding),
+                                SizedBox(
+                                  width: showActions
+                                      ? _actionsEndPadding
+                                      : _plainEndPadding,
+                                ),
                               ],
                             ),
                           ),
@@ -205,26 +215,49 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
                   ),
                 ),
 
-                const SizedBox(width: 10),
-
-                // Search Button
-                GestureDetector(
-                  onTap: widget.onSearchTap,
-                  child: Container(
-                    height: 48,
-                    width: 48,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Color(0xFF823D3D),
+                if (showActions) ...[
+                  const SizedBox(width: 10),
+                  if (widget.onSearchTap != null)
+                    _BottomActionButton(
+                      icon: Icons.search,
+                      onTap: widget.onSearchTap,
                     ),
-                    child: const Icon(Icons.search, color: Colors.white),
-                  ),
-                ),
+                  if (widget.onSearchTap != null && widget.onFilterTap != null)
+                    const SizedBox(width: 8),
+                  if (widget.onFilterTap != null)
+                    _BottomActionButton(
+                      icon: Icons.tune_rounded,
+                      onTap: widget.onFilterTap,
+                    ),
+                ],
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _BottomActionButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  const _BottomActionButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 48,
+        width: 48,
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          color: Color(0xFF823D3D),
+        ),
+        child: Icon(icon, color: Colors.white),
+      ),
     );
   }
 }
