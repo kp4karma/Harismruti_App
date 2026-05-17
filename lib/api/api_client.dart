@@ -4,12 +4,12 @@ import 'dart:developer';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:get/get.dart' as get_x;
 
 import 'package:harismruti/api/api_endpoints.dart';
 import 'package:harismruti/helper/log_helper.dart';
-import 'package:harismruti/ui/view/splash/splash_screen.dart';
+import 'package:harismruti/helper/top_notification_helper.dart';
+import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -262,7 +262,7 @@ DATA: $responseData
 
     StorageHelper.setValue(key: StorageKeys.accessToken, value: "");
     StorageHelper.setValue(key: StorageKeys.refreshToken, value: "");
-    get_x.Get.offAll(() => SplashScreen());
+    get_x.Get.offAllNamed(AppRoutes.home);
   }
 
   static Future<String?> _getAccessToken() async {
@@ -305,14 +305,13 @@ DATA: $responseData
       }
     } else if (error.response?.data['detail'].toString() ==
         "Authentication error: Please install latest app version") {
-      EasyLoading.showError(
+      TopNotification.error(
         error.response!.data['detail']
             .toString()
             .split(":")
             .last
             .trim()
             .toString(),
-        duration: Duration(days: 3),
       );
     }
     return false;
@@ -498,7 +497,7 @@ DATA: $responseData
     if (json is Map && json.containsKey('message')) {
       final message = json['message'].toString();
       if (message.isNotEmpty) {
-        EasyLoading.showError(message);
+        TopNotification.error(message);
         return false; // error handled
       }
     }

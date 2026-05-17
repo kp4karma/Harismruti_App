@@ -7,7 +7,6 @@ import 'package:harismruti/helper/navigation_helper.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_images.dart';
 import 'package:harismruti/utils/app_routes.dart';
-import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/widget/background/animated_words_background.dart';
 import 'package:harismruti/widget/internet_status_widget.dart';
 
@@ -48,12 +47,7 @@ class SplashScreenState extends State<SplashScreen>
     await Future.delayed(const Duration(milliseconds: 2200));
     if (!mounted) return;
 
-    if (StorageHelper.isLogin()) {
-      NavigationHelper.navigateAndRemoveAll(AppRoutes.home);
-      return;
-    }
-
-    NavigationHelper.navigateAndReplace(AppRoutes.login);
+    NavigationHelper.navigateAndRemoveAll(AppRoutes.home);
   }
 
   @override
@@ -259,16 +253,6 @@ class _SplashLogoCard extends StatelessWidget {
                   color: Color(0xFF241A17),
                   fontSize: 22,
                   height: 1.08,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                "àª¤à«àª‚ àª°àª¾àªœà«€ àª¥àª¾",
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: primaryColor,
-                  fontSize: 16,
                   fontWeight: FontWeight.w800,
                 ),
               ),

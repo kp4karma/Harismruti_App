@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
+import 'package:harismruti/helper/auth_redirect_helper.dart';
+import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/view/home/my_diary_smruti.dart';
 import 'package:harismruti/utils/app_color.dart';
@@ -152,6 +154,7 @@ class _MusicStyleHeader extends StatelessWidget {
     return SliverAppBar(
       pinned: true,
       stretch: true,
+      centerTitle: true,
       expandedHeight: expandedHeight,
       backgroundColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
@@ -229,15 +232,16 @@ class _MusicStyleHeader extends StatelessWidget {
               Positioned(
                 top: MediaQuery.of(context).padding.top,
                 left: 72,
-                right: 16,
+                right: 72,
                 height: kToolbarHeight,
                 child: IgnorePointer(
                   child: Opacity(
                     opacity: glassOpacity,
                     child: Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: Alignment.center,
                       child: Text(
                         title,
+                        textAlign: TextAlign.center,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -670,9 +674,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
   Future<void> _copyShareLink() async {
     await Clipboard.setData(ClipboardData(text: _photo.fullUrl));
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Photo link ready to share')));
+    TopNotification.success('Photo link ready to share');
   }
 
   void _playFavoriteBurst() {
@@ -684,6 +686,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
   }
 
   void _toggleFavorite() {
+    if (!AuthRedirectHelper.ensureLoggedIn()) return;
     final wasFavorite = _controller.isFavorite(_photo.id);
     _controller.toggleFavorite(_photo);
     if (mounted) setState(() {});
@@ -691,6 +694,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
   }
 
   void _favoriteCurrentPhoto() {
+    if (!AuthRedirectHelper.ensureLoggedIn()) return;
     if (!_controller.isFavorite(_photo.id)) {
       _controller.toggleFavorite(_photo);
     }
@@ -698,6 +702,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
   }
 
   Future<void> _openAddCollectionSheet() async {
+    if (!AuthRedirectHelper.ensureLoggedIn()) return;
     final name = await _askForText(
       title: 'Add To Collection',
       hint: 'Collection name',
@@ -706,14 +711,16 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
       selectedValues: _controller.collectionNamesForPhoto(_photo.id),
     );
     if (name == null) return;
-    _controller.addPhotoToCollection(_photo, name);
+    final saved = await _controller.addPhotoToCollection(_photo, name);
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Added to "$name"')));
+    TopNotification.show(
+      message: saved ? 'Added to "$name"' : '"$name" is already added',
+      type: saved ? AppNotificationType.success : AppNotificationType.info,
+    );
   }
 
   Future<void> _openAddTagSheet() async {
+    if (!AuthRedirectHelper.ensureLoggedIn()) return;
     final tag = await _askForText(
       title: 'Add Tag',
       hint: 'Tag name',
@@ -722,11 +729,12 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
       selectedValues: _controller.tagsForPhoto(_photo.id),
     );
     if (tag == null) return;
-    _controller.addTagToPhoto(_photo, tag);
+    final saved = await _controller.addTagToPhoto(_photo, tag);
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Tag "$tag" added')));
+    TopNotification.show(
+      message: saved ? 'Tag "$tag" added' : 'Tag "$tag" is already added',
+      type: saved ? AppNotificationType.success : AppNotificationType.info,
+    );
   }
 
   void _showMoreOptions() {
@@ -745,6 +753,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.pop(context);
+              if (!AuthRedirectHelper.ensureLoggedIn()) return;
               Navigator.push(
                 context,
                 CupertinoPageRoute(
@@ -957,7 +966,10 @@ class _TextEntryBottomSheetState extends State<_TextEntryBottomSheet> {
 
   void _submit() {
     final text = _controller.text.trim();
-    if (text.isNotEmpty) {
+    final alreadySelected = widget.selectedValues.any(
+      (value) => value.toLowerCase() == text.toLowerCase(),
+    );
+    if (text.isNotEmpty && !alreadySelected) {
       Navigator.pop(context, text);
       return;
     }
@@ -968,14 +980,10 @@ class _TextEntryBottomSheetState extends State<_TextEntryBottomSheet> {
   Widget build(BuildContext context) {
     final query = _controller.text.trim().toLowerCase();
     final reusable = widget.suggestions
-        .where(
-          (value) => !widget.selectedValues.any(
-            (selected) => selected.toLowerCase() == value.toLowerCase(),
-          ),
-        )
         .where((value) => query.isEmpty || value.toLowerCase().contains(query))
         .toList();
     reusable.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    final isCollection = widget.title.toLowerCase().contains('collection');
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -1041,40 +1049,53 @@ class _TextEntryBottomSheetState extends State<_TextEntryBottomSheet> {
                   ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
-                    child: Column(
+                    child: Row(
                       children: [
-                        GestureDetector(
-                          onTap: _submit,
-                          child: Text(
-                            widget.title.toLowerCase().contains('collection')
-                                ? 'Create a New Collection'
-                                : 'Create a New Tag',
-                            style: TextStyle(
-                              color: primaryColor,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
+                        Expanded(
+                          child: TextField(
+                            controller: _controller,
+                            focusNode: _focusNode,
+                            textInputAction: TextInputAction.search,
+                            decoration: InputDecoration(
+                              prefixIcon: Icon(
+                                CupertinoIcons.search,
+                                color: primaryColor,
+                              ),
+                              hintText:
+                                  'Search ${isCollection ? 'collection' : 'tag'}',
+                              filled: true,
+                              fillColor: Colors.white.withAlpha(235),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide.none,
+                              ),
                             ),
+                            onSubmitted: (_) => _submit(),
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: _controller,
-                          focusNode: _focusNode,
-                          textInputAction: TextInputAction.done,
-                          decoration: InputDecoration(
-                            prefixIcon: Icon(
-                              CupertinoIcons.search,
+                        const SizedBox(width: 10),
+                        GestureDetector(
+                          onTap: _openCreateSheet,
+                          child: Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
                               color: primaryColor,
-                            ),
-                            hintText: widget.hint,
-                            filled: true,
-                            fillColor: Colors.white.withAlpha(235),
-                            border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide.none,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: primaryColor.withAlpha(42),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              CupertinoIcons.add,
+                              color: Colors.white,
+                              size: 24,
                             ),
                           ),
-                          onSubmitted: (_) => _submit(),
                         ),
                       ],
                     ),
@@ -1107,19 +1128,196 @@ class _TextEntryBottomSheetState extends State<_TextEntryBottomSheet> {
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
                         final value = reusable[index];
-                        final isCollection = widget.title
-                            .toLowerCase()
-                            .contains('collection');
+                        final selected = widget.selectedValues.any(
+                          (selected) =>
+                              selected.toLowerCase() == value.toLowerCase(),
+                        );
                         return _ReusableValueTile(
                           label: value,
-                          subtitle: isCollection ? 'Collection' : 'Tag',
+                          subtitle: selected
+                              ? 'Already added'
+                              : isCollection
+                              ? 'Collection'
+                              : '',
                           icon: isCollection
                               ? CupertinoIcons.collections
                               : CupertinoIcons.tag,
-                          onTap: () => Navigator.pop(context, value),
+                          selected: selected,
+                          onTap: selected
+                              ? null
+                              : () => Navigator.pop(context, value),
                         );
                       },
                     ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openCreateSheet() async {
+    final isCollection = widget.title.toLowerCase().contains('collection');
+    final value = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _CreateValueBottomSheet(
+        title: isCollection ? 'New Collection' : 'New Tag',
+        hint: widget.hint,
+        action: isCollection ? 'Add Collection' : 'Add Tag',
+        existingValues: [...widget.suggestions, ...widget.selectedValues],
+      ),
+    );
+    final clean = value?.trim();
+    if (clean == null || clean.isEmpty) return;
+    if (!mounted) return;
+    Navigator.pop(context, clean);
+  }
+}
+
+class _CreateValueBottomSheet extends StatefulWidget {
+  final String title;
+  final String hint;
+  final String action;
+  final List<String> existingValues;
+
+  const _CreateValueBottomSheet({
+    required this.title,
+    required this.hint,
+    required this.action,
+    required this.existingValues,
+  });
+
+  @override
+  State<_CreateValueBottomSheet> createState() =>
+      _CreateValueBottomSheetState();
+}
+
+class _CreateValueBottomSheetState extends State<_CreateValueBottomSheet> {
+  late final TextEditingController _controller;
+  late final FocusNode _focusNode;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+    _focusNode = FocusNode();
+    _controller.addListener(() {
+      if (_error != null) setState(() => _error = null);
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final value = _controller.text.trim();
+    if (value.isEmpty) {
+      setState(() => _error = 'Please enter a name');
+      _focusNode.requestFocus();
+      return;
+    }
+    final exists = widget.existingValues.any(
+      (item) => item.toLowerCase() == value.toLowerCase(),
+    );
+    if (exists) {
+      setState(() => _error = 'This already exists');
+      return;
+    }
+    Navigator.pop(context, value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8F6F3).withAlpha(248),
+              border: Border(
+                top: BorderSide(color: primaryColor.withAlpha(18)),
+              ),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: primaryColor,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          widget.title,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFF322318),
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 54),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    autofocus: true,
+                    textInputAction: TextInputAction.done,
+                    decoration: InputDecoration(
+                      hintText: widget.hint,
+                      errorText: _error,
+                      filled: true,
+                      fillColor: Colors.white.withAlpha(235),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onSubmitted: (_) => _submit(),
+                  ),
+                  const SizedBox(height: 14),
+                  ElevatedButton(
+                    onPressed: _submit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Text(widget.action),
                   ),
                 ],
               ),
@@ -1135,12 +1333,14 @@ class _ReusableValueTile extends StatelessWidget {
   final String label;
   final String subtitle;
   final IconData icon;
-  final VoidCallback onTap;
+  final bool selected;
+  final VoidCallback? onTap;
 
   const _ReusableValueTile({
     required this.label,
     required this.subtitle,
     required this.icon,
+    required this.selected,
     required this.onTap,
   });
 
@@ -1149,23 +1349,23 @@ class _ReusableValueTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
         decoration: BoxDecoration(
           color: Colors.white.withAlpha(235),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: primaryColor.withAlpha(16)),
         ),
         child: Row(
           children: [
             Container(
-              width: 46,
-              height: 46,
+              width: 38,
+              height: 38,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: primaryColor.withAlpha(22),
-                borderRadius: BorderRadius.circular(13),
+                borderRadius: BorderRadius.circular(11),
               ),
-              child: Icon(icon, color: primaryColor, size: 22),
+              child: Icon(icon, color: primaryColor, size: 19),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1182,19 +1382,27 @@ class _ReusableValueTile extends StatelessWidget {
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: Colors.black.withAlpha(125),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                  if (subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: Colors.black.withAlpha(125),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
-            Icon(CupertinoIcons.circle, color: primaryColor, size: 24),
+            Icon(
+              selected
+                  ? CupertinoIcons.checkmark_circle_fill
+                  : CupertinoIcons.circle,
+              color: primaryColor,
+              size: 24,
+            ),
           ],
         ),
       ),

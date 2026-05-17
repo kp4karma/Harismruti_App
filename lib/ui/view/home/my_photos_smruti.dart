@@ -8,9 +8,11 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
+import 'package:harismruti/helper/auth_redirect_helper.dart';
 import 'package:harismruti/helper/image_service.dart';
 import 'package:harismruti/ui/controller/my_photos_controller.dart';
 import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
 
 class MyPhotosSmruti extends StatelessWidget {
@@ -24,18 +26,23 @@ class MyPhotosSmruti extends StatelessWidget {
       final requiredDone = controller.requiredPoses
           .where((pose) => controller.photoForPose(pose) != null)
           .length;
-      final status = switch (controller.overallReviewStatus) {
-        MyPhotoReviewStatus.verified => 'Verified',
-        MyPhotoReviewStatus.pending => 'Verification pending',
-        MyPhotoReviewStatus.rejected => 'Rejected - upload again',
-        MyPhotoReviewStatus.draft => '$requiredDone/3 face views ready',
-      };
+      final status = !StorageHelper.isLogin()
+          ? 'Login required'
+          : switch (controller.overallReviewStatus) {
+              MyPhotoReviewStatus.verified => 'Verified',
+              MyPhotoReviewStatus.pending => 'Verification pending',
+              MyPhotoReviewStatus.rejected => 'Rejected - upload again',
+              MyPhotoReviewStatus.draft => '$requiredDone/3 face views ready',
+            };
 
       return GestureDetector(
-        onTap: () => Navigator.push(
-          context,
-          CupertinoPageRoute(builder: (_) => const MyPhoneGuideScreen()),
-        ),
+        onTap: () {
+          if (!AuthRedirectHelper.ensureLoggedIn()) return;
+          Navigator.push(
+            context,
+            CupertinoPageRoute(builder: (_) => const MyPhoneGuideScreen()),
+          );
+        },
         child: Container(
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 22),
           padding: const EdgeInsets.all(16),

@@ -61,8 +61,8 @@ class ApiEndpoints {
       "/me/tags/$photoId/${Uri.encodeComponent(tag)}";
   static String myCollection(String name) =>
       "/me/collections/${Uri.encodeComponent(name)}";
-  static String myDiaryEntry(String dateKey) =>
-      "/me/diary/${Uri.encodeComponent(dateKey)}";
+  static String myDiaryEntry(String entryId) =>
+      "/me/diary/${Uri.encodeComponent(entryId)}";
   static String myImage(int imageId) => "$mainDomain/me/images/$imageId";
   static String faceThumbnail(int faceId) =>
       "$mainDomain/faces/$faceId/thumbnail";

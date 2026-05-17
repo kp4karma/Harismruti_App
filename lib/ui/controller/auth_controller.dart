@@ -5,6 +5,7 @@ import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/auth_repository.dart';
 import 'package:harismruti/helper/navigation_helper.dart';
+import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:harismruti/ui/controller/ProfileController.dart';
 import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/storage_helper.dart';
@@ -25,7 +26,7 @@ class AuthController extends GetxController {
   }) async {
     final formattedMobile = _formatMobile(mobile);
     if (formattedMobile.isEmpty) {
-      EasyLoading.showError('Please enter mobile number');
+      TopNotification.error('Please enter mobile number');
       return false;
     }
 
@@ -57,7 +58,7 @@ class AuthController extends GetxController {
         formattedMobile.isEmpty ||
         city.trim().isEmpty ||
         email.trim().isEmpty) {
-      EasyLoading.showError('Please fill all fields');
+      TopNotification.error('Please fill all fields');
       return false;
     }
 
@@ -85,11 +86,11 @@ class AuthController extends GetxController {
 
   Future<bool> verifyOtp({required String otp}) async {
     if (lastMobile.value.isEmpty) {
-      EasyLoading.showError('Mobile number missing. Please login again.');
+      TopNotification.error('Mobile number missing. Please login again.');
       return false;
     }
     if (otp.trim().length != 6) {
-      EasyLoading.showError('Please enter valid OTP');
+      TopNotification.error('Please enter valid OTP');
       return false;
     }
 
@@ -104,7 +105,6 @@ class AuthController extends GetxController {
         return false;
       }
       _persistLogin(response.data);
-      _showServerMessage(response.data, fallback: 'User login successfully');
       NavigationHelper.navigateAndRemoveAll(AppRoutes.home);
       return true;
     });
@@ -118,15 +118,18 @@ class AuthController extends GetxController {
   }
 
   Future<bool> _runAuthRequest(Future<bool> Function() request) async {
+    if (isLoading.value) return false;
+
     try {
       isLoading.value = true;
       EasyLoading.show();
       return await request();
     } catch (error) {
-      EasyLoading.showError(_cleanError(error));
+      TopNotification.error(_cleanError(error));
       return false;
     } finally {
       isLoading.value = false;
+      await EasyLoading.dismiss();
     }
   }
 
@@ -160,11 +163,11 @@ class AuthController extends GetxController {
   }
 
   void _showServerMessage(dynamic responseData, {required String fallback}) {
-    EasyLoading.showSuccess(_serverMessage(responseData, fallback: fallback));
+    TopNotification.success(_serverMessage(responseData, fallback: fallback));
   }
 
   void _showServerError(dynamic responseData, {required String fallback}) {
-    EasyLoading.showError(_serverMessage(responseData, fallback: fallback));
+    TopNotification.error(_serverMessage(responseData, fallback: fallback));
   }
 
   bool _isSuccessfulResponse(dynamic responseData) {

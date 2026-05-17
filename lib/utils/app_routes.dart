@@ -9,6 +9,7 @@ import 'package:harismruti/ui/view/splash/splash_screen.dart';
 class AppRoutes {
   static const String splash = "/splash";
   static const String login = "/login";
+  static const String loginMobile = "$login/mobile";
   static const String register = "/register";
   static const String home = "/home";
 
@@ -21,7 +22,7 @@ class AppRoutes {
       transitionDuration: const Duration(milliseconds: 420),
     ),
     GetPage(
-      name: "$login/mobile",
+      name: loginMobile,
       page: () => const LoginScreen(),
       transition: Transition.cupertino,
     ),

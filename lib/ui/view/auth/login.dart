@@ -21,7 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final AuthController _authController = Get.find<AuthController>();
   final TextEditingController _mobileController = TextEditingController();
   String _countryCode = '+91';
-  String _validationMethod = 'whatsapp';
+  String _validationMethod = 'email';
 
   @override
   void dispose() {

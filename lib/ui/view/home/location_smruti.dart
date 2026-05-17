@@ -1,11 +1,50 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/widget/gallery/gallery_card_widgets.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 
-class LocationSmruti extends StatelessWidget {
+class LocationSmruti extends StatefulWidget {
   const LocationSmruti({super.key});
+
+  @override
+  State<LocationSmruti> createState() => _LocationSmrutiState();
+}
+
+class _LocationSmrutiState extends State<LocationSmruti> {
+  final ScrollController _scrollController = ScrollController();
+  Timer? _autoScrollTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startAutoScroll());
+  }
+
+  @override
+  void dispose() {
+    _autoScrollTimer?.cancel();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _startAutoScroll() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = Timer.periodic(const Duration(milliseconds: 35), (_) {
+      if (!_scrollController.hasClients) return;
+      final position = _scrollController.position;
+      if (position.maxScrollExtent <= 0) return;
+
+      final next = position.pixels + 0.45;
+      if (next >= position.maxScrollExtent) {
+        _scrollController.jumpTo(0);
+      } else {
+        _scrollController.jumpTo(next);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,6 +62,7 @@ class LocationSmruti extends StatelessWidget {
       return SizedBox(
         height: 310,
         child: ListView.builder(
+          controller: _scrollController,
           physics: const BouncingScrollPhysics(),
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),

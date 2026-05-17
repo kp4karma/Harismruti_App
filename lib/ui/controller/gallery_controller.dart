@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/api/repositories/gallery_repository.dart';
+import 'package:harismruti/utils/storage_helper.dart';
 
 const bool kShowFavoriteCountOnImages = false;
 
@@ -11,15 +12,31 @@ class UserPhotoCollection {
   const UserPhotoCollection({required this.name, required this.photoIds});
 
   factory UserPhotoCollection.fromJson(dynamic raw) {
+    if (raw is String) {
+      return UserPhotoCollection(name: raw.trim(), photoIds: const []);
+    }
     final json = asJsonMap(raw);
-    final name = json['name']?.toString().trim() ?? '';
-    final ids =
-        (json['photo_ids'] is List ? json['photo_ids'] as List : const [])
-            .map(
-              (value) => value is int ? value : int.tryParse(value.toString()),
-            )
-            .whereType<int>()
-            .toList();
+    final name =
+        json['name']?.toString().trim() ??
+        json['collection_name']?.toString().trim() ??
+        json['title']?.toString().trim() ??
+        '';
+    final rawIds = <dynamic>[
+      if (json['photo_ids'] is List) ...(json['photo_ids'] as List),
+      if (json['photoIds'] is List) ...(json['photoIds'] as List),
+      if (json['photos'] is List)
+        ...(json['photos'] as List).map((photo) {
+          if (photo is Map) {
+            return photo['id'] ?? photo['photo_id'] ?? photo['photoId'];
+          }
+          return photo;
+        }),
+    ];
+    final ids = rawIds
+        .map((value) => value is int ? value : int.tryParse(value.toString()))
+        .whereType<int>()
+        .toSet()
+        .toList();
     return UserPhotoCollection(name: name, photoIds: ids);
   }
 
@@ -49,6 +66,7 @@ class GalleryController extends GetxController {
   final RxSet<int> favoritePhotoIds = <int>{}.obs;
   final RxMap<int, GalleryPhoto> savedPhotos = <int, GalleryPhoto>{}.obs;
   final RxMap<int, List<String>> userTags = <int, List<String>>{}.obs;
+  final RxList<String> userTagNames = <String>[].obs;
   final RxList<UserPhotoCollection> userCollections =
       <UserPhotoCollection>[].obs;
 
@@ -84,7 +102,10 @@ class GalleryController extends GetxController {
 
   List<String> tagsForPhoto(int photoId) => userTags[photoId] ?? const [];
   List<String> get allUserTags {
-    final tags = userTags.values.expand((values) => values).toSet().toList();
+    final tags = {
+      ...userTagNames,
+      ...userTags.values.expand((values) => values),
+    }.toList();
     tags.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     return tags;
   }
@@ -110,6 +131,13 @@ class GalleryController extends GetxController {
   }
 
   Future<void> loadMyLibrary() async {
+    if (!StorageHelper.isLogin()) {
+      favoritePhotoIds.clear();
+      userTags.clear();
+      userTagNames.clear();
+      userCollections.clear();
+      return;
+    }
     try {
       final data = await _repository.getMyLibrary();
       final favoriteIds =
@@ -132,33 +160,42 @@ class GalleryController extends GetxController {
         savedPhotos[photo.id] = photo;
       }
 
-      final rawTags = asJsonMap(data['tags']);
-      userTags.assignAll(
-        rawTags.map((key, value) {
-          final values = value is List
-              ? value.map((item) => item.toString()).toList()
-              : <String>[];
-          return MapEntry(int.tryParse(key) ?? 0, values);
-        })..removeWhere((key, value) => key <= 0),
+      final parsedTags = _parseUserTags(
+        data['tags'] ?? data['user_tags'] ?? data['custom_tags'],
+      );
+      final parsedTagNames = _parseTagNames(
+        data['tag_names'] ?? data['all_tags'] ?? data['custom_tag_names'],
       );
 
-      final collections =
-          (data['collections'] is List ? data['collections'] as List : const [])
-              .map(UserPhotoCollection.fromJson)
-              .where((collection) => collection.name.isNotEmpty)
-              .toList();
+      final collections = _parseUserCollections(
+        data['collections'] ??
+            data['user_collections'] ??
+            data['custom_collections'],
+      );
 
       favoritePhotoIds.assignAll(favoriteIds);
+      userTags.assignAll(parsedTags);
+      userTagNames.assignAll(
+        _uniqueSorted([
+          ...parsedTagNames,
+          ..._parseTagNames(
+            data['tags'] ?? data['user_tags'] ?? data['custom_tags'],
+          ),
+          ...parsedTags.values.expand((values) => values),
+        ]),
+      );
       userCollections.assignAll(collections);
       savedPhotos.refresh();
     } catch (_) {
       favoritePhotoIds.clear();
       userTags.clear();
+      userTagNames.clear();
       userCollections.clear();
     }
   }
 
   void toggleFavorite(GalleryPhoto photo) {
+    if (!StorageHelper.isLogin()) return;
     _rememberPhoto(photo);
     if (favoritePhotoIds.contains(photo.id)) {
       favoritePhotoIds.remove(photo.id);
@@ -170,23 +207,41 @@ class GalleryController extends GetxController {
     favoritePhotoIds.refresh();
   }
 
-  void addTagToPhoto(GalleryPhoto photo, String tag) {
+  Future<bool> addTagToPhoto(GalleryPhoto photo, String tag) async {
+    if (!StorageHelper.isLogin()) return false;
     final normalized = tag.trim();
-    if (normalized.isEmpty) return;
+    if (normalized.isEmpty) return false;
     _rememberPhoto(photo);
     final current = [...tagsForPhoto(photo.id)];
     final exists = current.any(
       (value) => value.toLowerCase() == normalized.toLowerCase(),
     );
-    if (!exists) {
-      current.add(normalized);
-      userTags[photo.id] = current;
+    if (exists) return false;
+
+    current.add(normalized);
+    userTags[photo.id] = current;
+    userTagNames.assignAll(_uniqueSorted([...userTagNames, normalized]));
+    userTags.refresh();
+
+    try {
+      await _repository.addTag(photoId: photo.id, tag: normalized);
+      return true;
+    } catch (_) {
+      current.removeWhere(
+        (value) => value.toLowerCase() == normalized.toLowerCase(),
+      );
+      if (current.isEmpty) {
+        userTags.remove(photo.id);
+      } else {
+        userTags[photo.id] = current;
+      }
       userTags.refresh();
-      _repository.addTag(photoId: photo.id, tag: normalized);
+      return false;
     }
   }
 
   void removeTagFromPhoto(int photoId, String tag) {
+    if (!StorageHelper.isLogin()) return;
     final current = [...tagsForPhoto(photoId)];
     current.removeWhere((value) => value.toLowerCase() == tag.toLowerCase());
     if (current.isEmpty) {
@@ -198,13 +253,21 @@ class GalleryController extends GetxController {
     _repository.removeTag(photoId: photoId, tag: tag);
   }
 
-  void addPhotoToCollection(GalleryPhoto photo, String collectionName) {
+  Future<bool> addPhotoToCollection(
+    GalleryPhoto photo,
+    String collectionName,
+  ) async {
+    if (!StorageHelper.isLogin()) return false;
     final name = collectionName.trim();
-    if (name.isEmpty) return;
+    if (name.isEmpty) return false;
     _rememberPhoto(photo);
     final index = userCollections.indexWhere(
       (collection) => collection.name.toLowerCase() == name.toLowerCase(),
     );
+    final alreadyAdded =
+        index != -1 && userCollections[index].photoIds.contains(photo.id);
+    if (alreadyAdded) return false;
+
     if (index == -1) {
       userCollections.add(
         UserPhotoCollection(name: name, photoIds: [photo.id]),
@@ -219,10 +282,31 @@ class GalleryController extends GetxController {
       }
     }
     userCollections.refresh();
-    _repository.addPhotoToCollection(name: name, photoId: photo.id);
+
+    try {
+      await _repository.addPhotoToCollection(name: name, photoId: photo.id);
+      return true;
+    } catch (_) {
+      if (index == -1) {
+        userCollections.removeWhere(
+          (collection) => collection.name.toLowerCase() == name.toLowerCase(),
+        );
+      } else {
+        final collection = userCollections[index];
+        userCollections[index] = UserPhotoCollection(
+          name: collection.name,
+          photoIds: collection.photoIds
+              .where((photoId) => photoId != photo.id)
+              .toList(),
+        );
+      }
+      userCollections.refresh();
+      return false;
+    }
   }
 
   void removeCollection(String collectionName) {
+    if (!StorageHelper.isLogin()) return;
     userCollections.removeWhere(
       (collection) =>
           collection.name.toLowerCase() == collectionName.toLowerCase(),
@@ -230,6 +314,143 @@ class GalleryController extends GetxController {
     userCollections.refresh();
     _repository.removeCollection(collectionName);
   }
+
+  Map<int, List<String>> _parseUserTags(dynamic raw) {
+    final result = <int, List<String>>{};
+
+    void addTags(int photoId, Iterable<dynamic> tags) {
+      if (photoId <= 0) return;
+      final clean = tags
+          .map((tag) => tag.toString().trim())
+          .where((tag) => tag.isNotEmpty)
+          .toList();
+      if (clean.isEmpty) return;
+      result[photoId] = _uniqueSorted([
+        ...(result[photoId] ?? const []),
+        ...clean,
+      ]);
+    }
+
+    if (raw is Map) {
+      raw.forEach((key, value) {
+        final photoId = int.tryParse(key.toString()) ?? 0;
+        if (value is List) addTags(photoId, value);
+        if (value is String) addTags(photoId, [value]);
+      });
+    } else if (raw is List) {
+      for (final item in raw) {
+        if (item is Map) {
+          final json = Map<String, dynamic>.from(item);
+          final photoId =
+              _readInt(json, const ['photo_id', 'photoId', 'photo']) ?? 0;
+          final tags = json['tags'] is List
+              ? json['tags'] as List
+              : [
+                  json['tag'],
+                  json['name'],
+                  json['label'],
+                ].where((tag) => tag != null).toList();
+          addTags(photoId, tags);
+        }
+      }
+    }
+
+    return result;
+  }
+
+  List<String> _parseTagNames(dynamic raw) {
+    final names = <String>[];
+    void add(dynamic value) {
+      final name = value?.toString().trim() ?? '';
+      if (name.isNotEmpty) names.add(name);
+    }
+
+    if (raw is List) {
+      for (final item in raw) {
+        if (item is Map) {
+          add(item['name'] ?? item['tag'] ?? item['label']);
+        } else {
+          add(item);
+        }
+      }
+    } else if (raw is Map) {
+      raw.forEach((key, value) {
+        if (value is List) {
+          for (final item in value) {
+            add(
+              item is Map ? item['name'] ?? item['tag'] ?? item['label'] : item,
+            );
+          }
+        } else {
+          add(value);
+        }
+      });
+    }
+
+    return _uniqueSorted(names);
+  }
+
+  List<UserPhotoCollection> _parseUserCollections(dynamic raw) {
+    final collections = <UserPhotoCollection>[];
+    if (raw is List) {
+      collections.addAll(raw.map(UserPhotoCollection.fromJson));
+    } else if (raw is Map) {
+      raw.forEach((key, value) {
+        if (value is List) {
+          final ids = value
+              .map((item) => item is int ? item : int.tryParse(item.toString()))
+              .whereType<int>()
+              .toList();
+          collections.add(
+            UserPhotoCollection(name: key.toString(), photoIds: ids),
+          );
+        } else {
+          collections.add(UserPhotoCollection.fromJson(value));
+        }
+      });
+    }
+    final byName = <String, UserPhotoCollection>{};
+    for (final collection in collections) {
+      final name = collection.name.trim();
+      if (name.isEmpty) continue;
+      final key = name.toLowerCase();
+      final existing = byName[key];
+      byName[key] = UserPhotoCollection(
+        name: existing?.name ?? name,
+        photoIds: _uniqueInts([
+          ...(existing?.photoIds ?? const []),
+          ...collection.photoIds,
+        ]),
+      );
+    }
+    final values = byName.values.toList();
+    values.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return values;
+  }
+
+  int? _readInt(Map<String, dynamic> json, List<String> keys) {
+    for (final key in keys) {
+      final value = json[key];
+      if (value is int) return value;
+      final parsed = int.tryParse(value?.toString() ?? '');
+      if (parsed != null) return parsed;
+    }
+    return null;
+  }
+
+  List<String> _uniqueSorted(Iterable<String> values) {
+    final unique = <String, String>{};
+    for (final value in values) {
+      final clean = value.trim();
+      if (clean.isEmpty) continue;
+      unique.putIfAbsent(clean.toLowerCase(), () => clean);
+    }
+    final sorted = unique.values.toList();
+    sorted.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return sorted;
+  }
+
+  List<int> _uniqueInts(Iterable<int> values) => values.toSet().toList();
 
   Future<void> loadHome({bool force = false}) {
     final loadedRecently =

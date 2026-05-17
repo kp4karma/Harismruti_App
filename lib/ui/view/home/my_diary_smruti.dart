@@ -5,9 +5,13 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
-import 'package:harismruti/helper/image_service.dart';
+import 'package:harismruti/helper/top_notification_helper.dart';
+import 'package:harismruti/api/models/gallery_models.dart';
+import 'package:harismruti/helper/auth_redirect_helper.dart';
+import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/controller/my_diary_controller.dart';
 import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/widget/network_Image_with_loader.dart';
 
 class MyDiarySmruti extends StatelessWidget {
   const MyDiarySmruti({super.key});
@@ -54,10 +58,7 @@ class MyDiarySmruti extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      CupertinoPageRoute(builder: (_) => const MyDiaryScreen()),
-                    ),
+                    onTap: () => _openDiary(context),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -84,10 +85,7 @@ class MyDiarySmruti extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  onPressed: () => Navigator.push(
-                    context,
-                    CupertinoPageRoute(builder: (_) => const MyDiaryScreen()),
-                  ),
+                  onPressed: () => _openDiary(context),
                   icon: Icon(CupertinoIcons.chevron_right, color: primaryColor),
                 ),
               ],
@@ -106,12 +104,7 @@ class MyDiarySmruti extends StatelessWidget {
                     date: date,
                     isSelected: _isSameDate(date, DateTime.now()),
                     hasEntry: controller.hasEntryForDate(date),
-                    onTap: () => Navigator.push(
-                      context,
-                      CupertinoPageRoute(
-                        builder: (_) => DiaryEntryDetailScreen(date: date),
-                      ),
-                    ),
+                    onTap: () => _openDiaryDate(context, date),
                   );
                 },
               ),
@@ -120,6 +113,22 @@ class MyDiarySmruti extends StatelessWidget {
         ),
       );
     });
+  }
+
+  void _openDiary(BuildContext context) {
+    if (!AuthRedirectHelper.ensureLoggedIn()) return;
+    Navigator.push(
+      context,
+      CupertinoPageRoute(builder: (_) => const MyDiaryScreen()),
+    );
+  }
+
+  void _openDiaryDate(BuildContext context, DateTime date) {
+    if (!AuthRedirectHelper.ensureLoggedIn()) return;
+    Navigator.push(
+      context,
+      CupertinoPageRoute(builder: (_) => DiaryEntryDetailScreen(date: date)),
+    );
   }
 }
 
@@ -314,7 +323,6 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
           title: _formatDetailDate(widget.date),
           leading: CupertinoIcons.chevron_left,
           onLeadingTap: () => Navigator.pop(context),
-          centerTitle: false,
           actions: [
             _GlassIconButton(
               icon: CupertinoIcons.calendar,
@@ -340,7 +348,11 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
               _locationController.text.trim().isNotEmpty ||
               (_latitude != null && _longitude != null),
         ),
-        body: _buildEditor(),
+        body: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: _buildEditor(),
+        ),
       );
     });
   }
@@ -482,15 +494,18 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
   }
 
   Future<void> _pickDiaryImages() async {
-    final paths = await ImagePickerHelper.pickGalleryImages(
-      allowMultiple: true,
-      enableCrop: false,
+    FocusManager.instance.primaryFocus?.unfocus();
+    final selected = await showModalBottomSheet<List<String>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _DiaryPhotoSelectionSheet(initialSelected: _images),
     );
-    if (paths.isEmpty) return;
+    if (selected == null) return;
     setState(() {
-      for (final path in paths) {
-        if (!_images.contains(path)) _images.add(path);
-      }
+      _images
+        ..clear()
+        ..addAll(selected);
     });
   }
 
@@ -664,7 +679,7 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
   }
 
   void _showMessage(String message) {
-    Get.snackbar('My Diary', message, snackPosition: SnackPosition.BOTTOM);
+    TopNotification.show(title: 'My Diary', message: message);
   }
 
   void _discard(DiaryEntry? entry) {
@@ -747,14 +762,12 @@ class _DiaryGlassAppBar extends StatelessWidget implements PreferredSizeWidget {
   final IconData leading;
   final VoidCallback onLeadingTap;
   final List<Widget> actions;
-  final bool centerTitle;
 
   const _DiaryGlassAppBar({
     required this.title,
     required this.leading,
     required this.onLeadingTap,
     this.actions = const [],
-    this.centerTitle = true,
   });
 
   @override
@@ -785,7 +798,7 @@ class _DiaryGlassAppBar extends StatelessWidget implements PreferredSizeWidget {
           ),
         ),
         AppBar(
-          centerTitle: centerTitle,
+          centerTitle: true,
           backgroundColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
@@ -1167,6 +1180,279 @@ class _DateNotesList extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _DiaryPhotoSelectionSheet extends StatefulWidget {
+  final List<String> initialSelected;
+
+  const _DiaryPhotoSelectionSheet({required this.initialSelected});
+
+  @override
+  State<_DiaryPhotoSelectionSheet> createState() =>
+      _DiaryPhotoSelectionSheetState();
+}
+
+class _DiaryPhotoSelectionSheetState extends State<_DiaryPhotoSelectionSheet> {
+  final GalleryController _galleryController = Get.find<GalleryController>();
+  late final Set<String> _selected = widget.initialSelected.toSet();
+
+  @override
+  Widget build(BuildContext context) {
+    final photos = _galleryController.recentPhotos.toList(growable: false)
+      ..sort((a, b) {
+        final aDate = a.takenAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bDate = b.takenAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bDate.compareTo(aDate);
+      });
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.86,
+      minChildSize: 0.55,
+      maxChildSize: 0.94,
+      builder: (context, scrollController) {
+        return ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+            child: Container(
+              color: const Color(0xFFF8F6F3).withAlpha(248),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  children: [
+                    _DiaryPhotoSelectionHeader(
+                      selectedCount: _selected.length,
+                      onCancel: () => Navigator.pop(context),
+                      onDone: () => Navigator.pop(context, _selected.toList()),
+                    ),
+                    Expanded(
+                      child: photos.isEmpty
+                          ? const _PickerEmptyState(
+                              message:
+                                  'No recent photos are loaded yet. Pull home to refresh and try again.',
+                            )
+                          : GridView.builder(
+                              controller: scrollController,
+                              physics: const BouncingScrollPhysics(),
+                              padding: const EdgeInsets.fromLTRB(
+                                12,
+                                10,
+                                12,
+                                24,
+                              ),
+                              itemCount: photos.length,
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 3,
+                                    mainAxisSpacing: 3,
+                                    crossAxisSpacing: 3,
+                                    childAspectRatio: 1,
+                                  ),
+                              itemBuilder: (context, index) {
+                                final photo = photos[index];
+                                final value = photo.fullUrl.isNotEmpty
+                                    ? photo.fullUrl
+                                    : photo.thumbnailUrl;
+                                final selected = _selected.contains(value);
+                                final selectedIndex = _selected
+                                    .toList()
+                                    .indexOf(value);
+                                return _DiarySelectablePhotoTile(
+                                  photo: photo,
+                                  selected: selected,
+                                  selectedIndex: selectedIndex,
+                                  headers: _galleryController.imageHeaders,
+                                  onTap: () {
+                                    setState(() {
+                                      if (selected) {
+                                        _selected.remove(value);
+                                      } else {
+                                        _selected.add(value);
+                                      }
+                                    });
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _DiaryPhotoSelectionHeader extends StatelessWidget {
+  final int selectedCount;
+  final VoidCallback onCancel;
+  final VoidCallback onDone;
+
+  const _DiaryPhotoSelectionHeader({
+    required this.selectedCount,
+    required this.onCancel,
+    required this.onDone,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(218),
+        border: Border(bottom: BorderSide(color: primaryColor.withAlpha(16))),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 42,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.black.withAlpha(35),
+              borderRadius: BorderRadius.circular(99),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              GestureDetector(
+                onTap: onCancel,
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: primaryColor,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  children: [
+                    const Text(
+                      'Select Photos',
+                      style: TextStyle(
+                        color: Color(0xFF322318),
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      selectedCount == 0
+                          ? 'Recent to past'
+                          : '$selectedCount selected',
+                      style: TextStyle(
+                        color: Colors.black.withAlpha(135),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              GestureDetector(
+                onTap: onDone,
+                child: Text(
+                  'Done',
+                  style: TextStyle(
+                    color: primaryColor,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DiarySelectablePhotoTile extends StatelessWidget {
+  final GalleryPhoto photo;
+  final bool selected;
+  final int selectedIndex;
+  final Map<String, String>? headers;
+  final VoidCallback onTap;
+
+  const _DiarySelectablePhotoTile({
+    required this.photo,
+    required this.selected,
+    required this.selectedIndex,
+    required this.headers,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedScale(
+        scale: selected ? 0.93 : 1,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutBack,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            NetworkImageWithLoader(
+              imageUrl: photo.thumbnailUrl,
+              title: photo.title ?? 'Diary photo',
+              headers: headers,
+            ),
+            AnimatedOpacity(
+              opacity: selected ? 1 : 0,
+              duration: const Duration(milliseconds: 160),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.black.withAlpha(70),
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 7,
+              right: 7,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutBack,
+                width: selected ? 27 : 22,
+                height: selected ? 27 : 22,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: selected ? primaryColor : Colors.black.withAlpha(45),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.6),
+                ),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 140),
+                  transitionBuilder: (child, animation) {
+                    return ScaleTransition(scale: animation, child: child);
+                  },
+                  child: selected
+                      ? Text(
+                          '${selectedIndex + 1}',
+                          key: ValueKey(selectedIndex),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        )
+                      : const SizedBox(key: ValueKey('empty')),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

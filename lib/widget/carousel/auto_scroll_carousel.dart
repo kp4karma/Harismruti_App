@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 class AutoScrollCarousel extends StatefulWidget {
@@ -93,13 +94,15 @@ class _AutoScrollCarouselState extends State<AutoScrollCarousel> {
           rotation = offset * 0.05;
         }
 
-        return Transform(
-          alignment: Alignment.center,
-          transform: Matrix4.identity()
-            ..rotateZ(rotation)
-            ..scale(scale)
-            ..translate(0.0, offset.abs() * 20),
-          child: _carouselCard(widget.imageUrls[imageIndex], offset),
+        return Transform.translate(
+          offset: Offset(0, offset.abs() * 20),
+          child: Transform.rotate(
+            angle: rotation,
+            child: Transform.scale(
+              scale: scale,
+              child: _carouselCard(widget.imageUrls[imageIndex], offset),
+            ),
+          ),
         );
       },
     );
@@ -108,6 +111,10 @@ class _AutoScrollCarouselState extends State<AutoScrollCarousel> {
   Widget _carouselCard(String imageUrl, double offset) {
     double absOffset = offset.abs().clamp(0.0, 1.0);
     double whiteOverlayOpacity = lerpDouble(0, 0.7, absOffset)!;
+    final imageProvider = CachedNetworkImageProvider(
+      imageUrl,
+      headers: widget.imageHeaders,
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
@@ -119,10 +126,7 @@ class _AutoScrollCarouselState extends State<AutoScrollCarousel> {
             height: widget.height,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
-              image: DecorationImage(
-                image: NetworkImage(imageUrl, headers: widget.imageHeaders),
-                fit: BoxFit.cover,
-              ),
+              image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
               boxShadow: [
                 BoxShadow(
                   offset: const Offset(0, 8),
@@ -138,7 +142,9 @@ class _AutoScrollCarouselState extends State<AutoScrollCarousel> {
               height: widget.height,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
-                color: Colors.white.withOpacity(whiteOverlayOpacity),
+                color: Colors.white.withAlpha(
+                  (whiteOverlayOpacity * 255).round(),
+                ),
               ),
             ),
         ],

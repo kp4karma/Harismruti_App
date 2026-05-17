@@ -27,8 +27,8 @@ class DiaryRepository {
     return _entryFromResponse(response.data);
   }
 
-  Future<void> deleteEntry(String dateKey) async {
-    await ApiClient.delete(ApiEndpoints.myDiaryEntry(dateKey));
+  Future<void> deleteEntry(String entryId) async {
+    await ApiClient.delete(ApiEndpoints.myDiaryEntry(entryId));
   }
 
   DiaryEntry? _entryFromResponse(dynamic data) {

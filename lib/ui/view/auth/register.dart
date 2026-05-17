@@ -24,7 +24,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _mobileController = TextEditingController();
   String _countryCode = '+91';
-  String _validationMethod = 'whatsapp';
+  String _validationMethod = 'email';
 
   @override
   void dispose() {

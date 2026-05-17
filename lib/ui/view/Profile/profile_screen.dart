@@ -55,7 +55,7 @@ class ProfileScreen extends StatelessWidget {
                     label: 'Logout',
                     onTap: () {
                       StorageHelper.clearStorage();
-                      NavigationHelper.navigateAndRemoveAll(AppRoutes.login);
+                      NavigationHelper.navigateAndRemoveAll(AppRoutes.home);
                     },
                   ),
                 ],

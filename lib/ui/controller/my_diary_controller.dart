@@ -195,6 +195,10 @@ class MyDiaryController extends GetxController {
   bool hasEntryForDate(DateTime date) => entryForDate(date) != null;
 
   Future<void> loadEntries() async {
+    if (!StorageHelper.isLogin()) {
+      entries.clear();
+      return;
+    }
     final localEntries = _loadLocalEntries();
     if (localEntries.isNotEmpty) {
       entries.assignAll(localEntries);
@@ -298,9 +302,7 @@ class MyDiaryController extends GetxController {
     try {
       final saved = await _repository.saveEntry(entry);
       if (saved != null) {
-        final index = entries.indexWhere(
-          (item) => item.dateKey == saved.dateKey,
-        );
+        final index = entries.indexWhere((item) => item.id == saved.id);
         if (index == -1) {
           entries.insert(0, saved);
         } else {
@@ -318,7 +320,7 @@ class MyDiaryController extends GetxController {
     _persist();
     if (entry == null) return;
     try {
-      await _repository.deleteEntry(entry.dateKey);
+      await _repository.deleteEntry(entry.id);
     } catch (_) {}
   }
 

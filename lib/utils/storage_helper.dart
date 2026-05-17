@@ -16,6 +16,7 @@ class StorageKeys {
   static const String galleryPhotoSnapshots = 'galleryPhotoSnapshots';
   static const String photoUserTags = 'photoUserTags';
   static const String userCollections = 'userCollections';
+  static const String authCarouselImages = 'authCarouselImages';
 }
 
 class StorageHelper {

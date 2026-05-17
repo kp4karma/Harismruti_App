@@ -1,5 +1,5 @@
-import 'package:get/get.dart';
+import 'package:harismruti/helper/top_notification_helper.dart';
 
-showSnackBar({required title, required message}) {
-  Get.snackbar(title, message);
+showTopNotification({required title, required message}) {
+  TopNotification.show(title: title.toString(), message: message.toString());
 }

@@ -514,6 +514,7 @@ class MyPhotosController extends GetxController {
   }
 
   Future<void> _loadRemotePhotos() async {
+    if (!StorageHelper.isLogin()) return;
     try {
       final library = await _repository.getMyLibrary();
       final remote = library['user_images'] is List
@@ -544,7 +545,9 @@ class MyPhotosController extends GetxController {
   }
 
   Future<void> fetchServerMatches() async {
-    if (!isVerified || isFetchingMatches.value) return;
+    if (!StorageHelper.isLogin() || !isVerified || isFetchingMatches.value) {
+      return;
+    }
     isFetchingMatches.value = true;
     try {
       if (Get.isRegistered<GalleryController>()) {

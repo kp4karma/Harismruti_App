@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
+import 'package:harismruti/helper/auth_redirect_helper.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
 
@@ -15,8 +17,20 @@ class MyCollectionSmruti extends StatelessWidget {
   Widget build(BuildContext context) {
     final galleryController = Get.find<GalleryController>();
 
+    if (!StorageHelper.isLogin()) {
+      return GestureDetector(
+        onTap: AuthRedirectHelper.ensureLoggedIn,
+        child: GalleryEmptyState(
+          height: 190.h,
+          message: 'Login to see your collections',
+        ),
+      );
+    }
+
     return Obx(() {
-      final collections = galleryController.userCollections;
+      final collections = galleryController.userCollections.toList(
+        growable: false,
+      );
       if (collections.isEmpty) {
         return GalleryEmptyState(
           height: 190.h,

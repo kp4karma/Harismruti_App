@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:harismruti/api/repositories/gallery_repository.dart';
+import 'package:harismruti/utils/storage_helper.dart';
 
 class AuthCarouselImages {
   final List<String> imageUrls;
@@ -16,6 +17,21 @@ class AuthCarouselRepository {
   final GalleryRepository _galleryRepository;
 
   Map<String, String> get imageHeaders => _galleryRepository.imageHeaders;
+
+  AuthCarouselImages? getCachedRecentImages() {
+    final urls = StorageHelper.getValue<List>(
+      key: StorageKeys.authCarouselImages,
+    );
+    if (urls == null || urls.isEmpty) return null;
+
+    return AuthCarouselImages(
+      imageUrls: urls
+          .map((url) => url.toString())
+          .where((url) => url.isNotEmpty)
+          .toList(),
+      headers: imageHeaders,
+    );
+  }
 
   Future<AuthCarouselImages> getRandomRecentImages({
     int recentLimit = 50,
@@ -33,12 +49,15 @@ class AuthCarouselRepository {
 
       if (urls.isEmpty) return AuthCarouselImages(imageUrls: const []);
 
-      return AuthCarouselImages(
-        imageUrls: urls.take(displayCount).toList(),
-        headers: imageHeaders,
+      final selectedUrls = urls.take(displayCount).toList();
+      StorageHelper.setValue(
+        key: StorageKeys.authCarouselImages,
+        value: selectedUrls,
       );
+
+      return AuthCarouselImages(imageUrls: selectedUrls, headers: imageHeaders);
     } catch (_) {
-      return AuthCarouselImages(imageUrls: const []);
+      return getCachedRecentImages() ?? AuthCarouselImages(imageUrls: const []);
     }
   }
 }
