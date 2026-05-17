@@ -7,7 +7,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
-import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
@@ -24,6 +23,8 @@ class GalleryLocationScreen extends StatefulWidget {
 
 class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
   static final LatLng _fallbackCenter = LatLng(20.5937, 78.9629);
+  static const double _minMapZoom = 7.5;
+  static const double _maxFitZoom = 15;
   static const double _cityChipWidth = 132;
   static const double _selectedCityChipWidth = 156;
   static const double _cityChipGap = 10;
@@ -93,21 +94,6 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
         _mapController.move(point, 10.5);
       }
     });
-  }
-
-  void _openPhotos(List<GalleryPhoto> photos, int total) {
-    if (photos.isEmpty) return;
-    Navigator.push(
-      context,
-      CupertinoPageRoute(
-        builder: (_) => GalleryDetailScreen(
-          title: _activeCard.title,
-          subtitle: '$total Photos',
-          coverUrl: photos.first.thumbnailUrl,
-          loader: () async => photos,
-        ),
-      ),
-    );
   }
 
   void _centerSelectedCity(GalleryCard card) {
@@ -189,12 +175,14 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
             locationMarkers.map((marker) => marker.point).toList(),
           ),
           padding: const EdgeInsets.fromLTRB(48, 110, 48, 230),
+          minZoom: _minMapZoom,
+          maxZoom: _maxFitZoom,
         ),
       );
       return;
     }
     if (validClusters.isEmpty) {
-      _mapController.move(_fallbackCenter, 4.5);
+      _mapController.move(_fallbackCenter, _minMapZoom);
       return;
     }
     if (validClusters.length == 1) {
@@ -207,6 +195,8 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
           validClusters.map((cluster) => cluster.point).toList(),
         ),
         padding: const EdgeInsets.fromLTRB(48, 110, 48, 230),
+        minZoom: _minMapZoom,
+        maxZoom: _maxFitZoom,
       ),
     );
   }
@@ -277,7 +267,6 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
                   locationLabel: _activeCard.title,
                   headers: _controller.imageHeaders,
                   loading: loading,
-                  onOpenPhotos: () => _openPhotos(photos, total),
                   onLocationTap: _selectCity,
                 ),
               ),
@@ -333,7 +322,6 @@ class _PhotoCoordinateMap extends StatelessWidget {
   final String locationLabel;
   final Map<String, String>? headers;
   final bool loading;
-  final VoidCallback onOpenPhotos;
   final ValueChanged<GalleryCard> onLocationTap;
 
   const _PhotoCoordinateMap({
@@ -347,7 +335,6 @@ class _PhotoCoordinateMap extends StatelessWidget {
     required this.locationLabel,
     required this.headers,
     required this.loading,
-    required this.onOpenPhotos,
     required this.onLocationTap,
   });
 
@@ -363,6 +350,8 @@ class _PhotoCoordinateMap extends StatelessWidget {
             options: MapOptions(
               initialCenter: center,
               initialZoom: clusters.length <= 1 ? 13 : 11,
+              minZoom: _GalleryLocationScreenState._minMapZoom,
+              maxZoom: 18,
               interactionOptions: const InteractionOptions(
                 flags:
                     InteractiveFlag.drag |
@@ -377,28 +366,17 @@ class _PhotoCoordinateMap extends StatelessWidget {
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 fallbackUrl: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.harismruti.app',
-                maxZoom: 19,
+                minZoom: _GalleryLocationScreenState._minMapZoom,
+                maxZoom: 18,
                 tileBuilder: (context, tileWidget, tile) => tileWidget,
               ),
               MarkerLayer(
                 markers: [
-                  for (final cluster in clusters)
-                    Marker(
-                      point: cluster.point,
-                      width: 86,
-                      height: 92,
-                      child: _PhotoMapMarker(
-                        cluster: cluster,
-                        locationLabel: locationLabel,
-                        headers: headers,
-                        onTap: onOpenPhotos,
-                      ),
-                    ),
                   for (final marker in locationMarkers)
                     Marker(
                       point: marker.point,
-                      width: marker.isFor(activeCard) ? 118 : 94,
-                      height: marker.isFor(activeCard) ? 106 : 88,
+                      width: marker.isFor(activeCard) ? 118 : 104,
+                      height: marker.isFor(activeCard) ? 116 : 104,
                       child: _LocationGroupMapMarker(
                         marker: marker,
                         selected: marker.isFor(activeCard),
@@ -420,15 +398,6 @@ class _PhotoCoordinateMap extends StatelessWidget {
             )
           else if (clusters.isEmpty)
             Center(child: _NoCoordinateNotice(total: total)),
-          Positioned(
-            right: 18,
-            bottom: 300,
-            child: _RoundMapButton(
-              icon: CupertinoIcons.layers_alt,
-              onTap: onOpenPhotos,
-              highlighted: true,
-            ),
-          ),
         ],
       ),
     );
@@ -450,6 +419,9 @@ class _LocationGroupMapMarker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(selected ? 20 : 18);
+    final labelColor = primaryColor;
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedScale(
@@ -460,15 +432,13 @@ class _LocationGroupMapMarker extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: selected ? 100 : 82,
-              padding: const EdgeInsets.fromLTRB(5, 5, 5, 7),
+              width: selected ? 108 : 94,
+              padding: const EdgeInsets.fromLTRB(6, 6, 6, 7),
               decoration: BoxDecoration(
-                color: selected
-                    ? primaryColor.withAlpha(225)
-                    : Colors.white.withAlpha(220),
-                borderRadius: BorderRadius.circular(selected ? 20 : 18),
+                color: Colors.white.withAlpha(230),
+                borderRadius: radius,
                 border: Border.all(
-                  color: selected ? Colors.white : primaryColor.withAlpha(95),
+                  color: selected ? primaryColor : primaryColor.withAlpha(95),
                   width: selected ? 2 : 1,
                 ),
                 boxShadow: [
@@ -479,20 +449,20 @@ class _LocationGroupMapMarker extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Row(
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ClipOval(
                     child: SizedBox(
-                      width: selected ? 34 : 28,
-                      height: selected ? 34 : 28,
+                      width: selected ? 42 : 36,
+                      height: selected ? 42 : 36,
                       child: marker.card.coverUrl.isEmpty
                           ? ColoredBox(
                               color: const Color(0xFFF2E9E4),
                               child: Icon(
                                 CupertinoIcons.photo,
-                                color: selected ? primaryColor : Colors.white,
-                                size: 15,
+                                color: primaryColor,
+                                size: selected ? 18 : 16,
                               ),
                             )
                           : NetworkImageWithLoader(
@@ -502,16 +472,20 @@ class _LocationGroupMapMarker extends StatelessWidget {
                             ),
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      marker.card.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: selected ? Colors.white : primaryColor,
-                        fontSize: selected ? 11 : 10,
-                        fontWeight: FontWeight.w900,
+                  const SizedBox(height: 5),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        marker.card.title,
+                        maxLines: 1,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: labelColor,
+                          fontSize: selected ? 12 : 11,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                   ),
@@ -521,159 +495,12 @@ class _LocationGroupMapMarker extends StatelessWidget {
             CustomPaint(
               size: Size(selected ? 18 : 14, selected ? 10 : 8),
               painter: _MarkerTipPainter(
-                color: selected
-                    ? primaryColor.withAlpha(225)
-                    : Colors.white.withAlpha(220),
+                color: Colors.white.withAlpha(230),
                 shadowColor: Colors.black.withAlpha(20),
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _PhotoMapMarker extends StatelessWidget {
-  final _PhotoCluster cluster;
-  final String locationLabel;
-  final Map<String, String>? headers;
-  final VoidCallback onTap;
-
-  const _PhotoMapMarker({
-    required this.cluster,
-    required this.locationLabel,
-    required this.headers,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: RepaintBoundary(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                child: Container(
-                  width: 78,
-                  padding: const EdgeInsets.fromLTRB(5, 5, 5, 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(132),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: Colors.white.withAlpha(230)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withAlpha(28),
-                        blurRadius: 16,
-                        offset: const Offset(0, 8),
-                      ),
-                      BoxShadow(
-                        color: Colors.white.withAlpha(70),
-                        blurRadius: 10,
-                        offset: const Offset(-3, -3),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _MarkerImage(cluster: cluster, headers: headers),
-                      const SizedBox(height: 4),
-                      Text(
-                        locationLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Color(0xFF1E1E1E),
-                          fontWeight: FontWeight.w900,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            CustomPaint(
-              size: const Size(18, 10),
-              painter: _MarkerTipPainter(
-                color: Colors.white.withAlpha(132),
-                shadowColor: Colors.black.withAlpha(20),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MarkerImage extends StatelessWidget {
-  final _PhotoCluster cluster;
-  final Map<String, String>? headers;
-
-  const _MarkerImage({required this.cluster, required this.headers});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 44,
-      height: 44,
-      padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(18),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          ClipOval(
-            child: NetworkImageWithLoader(
-              imageUrl: cluster.cover.thumbnailUrl,
-              title: cluster.cover.title ?? 'Location',
-              headers: headers,
-            ),
-          ),
-          if (cluster.photos.length > 1)
-            Positioned(
-              right: -1,
-              bottom: -1,
-              child: Container(
-                height: 19,
-                constraints: const BoxConstraints(minWidth: 19),
-                alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                decoration: BoxDecoration(
-                  color: primaryColor,
-                  borderRadius: BorderRadius.circular(99),
-                  border: Border.all(color: Colors.white, width: 1.5),
-                ),
-                child: Text(
-                  cluster.photos.length > 99
-                      ? '99+'
-                      : cluster.photos.length.toString(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 9,
-                  ),
-                ),
-              ),
-            ),
-        ],
       ),
     );
   }
@@ -1017,6 +844,8 @@ class _CityPhotoChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(selected ? 20 : 16);
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -1026,11 +855,8 @@ class _CityPhotoChip extends StatelessWidget {
         margin: EdgeInsets.symmetric(vertical: selected ? 0 : 8),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(selected ? 20 : 16),
-          border: Border.all(
-            color: selected ? primaryColor : Colors.white,
-            width: selected ? 2 : 1,
-          ),
+          borderRadius: radius,
+          border: Border.all(color: Colors.white, width: 1),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withAlpha(selected ? 34 : 18),
@@ -1160,13 +986,8 @@ class _LocationTitlePill extends StatelessWidget {
 class _RoundMapButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
-  final bool highlighted;
 
-  const _RoundMapButton({
-    required this.icon,
-    required this.onTap,
-    this.highlighted = false,
-  });
+  const _RoundMapButton({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -1174,9 +995,7 @@ class _RoundMapButton extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Material(
-          color: highlighted
-              ? primaryColor.withAlpha(215)
-              : Colors.white.withAlpha(145),
+          color: Colors.white.withAlpha(145),
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),
@@ -1184,11 +1003,7 @@ class _RoundMapButton extends StatelessWidget {
             child: SizedBox(
               width: 46,
               height: 46,
-              child: Icon(
-                icon,
-                color: highlighted ? Colors.white : primaryColor,
-                size: 22,
-              ),
+              child: Icon(icon, color: primaryColor, size: 22),
             ),
           ),
         ),

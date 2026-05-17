@@ -98,6 +98,7 @@ class _HomeScreenState extends State<HomeScreen>
             ),
             shadowConfig: ShadowConfig(color: Colors.white),
             child: Scaffold(
+              backgroundColor: Colors.transparent,
               extendBodyBehindAppBar: true,
               extendBody: true,
               appBar: CustomAppbar(isLoginAppbar: false),
