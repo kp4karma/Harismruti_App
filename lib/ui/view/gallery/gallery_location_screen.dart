@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
+import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
@@ -23,7 +24,7 @@ class GalleryLocationScreen extends StatefulWidget {
 
 class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
   static final LatLng _fallbackCenter = LatLng(20.5937, 78.9629);
-  static const double _minMapZoom = 7.5;
+  static const double _minMapZoom = 4.5;
   static const double _maxFitZoom = 15;
   static const double _cityChipWidth = 132;
   static const double _selectedCityChipWidth = 156;
@@ -35,6 +36,7 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
   final MapController _mapController = MapController();
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _cityScrollController = ScrollController();
+  double _mapZoom = 11;
   String _query = '';
   String? _lastFitKey;
   bool _locating = false;
@@ -75,6 +77,25 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
     setState(() => _query = value);
   }
 
+  void _handleMapZoomChanged(double zoom) {
+    final currentScale = _markerScaleForZoom(_mapZoom);
+    final nextScale = _markerScaleForZoom(zoom);
+    if (currentScale == nextScale) {
+      _mapZoom = zoom;
+      return;
+    }
+    setState(() => _mapZoom = zoom);
+  }
+
+  static double _markerScaleForZoom(double zoom) {
+    if (zoom <= 5.5) return 0.52;
+    if (zoom <= 7) return 0.6;
+    if (zoom <= 8.5) return 0.68;
+    if (zoom <= 10.5) return 0.8;
+    if (zoom <= 12.5) return 0.9;
+    return 1;
+  }
+
   void _selectCity(GalleryCard card) {
     if (card.id == _activeCard.id && card.value == _activeCard.value) {
       _centerSelectedCity(card);
@@ -94,6 +115,13 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
         _mapController.move(point, 10.5);
       }
     });
+  }
+
+  void _openCityDetail(GalleryCard card) {
+    Navigator.push(
+      context,
+      CupertinoPageRoute(builder: (_) => GalleryDetailScreen.fromCard(card)),
+    );
   }
 
   void _centerSelectedCity(GalleryCard card) {
@@ -267,7 +295,9 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
                   locationLabel: _activeCard.title,
                   headers: _controller.imageHeaders,
                   loading: loading,
-                  onLocationTap: _selectCity,
+                  markerScale: _markerScaleForZoom(_mapZoom),
+                  onZoomChanged: _handleMapZoomChanged,
+                  onLocationTap: _openCityDetail,
                 ),
               ),
               Positioned(
@@ -322,6 +352,8 @@ class _PhotoCoordinateMap extends StatelessWidget {
   final String locationLabel;
   final Map<String, String>? headers;
   final bool loading;
+  final double markerScale;
+  final ValueChanged<double> onZoomChanged;
   final ValueChanged<GalleryCard> onLocationTap;
 
   const _PhotoCoordinateMap({
@@ -335,6 +367,8 @@ class _PhotoCoordinateMap extends StatelessWidget {
     required this.locationLabel,
     required this.headers,
     required this.loading,
+    required this.markerScale,
+    required this.onZoomChanged,
     required this.onLocationTap,
   });
 
@@ -352,6 +386,7 @@ class _PhotoCoordinateMap extends StatelessWidget {
               initialZoom: clusters.length <= 1 ? 13 : 11,
               minZoom: _GalleryLocationScreenState._minMapZoom,
               maxZoom: 18,
+              onPositionChanged: (camera, _) => onZoomChanged(camera.zoom),
               interactionOptions: const InteractionOptions(
                 flags:
                     InteractiveFlag.drag |
@@ -375,12 +410,15 @@ class _PhotoCoordinateMap extends StatelessWidget {
                   for (final marker in locationMarkers)
                     Marker(
                       point: marker.point,
-                      width: marker.isFor(activeCard) ? 118 : 104,
-                      height: marker.isFor(activeCard) ? 116 : 104,
+                      width:
+                          (marker.isFor(activeCard) ? 118 : 104) * markerScale,
+                      height:
+                          (marker.isFor(activeCard) ? 116 : 104) * markerScale,
                       child: _LocationGroupMapMarker(
                         marker: marker,
                         selected: marker.isFor(activeCard),
                         headers: headers,
+                        markerScale: markerScale,
                         onTap: () => onLocationTap(marker.card),
                       ),
                     ),
@@ -408,12 +446,14 @@ class _LocationGroupMapMarker extends StatelessWidget {
   final _LocationGroupMarker marker;
   final bool selected;
   final Map<String, String>? headers;
+  final double markerScale;
   final VoidCallback onTap;
 
   const _LocationGroupMapMarker({
     required this.marker,
     required this.selected,
     required this.headers,
+    required this.markerScale,
     required this.onTap,
   });
 
@@ -421,19 +461,25 @@ class _LocationGroupMapMarker extends StatelessWidget {
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(selected ? 20 : 18);
     final labelColor = primaryColor;
+    final selectedScale = selected && markerScale >= 0.9 ? 1.08 : 1.02;
 
     return GestureDetector(
       onTap: onTap,
       child: AnimatedScale(
-        scale: selected ? 1.08 : 1,
+        scale: selected ? selectedScale : 1,
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: selected ? 108 : 94,
-              padding: const EdgeInsets.fromLTRB(6, 6, 6, 7),
+              width: (selected ? 108 : 94) * markerScale,
+              padding: EdgeInsets.fromLTRB(
+                6 * markerScale,
+                6 * markerScale,
+                6 * markerScale,
+                7 * markerScale,
+              ),
               decoration: BoxDecoration(
                 color: Colors.white.withAlpha(230),
                 borderRadius: radius,
@@ -454,15 +500,15 @@ class _LocationGroupMapMarker extends StatelessWidget {
                 children: [
                   ClipOval(
                     child: SizedBox(
-                      width: selected ? 42 : 36,
-                      height: selected ? 42 : 36,
+                      width: (selected ? 42 : 36) * markerScale,
+                      height: (selected ? 42 : 36) * markerScale,
                       child: marker.card.coverUrl.isEmpty
                           ? ColoredBox(
                               color: const Color(0xFFF2E9E4),
                               child: Icon(
                                 CupertinoIcons.photo,
                                 color: primaryColor,
-                                size: selected ? 18 : 16,
+                                size: (selected ? 18 : 16) * markerScale,
                               ),
                             )
                           : NetworkImageWithLoader(
@@ -472,7 +518,7 @@ class _LocationGroupMapMarker extends StatelessWidget {
                             ),
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  SizedBox(height: 5 * markerScale),
                   SizedBox(
                     width: double.infinity,
                     child: FittedBox(
@@ -483,7 +529,7 @@ class _LocationGroupMapMarker extends StatelessWidget {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: labelColor,
-                          fontSize: selected ? 12 : 11,
+                          fontSize: (selected ? 12 : 11) * markerScale,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
@@ -493,7 +539,10 @@ class _LocationGroupMapMarker extends StatelessWidget {
               ),
             ),
             CustomPaint(
-              size: Size(selected ? 18 : 14, selected ? 10 : 8),
+              size: Size(
+                (selected ? 18 : 14) * markerScale,
+                (selected ? 10 : 8) * markerScale,
+              ),
               painter: _MarkerTipPainter(
                 color: Colors.white.withAlpha(230),
                 shadowColor: Colors.black.withAlpha(20),
