@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -15,6 +16,7 @@ import 'package:harismruti/ui/view/home/my_diary_smruti.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 const double _homeAppbarBlurSigma = 24;
@@ -680,7 +682,45 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
       TopNotification.error('Photo is not ready to share');
       return;
     }
-    await SharePlus.instance.share(ShareParams(uri: Uri.tryParse(url)));
+
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final fileName = _shareFileName(url);
+      final filePath = '${tempDir.path}${Platform.pathSeparator}$fileName';
+      await Dio().download(
+        url,
+        filePath,
+        options: Options(
+          headers: _controller.imageHeaders,
+          responseType: ResponseType.bytes,
+        ),
+      );
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(filePath, mimeType: _shareMimeType(fileName))],
+        ),
+      );
+    } catch (_) {
+      TopNotification.error('Unable to share this photo');
+    }
+  }
+
+  String _shareFileName(String url) {
+    final parsed = Uri.tryParse(url);
+    final path = parsed?.path ?? '';
+    final extension = path.toLowerCase().endsWith('.png')
+        ? 'png'
+        : path.toLowerCase().endsWith('.webp')
+        ? 'webp'
+        : 'jpg';
+    return 'harismruti-${_photo.id}.$extension';
+  }
+
+  String _shareMimeType(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    return 'image/jpeg';
   }
 
   void _playFavoriteBurst() {
