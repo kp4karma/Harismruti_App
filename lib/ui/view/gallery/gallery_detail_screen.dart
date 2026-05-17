@@ -15,6 +15,7 @@ import 'package:harismruti/ui/view/home/my_diary_smruti.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
+import 'package:share_plus/share_plus.dart';
 
 const double _homeAppbarBlurSigma = 24;
 const int _homeAppbarGlassAlpha = 125;
@@ -671,10 +672,15 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
     }
   }
 
-  Future<void> _copyShareLink() async {
-    await Clipboard.setData(ClipboardData(text: _photo.fullUrl));
-    if (!mounted) return;
-    TopNotification.success('Photo link ready to share');
+  Future<void> _sharePhoto() async {
+    final url = _photo.fullUrl.isNotEmpty
+        ? _photo.fullUrl
+        : _photo.thumbnailUrl;
+    if (url.isEmpty) {
+      TopNotification.error('Photo is not ready to share');
+      return;
+    }
+    await SharePlus.instance.share(ShareParams(uri: Uri.tryParse(url)));
   }
 
   void _playFavoriteBurst() {
@@ -908,7 +914,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
                 const SizedBox(height: 13),
                 _ViewerActions(
                   isFavorite: _controller.isFavorite(_photo.id),
-                  onShare: _copyShareLink,
+                  onShare: _sharePhoto,
                   onFavorite: _toggleFavorite,
                   onInfo: _openInfoSheet,
                   onOptions: _showMoreOptions,
