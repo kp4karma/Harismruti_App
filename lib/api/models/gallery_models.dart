@@ -341,6 +341,8 @@ class GalleryPhotoAttributes {
   final String? subject;
   final String? withPeople;
   final String? person;
+  final double? latitude;
+  final double? longitude;
 
   const GalleryPhotoAttributes({
     required this.photoId,
@@ -351,6 +353,8 @@ class GalleryPhotoAttributes {
     this.subject,
     this.withPeople,
     this.person,
+    this.latitude,
+    this.longitude,
   });
 
   factory GalleryPhotoAttributes.fromJson(dynamic raw) {
@@ -364,6 +368,8 @@ class GalleryPhotoAttributes {
       subject: _readString(json, const ['subject']),
       withPeople: _readString(json, const ['with', 'with_attr', 'withPeople']),
       person: _readString(json, const ['person']),
+      latitude: _readDouble(json, const ['latitude', 'lat']),
+      longitude: _readDouble(json, const ['longitude', 'lng', 'lon', 'long']),
     );
   }
 
@@ -376,6 +382,8 @@ class GalleryPhotoAttributes {
       if (subject != null) MapEntry('Subject', subject!),
       if (withPeople != null) MapEntry('With', withPeople!),
       if (person != null) MapEntry('Person', person!),
+      if (latitude != null && longitude != null)
+        MapEntry('Coordinates', '$latitude, $longitude'),
     ];
     return values;
   }

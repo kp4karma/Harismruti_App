@@ -273,76 +273,81 @@ class _HomeCollectionInfoBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-          decoration: BoxDecoration(
-            color: Colors.white.withAlpha(214),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withAlpha(145)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withAlpha(18),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(34),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      card.title.trim(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        height: 1,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 3,
-                      children: [
-                        _MiniSummary(
-                          icon: CupertinoIcons.photo_on_rectangle,
-                          label: card.subtitle.isNotEmpty
-                              ? card.subtitle
-                              : '${card.count ?? card.photos.length} Photos',
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha(214),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withAlpha(145)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        card.title.trim(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          height: 1,
                         ),
-                        if ((card.locationCount ?? 0) > 0)
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 3,
+                        children: [
                           _MiniSummary(
-                            icon: CupertinoIcons.location,
-                            label: '${card.locationCount} Places',
+                            icon: CupertinoIcons.photo_on_rectangle,
+                            label: card.subtitle.isNotEmpty
+                                ? card.subtitle
+                                : '${card.count ?? card.photos.length} Photos',
                           ),
-                      ],
-                    ),
-                  ],
+                          if ((card.locationCount ?? 0) > 0)
+                            _MiniSummary(
+                              icon: CupertinoIcons.location,
+                              label: '${card.locationCount} Places',
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Container(
-                height: 32,
-                width: 32,
-                decoration: BoxDecoration(
-                  color: primaryColor.withAlpha(18),
-                  shape: BoxShape.circle,
+                Container(
+                  height: 32,
+                  width: 32,
+                  decoration: BoxDecoration(
+                    color: primaryColor.withAlpha(18),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    CupertinoIcons.chevron_right,
+                    color: primaryColor,
+                    size: 16,
+                  ),
                 ),
-                child: Icon(
-                  CupertinoIcons.chevron_right,
-                  color: primaryColor,
-                  size: 16,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -545,20 +550,20 @@ class GalleryWithFeatureCard extends StatelessWidget {
             ),
             if (previewImages.isNotEmpty)
               Positioned(
-                right: 10,
-                top: 10,
+                right: 12,
+                top: 12,
                 child: SizedBox(
-                  width: 66,
+                  width: 58,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       for (var index = 0; index < previewImages.length; index++)
                         SizedBox(
-                          width: 66,
-                          height: 66,
+                          width: 58,
+                          height: 58,
                           child: Padding(
                             padding: EdgeInsets.only(
-                              bottom: index == previewImages.length - 1 ? 0 : 7,
+                              bottom: index == previewImages.length - 1 ? 0 : 8,
                             ),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(14),
@@ -593,7 +598,7 @@ class GalleryWithFeatureCard extends StatelessWidget {
               bottom: 0,
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(18),
+                  top: Radius.circular(10),
                 ),
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
@@ -605,34 +610,44 @@ class GalleryWithFeatureCard extends StatelessWidget {
                         top: BorderSide(color: Colors.white.withAlpha(90)),
                       ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Text(
-                          card.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                            height: 1.1,
-                          ),
-                        ),
-                        if (card.subtitle.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            card.subtitle,
+                        Expanded(
+                          child: Text(
+                            card.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.white.withAlpha(220),
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              height: 1.1,
                             ),
                           ),
-                        ],
+                        ),
+                        const SizedBox(width: 8),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              CupertinoIcons.photo_on_rectangle,
+                              color: Colors.white.withAlpha(220),
+                              size: 10,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              _photoCountLabel(card),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white.withAlpha(220),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -666,9 +681,10 @@ class _StackPhotoTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(radius),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(18),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
+            color: Colors.black.withAlpha(34),
+            blurRadius: 16,
+            spreadRadius: 1,
+            offset: const Offset(0, 8),
           ),
         ],
       ),

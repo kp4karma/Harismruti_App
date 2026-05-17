@@ -10,6 +10,7 @@ class StorageKeys {
   static const String userProfile = 'userProfile';
   static const String smrutiSectionConfig = 'smrutiSectionConfig';
   static const String myPhotos = 'myPhotos';
+  static const String myDiaryEntries = 'myDiaryEntries';
   static const String myPhotosSubmitted = 'myPhotosSubmitted';
   static const String favoritePhotos = 'favoritePhotos';
   static const String galleryPhotoSnapshots = 'galleryPhotoSnapshots';

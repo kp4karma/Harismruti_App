@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -45,7 +44,7 @@ class SubHeader extends StatelessWidget {
                     child: const Padding(
                       padding: EdgeInsets.all(6.0),
                       child: Icon(
-                        CupertinoIcons.right_chevron,
+                        Icons.drag_handle_rounded,
                         color: Color(0xFF322318),
                         size: 20,
                       ),

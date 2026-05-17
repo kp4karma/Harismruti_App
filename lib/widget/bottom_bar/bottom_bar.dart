@@ -26,6 +26,7 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
 
   final double itemPadding = 4;
   final double itemWidth = 200;
+  static const double _scrollEndPadding = 112;
 
   @override
   void initState() {
@@ -49,6 +50,12 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -103,48 +110,51 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
                           child: Padding(
                             padding: const EdgeInsets.all(8.0),
                             child: Row(
-                              children: List.generate(widget.tabs.length, (
-                                index,
-                              ) {
-                                final isSelected = selectedIndex == index;
-                                return GestureDetector(
-                                  onTap: () {
-                                    setState(() => selectedIndex = index);
-                                    scrollToIndex(index);
-                                    if (widget.onTabSelected != null) {
-                                      widget.onTabSelected!(index);
-                                    }
-                                  },
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 300),
-                                    margin: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 10,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? const Color(0xFF823D3D)
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(30),
-                                    ),
-                                    constraints: const BoxConstraints(
-                                      minWidth: 150,
-                                    ),
-                                    child: Text(
-                                      widget.tabs[index],
-                                      style: TextStyle(
+                              children: [
+                                ...List.generate(widget.tabs.length, (index) {
+                                  final isSelected = selectedIndex == index;
+                                  return GestureDetector(
+                                    onTap: () {
+                                      setState(() => selectedIndex = index);
+                                      scrollToIndex(index);
+                                      if (widget.onTabSelected != null) {
+                                        widget.onTabSelected!(index);
+                                      }
+                                    },
+                                    child: AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 300,
+                                      ),
+                                      margin: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 10,
+                                      ),
+                                      decoration: BoxDecoration(
                                         color: isSelected
-                                            ? Colors.white
-                                            : Colors.black87,
-                                        fontWeight: FontWeight.w500,
+                                            ? const Color(0xFF823D3D)
+                                            : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(30),
+                                      ),
+                                      constraints: const BoxConstraints(
+                                        minWidth: 150,
+                                      ),
+                                      child: Text(
+                                        widget.tabs[index],
+                                        style: TextStyle(
+                                          color: isSelected
+                                              ? Colors.white
+                                              : Colors.black87,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                );
-                              }),
+                                  );
+                                }),
+                                const SizedBox(width: _scrollEndPadding),
+                              ],
                             ),
                           ),
                         ),

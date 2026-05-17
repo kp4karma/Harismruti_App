@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -10,10 +9,10 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
+import 'package:harismruti/ui/view/home/my_diary_smruti.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
-import 'package:path_provider/path_provider.dart';
 
 const double _homeAppbarBlurSigma = 24;
 const int _homeAppbarGlassAlpha = 125;
@@ -53,6 +52,19 @@ class GalleryDetailScreen extends StatefulWidget {
       title: value,
       subtitle: '$title - $count Photos',
       loader: () => controller.loadPhotosForFilter(slug: slug, value: value),
+    );
+  }
+
+  factory GalleryDetailScreen.fromFilters({
+    required String title,
+    required String subtitle,
+    required Map<String, List<String>> selected,
+  }) {
+    final controller = Get.find<GalleryController>();
+    return GalleryDetailScreen(
+      title: title,
+      subtitle: subtitle,
+      loader: () => controller.loadPhotosForFilters(selected: selected),
     );
   }
 
@@ -531,12 +543,12 @@ class GalleryFullscreenViewer extends StatefulWidget {
 
 class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
   late final PageController _pageController;
+  late final ScrollController _thumbnailScrollController;
   late int _index;
   final GalleryController _controller = Get.find<GalleryController>();
   final Map<int, Future<GalleryPhotoAttributes>> _attributesCache = {};
   final Map<int, Future<String>> _imageSizeCache = {};
   final Map<int, Future<String>> _storageSizeCache = {};
-  bool _isDownloading = false;
   bool _showFavoriteBurst = false;
 
   @override
@@ -544,14 +556,17 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
     super.initState();
     _index = widget.initialIndex;
     _pageController = PageController(initialPage: widget.initialIndex);
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _precacheAround(_index),
-    );
+    _thumbnailScrollController = ScrollController();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _precacheAround(_index);
+      _centerThumbnail(_index, animated: false);
+    });
   }
 
   @override
   void dispose() {
     _pageController.dispose();
+    _thumbnailScrollController.dispose();
     super.dispose();
   }
 
@@ -633,38 +648,31 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
     }
   }
 
+  void _centerThumbnail(int index, {bool animated = true}) {
+    if (!_thumbnailScrollController.hasClients) return;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final target = (index * 34.0) - (screenWidth / 2) + 17;
+    final offset = target.clamp(
+      0.0,
+      _thumbnailScrollController.position.maxScrollExtent,
+    );
+    if (animated) {
+      _thumbnailScrollController.animateTo(
+        offset,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+      );
+    } else {
+      _thumbnailScrollController.jumpTo(offset);
+    }
+  }
+
   Future<void> _copyShareLink() async {
     await Clipboard.setData(ClipboardData(text: _photo.fullUrl));
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Photo link ready to share')));
-  }
-
-  Future<void> _downloadPhoto() async {
-    setState(() => _isDownloading = true);
-    try {
-      final dir = await getApplicationDocumentsDirectory();
-      final folder = Directory('${dir.path}/HariSmruti');
-      if (!folder.existsSync()) folder.createSync(recursive: true);
-      final path = '${folder.path}/smruti_${_photo.id}.jpg';
-      await Dio().download(
-        _photo.fullUrl,
-        path,
-        options: Options(headers: _controller.imageHeaders),
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Downloaded to $path')));
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Download failed: $error')));
-    } finally {
-      if (mounted) setState(() => _isDownloading = false);
-    }
   }
 
   void _playFavoriteBurst() {
@@ -678,6 +686,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
   void _toggleFavorite() {
     final wasFavorite = _controller.isFavorite(_photo.id);
     _controller.toggleFavorite(_photo);
+    if (mounted) setState(() {});
     if (!wasFavorite) _playFavoriteBurst();
   }
 
@@ -688,25 +697,13 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
     _playFavoriteBurst();
   }
 
-  Future<void> _openAddTagSheet() async {
-    final tag = await _askForText(
-      title: 'Add Tag',
-      hint: 'Tag name',
-      action: 'Add',
-    );
-    if (tag == null) return;
-    _controller.addTagToPhoto(_photo, tag);
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Tag "$tag" added')));
-  }
-
   Future<void> _openAddCollectionSheet() async {
     final name = await _askForText(
       title: 'Add To Collection',
       hint: 'Collection name',
       action: 'Save',
+      suggestions: _controller.allUserCollectionNames,
+      selectedValues: _controller.collectionNamesForPhoto(_photo.id),
     );
     if (name == null) return;
     _controller.addPhotoToCollection(_photo, name);
@@ -716,17 +713,77 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
     ).showSnackBar(SnackBar(content: Text('Added to "$name"')));
   }
 
+  Future<void> _openAddTagSheet() async {
+    final tag = await _askForText(
+      title: 'Add Tag',
+      hint: 'Tag name',
+      action: 'Add',
+      suggestions: _controller.allUserTags,
+      selectedValues: _controller.tagsForPhoto(_photo.id),
+    );
+    if (tag == null) return;
+    _controller.addTagToPhoto(_photo, tag);
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Tag "$tag" added')));
+  }
+
+  void _showMoreOptions() {
+    showCupertinoModalPopup<void>(
+      context: context,
+      builder: (_) => CupertinoActionSheet(
+        title: const Text('Photo options'),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _openAddTagSheet();
+            },
+            child: const Text('Add Tag'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                CupertinoPageRoute(
+                  builder: (_) => DiaryEntryDetailScreen(
+                    date: DateTime.now(),
+                    initialImages: [_photo.fullUrl],
+                  ),
+                ),
+              );
+            },
+            child: const Text('Add Note in Diary'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
+  }
+
   Future<String?> _askForText({
     required String title,
     required String hint,
     required String action,
+    List<String> suggestions = const [],
+    List<String> selectedValues = const [],
   }) async {
     final value = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) =>
-          _TextEntryBottomSheet(title: title, hint: hint, action: action),
+      builder: (context) => _TextEntryBottomSheet(
+        title: title,
+        hint: hint,
+        action: action,
+        suggestions: suggestions,
+        selectedValues: selectedValues,
+      ),
     );
     return value?.trim().isEmpty == true ? null : value?.trim();
   }
@@ -748,7 +805,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F6F3),
+      backgroundColor: Colors.white,
       body: Stack(
         children: [
           PageView.builder(
@@ -758,6 +815,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
             onPageChanged: (value) {
               setState(() => _index = value);
               _precacheAround(value);
+              _centerThumbnail(value);
             },
             itemBuilder: (context, index) {
               final photo = widget.photos[index];
@@ -788,19 +846,11 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
           ),
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                children: [
-                  _GlassIconButton(
-                    icon: CupertinoIcons.chevron_left,
-                    onTap: () => Navigator.pop(context),
-                  ),
-                  const Spacer(),
-                  _GlassIconButton(
-                    icon: CupertinoIcons.info_circle,
-                    onTap: _openInfoSheet,
-                  ),
-                ],
+              padding: const EdgeInsets.fromLTRB(18, 8, 18, 0),
+              child: _ViewerTopBar(
+                title: widget.title,
+                position: '${_index + 1} of ${widget.photos.length}',
+                onBack: () => Navigator.pop(context),
               ),
             ),
           ),
@@ -827,56 +877,33 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
             ),
           ),
           Positioned(
-            left: 18,
-            right: 18,
-            bottom: 22 + MediaQuery.of(context).padding.bottom,
-            child: Row(
+            left: 0,
+            right: 0,
+            bottom: 16 + MediaQuery.of(context).padding.bottom,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: kShowFavoriteCountOnImages
-                      ? Obx(
-                          () => _PhotoPositionText(
-                            text:
-                                '${_index + 1} of ${widget.photos.length} | ${_controller.favoriteCount} fav',
-                          ),
-                        )
-                      : _PhotoPositionText(
-                          text: '${_index + 1} of ${widget.photos.length}',
-                        ),
+                _ViewerThumbStrip(
+                  photos: widget.photos,
+                  selectedIndex: _index,
+                  controller: _thumbnailScrollController,
+                  headers: _controller.imageHeaders,
+                  onTap: (index) {
+                    _pageController.animateToPage(
+                      index,
+                      duration: const Duration(milliseconds: 260),
+                      curve: Curves.easeOutCubic,
+                    );
+                  },
                 ),
-                const SizedBox(width: 10),
-                _GlassIconButton(
-                  icon: CupertinoIcons.tag,
-                  onTap: _openAddTagSheet,
-                ),
-                const SizedBox(width: 10),
-                _GlassIconButton(
-                  icon: CupertinoIcons.collections,
-                  onTap: _openAddCollectionSheet,
-                ),
-                const SizedBox(width: 10),
-                Obx(
-                  () => _GlassIconButton(
-                    icon: _controller.isFavorite(_photo.id)
-                        ? CupertinoIcons.heart_fill
-                        : CupertinoIcons.heart,
-                    iconColor: _controller.isFavorite(_photo.id)
-                        ? Colors.redAccent
-                        : null,
-                    onTap: _toggleFavorite,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                _GlassIconButton(
-                  icon: CupertinoIcons.square_arrow_up,
-                  onTap: _copyShareLink,
-                ),
-                const SizedBox(width: 10),
-                _GlassIconButton(
-                  icon: _isDownloading
-                      ? CupertinoIcons.hourglass
-                      : CupertinoIcons.arrow_down_to_line,
-                  onTap: _isDownloading ? () {} : _downloadPhoto,
+                const SizedBox(height: 13),
+                _ViewerActions(
+                  isFavorite: _controller.isFavorite(_photo.id),
+                  onShare: _copyShareLink,
+                  onFavorite: _toggleFavorite,
+                  onInfo: _openInfoSheet,
+                  onOptions: _showMoreOptions,
+                  onCollection: _openAddCollectionSheet,
                 ),
               ],
             ),
@@ -891,11 +918,15 @@ class _TextEntryBottomSheet extends StatefulWidget {
   final String title;
   final String hint;
   final String action;
+  final List<String> suggestions;
+  final List<String> selectedValues;
 
   const _TextEntryBottomSheet({
     required this.title,
     required this.hint,
     required this.action,
+    this.suggestions = const [],
+    this.selectedValues = const [],
   });
 
   @override
@@ -904,26 +935,47 @@ class _TextEntryBottomSheet extends StatefulWidget {
 
 class _TextEntryBottomSheetState extends State<_TextEntryBottomSheet> {
   late final TextEditingController _controller;
+  late final FocusNode _focusNode;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController();
+    _focusNode = FocusNode();
+    _controller.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_onSearchChanged);
     _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
+  void _onSearchChanged() => setState(() {});
+
   void _submit() {
     final text = _controller.text.trim();
-    if (text.isNotEmpty) Navigator.pop(context, text);
+    if (text.isNotEmpty) {
+      Navigator.pop(context, text);
+      return;
+    }
+    _focusNode.requestFocus();
   }
 
   @override
   Widget build(BuildContext context) {
+    final query = _controller.text.trim().toLowerCase();
+    final reusable = widget.suggestions
+        .where(
+          (value) => !widget.selectedValues.any(
+            (selected) => selected.toLowerCase() == value.toLowerCase(),
+          ),
+        )
+        .where((value) => query.isEmpty || value.toLowerCase().contains(query))
+        .toList();
+    reusable.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -933,68 +985,217 @@ class _TextEntryBottomSheetState extends State<_TextEntryBottomSheet> {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
           child: Container(
-            color: Colors.white.withAlpha(242),
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.78,
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8F6F3).withAlpha(246),
+              border: Border(
+                top: BorderSide(color: primaryColor.withAlpha(18)),
+              ),
+            ),
             child: SafeArea(
               top: false,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Center(
-                    child: Container(
-                      width: 44,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withAlpha(35),
-                        borderRadius: BorderRadius.circular(999),
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          primaryColor.withAlpha(34),
+                          primaryColor.withAlpha(12),
+                        ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 18),
-                  Text(
-                    widget.title,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
+                    child: Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: Text(
+                            'Cancel',
+                            style: TextStyle(
+                              color: primaryColor,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            widget.title,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Color(0xFF322318),
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 54),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: _controller,
-                    autofocus: true,
-                    textInputAction: TextInputAction.done,
-                    decoration: InputDecoration(
-                      hintText: widget.hint,
-                      filled: true,
-                      fillColor: const Color(0xFFF4F1EE),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
-                      ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
+                    child: Column(
+                      children: [
+                        GestureDetector(
+                          onTap: _submit,
+                          child: Text(
+                            widget.title.toLowerCase().contains('collection')
+                                ? 'Create a New Collection'
+                                : 'Create a New Tag',
+                            style: TextStyle(
+                              color: primaryColor,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _controller,
+                          focusNode: _focusNode,
+                          textInputAction: TextInputAction.done,
+                          decoration: InputDecoration(
+                            prefixIcon: Icon(
+                              CupertinoIcons.search,
+                              color: primaryColor,
+                            ),
+                            hintText: widget.hint,
+                            filled: true,
+                            fillColor: Colors.white.withAlpha(235),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          onSubmitted: (_) => _submit(),
+                        ),
+                      ],
                     ),
-                    onSubmitted: (_) => _submit(),
                   ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        reusable.isEmpty
+                            ? 'No existing items'
+                            : widget.title.toLowerCase().contains('collection')
+                            ? 'Select Collection'
+                            : 'Select Tag',
+                        style: TextStyle(
+                          color: Colors.black.withAlpha(150),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
-                      onPressed: _submit,
-                      child: Text(widget.action),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+                      itemCount: reusable.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final value = reusable[index];
+                        final isCollection = widget.title
+                            .toLowerCase()
+                            .contains('collection');
+                        return _ReusableValueTile(
+                          label: value,
+                          subtitle: isCollection ? 'Collection' : 'Tag',
+                          icon: isCollection
+                              ? CupertinoIcons.collections
+                              : CupertinoIcons.tag,
+                          onTap: () => Navigator.pop(context, value),
+                        );
+                      },
                     ),
                   ),
                 ],
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReusableValueTile extends StatelessWidget {
+  final String label;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _ReusableValueTile({
+    required this.label,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white.withAlpha(235),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: primaryColor.withAlpha(16)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: primaryColor.withAlpha(22),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(icon, color: primaryColor, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF322318),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Colors.black.withAlpha(125),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(CupertinoIcons.circle, color: primaryColor, size: 24),
+          ],
         ),
       ),
     );
@@ -1014,80 +1215,276 @@ class _FullscreenImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 96, 0, 132),
+      child: Center(
+        child: SizedBox(
+          width: double.infinity,
+          child: CachedNetworkImage(
+            imageUrl: photo.fullUrl,
+            httpHeaders: headers,
+            fit: BoxFit.fitWidth,
+            alignment: Alignment.center,
+            fadeInDuration: Duration.zero,
+            fadeOutDuration: Duration.zero,
+            placeholder: (context, url) => CachedNetworkImage(
+              imageUrl: photo.thumbnailUrl,
+              httpHeaders: headers,
+              fit: BoxFit.fitWidth,
+              alignment: Alignment.center,
+              fadeInDuration: Duration.zero,
+              fadeOutDuration: Duration.zero,
+              errorWidget: (_, __, ___) =>
+                  Icon(CupertinoIcons.photo, color: primaryColor, size: 42),
+            ),
+            errorWidget: (_, __, ___) =>
+                Icon(CupertinoIcons.photo, color: primaryColor, size: 42),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ViewerTopBar extends StatelessWidget {
+  final String title;
+  final String position;
+  final VoidCallback onBack;
+
+  const _ViewerTopBar({
+    required this.title,
+    required this.position,
+    required this.onBack,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
       children: [
-        CachedNetworkImage(
-          imageUrl: photo.thumbnailUrl,
-          httpHeaders: headers,
-          fit: BoxFit.cover,
-          fadeInDuration: Duration.zero,
-          fadeOutDuration: Duration.zero,
-          imageBuilder: (context, provider) => ImageFiltered(
-            imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-            child: Image(image: provider, fit: BoxFit.cover),
-          ),
-          errorWidget: (_, __, ___) =>
-              const ColoredBox(color: Color(0xFFECE6E1)),
-        ),
-        Container(color: Colors.white.withAlpha(90)),
-        DecoratedBox(
+        _ViewerCircleButton(icon: CupertinoIcons.chevron_left, onTap: onBack),
+        const Spacer(),
+        Container(
+          constraints: const BoxConstraints(minWidth: 112),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
           decoration: BoxDecoration(
-            gradient: RadialGradient(
-              center: Alignment.center,
-              radius: 0.82,
-              colors: [
-                Colors.white.withAlpha(15),
-                const Color(0xFFF8F6F3).withAlpha(205),
-              ],
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(0, 84, 0, 86),
-          child: Center(
-            child: SizedBox(
-              width: double.infinity,
-              child: CachedNetworkImage(
-                imageUrl: photo.fullUrl,
-                httpHeaders: headers,
-                fit: BoxFit.fitWidth,
-                alignment: Alignment.center,
-                fadeInDuration: Duration.zero,
-                fadeOutDuration: Duration.zero,
-                placeholder: (context, url) => CachedNetworkImage(
-                  imageUrl: photo.thumbnailUrl,
-                  httpHeaders: headers,
-                  fit: BoxFit.fitWidth,
-                  alignment: Alignment.center,
-                  fadeInDuration: Duration.zero,
-                  fadeOutDuration: Duration.zero,
-                  errorWidget: (_, __, ___) =>
-                      Icon(CupertinoIcons.photo, color: primaryColor, size: 42),
-                ),
-                errorWidget: (_, __, ___) =>
-                    Icon(CupertinoIcons.photo, color: primaryColor, size: 42),
+            color: Colors.white.withAlpha(235),
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(18),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
               ),
-            ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(height: 1),
+              Text(
+                position,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.black.withAlpha(155),
+                ),
+              ),
+            ],
           ),
         ),
+        const Spacer(),
+        const SizedBox(width: 44),
       ],
     );
   }
 }
 
-class _PhotoPositionText extends StatelessWidget {
-  final String text;
+class _ViewerThumbStrip extends StatelessWidget {
+  final List<GalleryPhoto> photos;
+  final int selectedIndex;
+  final ScrollController controller;
+  final Map<String, String>? headers;
+  final ValueChanged<int> onTap;
 
-  const _PhotoPositionText({required this.text});
+  const _ViewerThumbStrip({
+    required this.photos,
+    required this.selectedIndex,
+    required this.controller,
+    required this.headers,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: TextStyle(
-        color: Colors.black.withAlpha(150),
-        fontWeight: FontWeight.w700,
+    return SizedBox(
+      height: 34,
+      child: ListView.separated(
+        controller: controller,
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        itemCount: photos.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 5),
+        itemBuilder: (context, index) {
+          final isSelected = index == selectedIndex;
+          return GestureDetector(
+            onTap: () => onTap(index),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: isSelected ? 34 : 24,
+              height: isSelected ? 34 : 29,
+              margin: EdgeInsets.symmetric(horizontal: isSelected ? 5 : 0),
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(color: Colors.white, width: 1),
+              ),
+              child: CachedNetworkImage(
+                imageUrl: photos[index].thumbnailUrl,
+                httpHeaders: headers,
+                fit: BoxFit.cover,
+                fadeInDuration: Duration.zero,
+                fadeOutDuration: Duration.zero,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ViewerActions extends StatelessWidget {
+  final bool isFavorite;
+  final VoidCallback onShare;
+  final VoidCallback onFavorite;
+  final VoidCallback onInfo;
+  final VoidCallback onOptions;
+  final VoidCallback onCollection;
+
+  const _ViewerActions({
+    required this.isFavorite,
+    required this.onShare,
+    required this.onFavorite,
+    required this.onInfo,
+    required this.onOptions,
+    required this.onCollection,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 26),
+      child: Row(
+        children: [
+          _ViewerCircleButton(
+            icon: CupertinoIcons.square_arrow_up,
+            onTap: onShare,
+          ),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(20),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                _ViewerPlainButton(
+                  icon: isFavorite
+                      ? CupertinoIcons.heart_fill
+                      : CupertinoIcons.heart,
+                  color: isFavorite ? Colors.redAccent : Colors.black,
+                  onTap: onFavorite,
+                ),
+                _ViewerPlainButton(
+                  icon: CupertinoIcons.info_circle,
+                  onTap: onInfo,
+                ),
+                _ViewerPlainButton(
+                  icon: CupertinoIcons.slider_horizontal_3,
+                  onTap: onOptions,
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          _ViewerCircleButton(
+            icon: CupertinoIcons.collections,
+            onTap: onCollection,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ViewerCircleButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _ViewerCircleButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: Colors.white.withAlpha(235),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(18),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Icon(icon, color: Colors.black, size: 22),
+      ),
+    );
+  }
+}
+
+class _ViewerPlainButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ViewerPlainButton({
+    required this.icon,
+    required this.onTap,
+    this.color = Colors.black,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: 44,
+        height: 40,
+        child: Icon(icon, color: color, size: 23),
       ),
     );
   }
@@ -1552,14 +1949,9 @@ const _tagColors = [
 
 class _GlassIconButton extends StatelessWidget {
   final IconData icon;
-  final Color? iconColor;
   final VoidCallback onTap;
 
-  const _GlassIconButton({
-    required this.icon,
-    required this.onTap,
-    this.iconColor,
-  });
+  const _GlassIconButton({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -1575,7 +1967,7 @@ class _GlassIconButton extends StatelessWidget {
               child: SizedBox(
                 width: 42,
                 height: 42,
-                child: Icon(icon, color: iconColor ?? primaryColor),
+                child: Icon(icon, color: primaryColor),
               ),
             ),
           ),

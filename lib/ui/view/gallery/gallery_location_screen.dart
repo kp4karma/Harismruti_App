@@ -1,5 +1,3 @@
-import 'dart:async';
-import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
@@ -26,13 +24,16 @@ class GalleryLocationScreen extends StatefulWidget {
 
 class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
   static final LatLng _fallbackCenter = LatLng(20.5937, 78.9629);
+  static const double _cityChipWidth = 132;
+  static const double _selectedCityChipWidth = 156;
+  static const double _cityChipGap = 10;
 
   late Future<List<GalleryPhoto>> _photosFuture;
+  late GalleryCard _activeCard;
   final GalleryController _controller = Get.find<GalleryController>();
   final MapController _mapController = MapController();
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _cityScrollController = ScrollController();
-  Timer? _autoScrollTimer;
   String _query = '';
   String? _lastFitKey;
   bool _locating = false;
@@ -40,9 +41,12 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
   @override
   void initState() {
     super.initState();
-    _photosFuture = _controller.loadPhotosForCard(widget.card);
+    _activeCard = widget.card;
+    _photosFuture = _controller.loadPhotosForCard(_activeCard);
     _searchController.addListener(_handleSearchChanged);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _startCityAutoScroll());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _centerSelectedCity(_activeCard),
+    );
   }
 
   @override
@@ -50,13 +54,13 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.card.id != widget.card.id ||
         oldWidget.card.value != widget.card.value) {
-      _photosFuture = _controller.loadPhotosForCard(widget.card);
+      _activeCard = widget.card;
+      _photosFuture = _controller.loadPhotosForCard(_activeCard);
     }
   }
 
   @override
   void dispose() {
-    _autoScrollTimer?.cancel();
     _searchController
       ..removeListener(_handleSearchChanged)
       ..dispose();
@@ -70,29 +74,25 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
     setState(() => _query = value);
   }
 
-  void _startCityAutoScroll() {
-    _autoScrollTimer?.cancel();
-    _autoScrollTimer = Timer.periodic(const Duration(milliseconds: 40), (_) {
-      if (!_cityScrollController.hasClients) return;
-      final position = _cityScrollController.position;
-      if (position.maxScrollExtent <= 0) return;
-      final next = position.pixels + 0.35;
-      _cityScrollController.jumpTo(next >= position.maxScrollExtent ? 0 : next);
-    });
-  }
+  void _selectCity(GalleryCard card) {
+    if (card.id == _activeCard.id && card.value == _activeCard.value) {
+      _centerSelectedCity(card);
+      return;
+    }
 
-  void _openCity(GalleryCard card) {
-    if (card.id == widget.card.id && card.value == widget.card.value) return;
-    Navigator.pushReplacement(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (_, __, ___) => GalleryLocationScreen(card: card),
-        transitionDuration: const Duration(milliseconds: 220),
-        transitionsBuilder: (_, animation, __, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-      ),
-    );
+    setState(() {
+      _activeCard = card;
+      _photosFuture = _controller.loadPhotosForCard(card);
+      _lastFitKey = null;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _centerSelectedCity(card);
+      final point = _LocationGroupMarker.pointForCard(card);
+      if (point != null) {
+        _mapController.move(point, 10.5);
+      }
+    });
   }
 
   void _openPhotos(List<GalleryPhoto> photos, int total) {
@@ -101,12 +101,30 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
       context,
       CupertinoPageRoute(
         builder: (_) => GalleryDetailScreen(
-          title: widget.card.title,
+          title: _activeCard.title,
           subtitle: '$total Photos',
           coverUrl: photos.first.thumbnailUrl,
           loader: () async => photos,
         ),
       ),
+    );
+  }
+
+  void _centerSelectedCity(GalleryCard card) {
+    final cities = _matchingCities;
+    final index = cities.indexWhere(
+      (city) => city.id == card.id && city.value == card.value,
+    );
+    if (index == -1 || !_cityScrollController.hasClients) return;
+
+    final viewport = _cityScrollController.position.viewportDimension;
+    final target =
+        index * (_cityChipWidth + _cityChipGap) -
+        (viewport - _selectedCityChipWidth) / 2;
+    _cityScrollController.animateTo(
+      target.clamp(0.0, _cityScrollController.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
     );
   }
 
@@ -144,7 +162,10 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
     }
   }
 
-  void _fitCityMarkers(List<_PhotoCluster> clusters) {
+  void _fitCityMarkers(
+    List<_PhotoCluster> clusters,
+    List<_LocationGroupMarker> locationMarkers,
+  ) {
     final validClusters = clusters
         .where(
           (cluster) =>
@@ -152,6 +173,26 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
               cluster.point.longitude.isFinite,
         )
         .toList();
+    if (validClusters.isEmpty && locationMarkers.isNotEmpty) {
+      final activePoint = _LocationGroupMarker.pointForCard(_activeCard);
+      if (activePoint != null) {
+        _mapController.move(activePoint, 10.5);
+        return;
+      }
+      if (locationMarkers.length == 1) {
+        _mapController.move(locationMarkers.first.point, 10.5);
+        return;
+      }
+      _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: LatLngBounds.fromPoints(
+            locationMarkers.map((marker) => marker.point).toList(),
+          ),
+          padding: const EdgeInsets.fromLTRB(48, 110, 48, 230),
+        ),
+      );
+      return;
+    }
     if (validClusters.isEmpty) {
       _mapController.move(_fallbackCenter, 4.5);
       return;
@@ -193,11 +234,17 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
         future: _photosFuture,
         builder: (context, snapshot) {
           final loading = snapshot.connectionState != ConnectionState.done;
-          final photos = snapshot.data ?? widget.card.photos;
-          final total = widget.card.count ?? photos.length;
+          final photos = snapshot.data ?? _activeCard.photos;
+          final total = _activeCard.count ?? photos.length;
           final clusters = _PhotoCluster.fromPhotos(photos);
+          final locationMarkers = _LocationGroupMarker.fromCards(
+            _controller.locations,
+          );
           final center = clusters.isEmpty
-              ? _fallbackCenter
+              ? (_LocationGroupMarker.pointForCard(_activeCard) ??
+                    (locationMarkers.isEmpty
+                        ? _fallbackCenter
+                        : locationMarkers.first.point))
               : clusters.first.point;
           final cities = _matchingCities;
 
@@ -211,7 +258,8 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
               fitKey != _lastFitKey) {
             _lastFitKey = fitKey;
             WidgetsBinding.instance.addPostFrameCallback(
-              (_) => mounted ? _fitCityMarkers(clusters) : null,
+              (_) =>
+                  mounted ? _fitCityMarkers(clusters, locationMarkers) : null,
             );
           }
 
@@ -222,12 +270,15 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
                   mapController: _mapController,
                   center: center,
                   clusters: clusters,
+                  locationMarkers: locationMarkers,
+                  activeCard: _activeCard,
                   photos: photos,
                   total: total,
-                  locationLabel: widget.card.title,
+                  locationLabel: _activeCard.title,
                   headers: _controller.imageHeaders,
                   loading: loading,
                   onOpenPhotos: () => _openPhotos(photos, total),
+                  onLocationTap: _selectCity,
                 ),
               ),
               Positioned(
@@ -235,7 +286,7 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
                 right: 0,
                 top: 0,
                 child: _LocationTopPanel(
-                  title: widget.card.title,
+                  title: _activeCard.title,
                   count: total,
                   mappedCount: clusters.fold<int>(
                     0,
@@ -243,11 +294,11 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
                   ),
                   controller: _searchController,
                   cities: cities,
-                  activeCard: widget.card,
+                  activeCard: _activeCard,
                   cityScrollController: _cityScrollController,
                   locating: _locating,
                   onBack: () => Navigator.pop(context),
-                  onCityTap: _openCity,
+                  onCityTap: _selectCity,
                   onCurrentLocationTap: _moveToCurrentLocation,
                 ),
               ),
@@ -258,9 +309,9 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
                 child: _LocationPlacesPanel(
                   controller: _searchController,
                   cities: cities,
-                  activeCard: widget.card,
+                  activeCard: _activeCard,
                   cityScrollController: _cityScrollController,
-                  onCityTap: _openCity,
+                  onCityTap: _selectCity,
                 ),
               ),
             ],
@@ -275,23 +326,29 @@ class _PhotoCoordinateMap extends StatelessWidget {
   final MapController mapController;
   final LatLng center;
   final List<_PhotoCluster> clusters;
+  final List<_LocationGroupMarker> locationMarkers;
+  final GalleryCard activeCard;
   final List<GalleryPhoto> photos;
   final int total;
   final String locationLabel;
   final Map<String, String>? headers;
   final bool loading;
   final VoidCallback onOpenPhotos;
+  final ValueChanged<GalleryCard> onLocationTap;
 
   const _PhotoCoordinateMap({
     required this.mapController,
     required this.center,
     required this.clusters,
+    required this.locationMarkers,
+    required this.activeCard,
     required this.photos,
     required this.total,
     required this.locationLabel,
     required this.headers,
     required this.loading,
     required this.onOpenPhotos,
+    required this.onLocationTap,
   });
 
   @override
@@ -337,6 +394,18 @@ class _PhotoCoordinateMap extends StatelessWidget {
                         onTap: onOpenPhotos,
                       ),
                     ),
+                  for (final marker in locationMarkers)
+                    Marker(
+                      point: marker.point,
+                      width: marker.isFor(activeCard) ? 118 : 94,
+                      height: marker.isFor(activeCard) ? 106 : 88,
+                      child: _LocationGroupMapMarker(
+                        marker: marker,
+                        selected: marker.isFor(activeCard),
+                        headers: headers,
+                        onTap: () => onLocationTap(marker.card),
+                      ),
+                    ),
                 ],
               ),
             ],
@@ -361,6 +430,105 @@ class _PhotoCoordinateMap extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LocationGroupMapMarker extends StatelessWidget {
+  final _LocationGroupMarker marker;
+  final bool selected;
+  final Map<String, String>? headers;
+  final VoidCallback onTap;
+
+  const _LocationGroupMapMarker({
+    required this.marker,
+    required this.selected,
+    required this.headers,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedScale(
+        scale: selected ? 1.08 : 1,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: selected ? 100 : 82,
+              padding: const EdgeInsets.fromLTRB(5, 5, 5, 7),
+              decoration: BoxDecoration(
+                color: selected
+                    ? primaryColor.withAlpha(225)
+                    : Colors.white.withAlpha(220),
+                borderRadius: BorderRadius.circular(selected ? 20 : 18),
+                border: Border.all(
+                  color: selected ? Colors.white : primaryColor.withAlpha(95),
+                  width: selected ? 2 : 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(selected ? 46 : 24),
+                    blurRadius: selected ? 22 : 14,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ClipOval(
+                    child: SizedBox(
+                      width: selected ? 34 : 28,
+                      height: selected ? 34 : 28,
+                      child: marker.card.coverUrl.isEmpty
+                          ? ColoredBox(
+                              color: const Color(0xFFF2E9E4),
+                              child: Icon(
+                                CupertinoIcons.photo,
+                                color: selected ? primaryColor : Colors.white,
+                                size: 15,
+                              ),
+                            )
+                          : NetworkImageWithLoader(
+                              imageUrl: marker.card.coverUrl,
+                              title: marker.card.title,
+                              headers: headers,
+                            ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      marker.card.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: selected ? Colors.white : primaryColor,
+                        fontSize: selected ? 11 : 10,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            CustomPaint(
+              size: Size(selected ? 18 : 14, selected ? 10 : 8),
+              painter: _MarkerTipPainter(
+                color: selected
+                    ? primaryColor.withAlpha(225)
+                    : Colors.white.withAlpha(220),
+                shadowColor: Colors.black.withAlpha(20),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -666,7 +834,7 @@ class _LocationPlacesPanel extends StatelessWidget {
               _CitySearchField(controller: controller),
               const SizedBox(height: 12),
               SizedBox(
-                height: 90,
+                height: 106,
                 child: cities.isEmpty
                     ? Center(
                         child: Text(
@@ -681,12 +849,10 @@ class _LocationPlacesPanel extends StatelessWidget {
                         controller: cityScrollController,
                         scrollDirection: Axis.horizontal,
                         physics: const BouncingScrollPhysics(),
-                        itemCount: cities.length <= 1
-                            ? cities.length
-                            : cities.length * 1000,
+                        itemCount: cities.length,
                         separatorBuilder: (_, __) => const SizedBox(width: 10),
                         itemBuilder: (context, index) {
-                          final city = cities[index % cities.length];
+                          final city = cities[index];
                           final selected =
                               city.id == activeCard.id &&
                               city.value == activeCard.value;
@@ -855,10 +1021,12 @@ class _CityPhotoChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        width: 132,
+        curve: Curves.easeOut,
+        width: selected ? 156 : 132,
+        margin: EdgeInsets.symmetric(vertical: selected ? 0 : 8),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(selected ? 20 : 16),
           border: Border.all(
             color: selected ? primaryColor : Colors.white,
             width: selected ? 2 : 1,
@@ -1059,6 +1227,39 @@ class _NoCoordinateNotice extends StatelessWidget {
   }
 }
 
+class _LocationGroupMarker {
+  final GalleryCard card;
+  final LatLng point;
+
+  const _LocationGroupMarker({required this.card, required this.point});
+
+  bool isFor(GalleryCard other) {
+    return card.id == other.id && card.value == other.value;
+  }
+
+  static List<_LocationGroupMarker> fromCards(List<GalleryCard> cards) {
+    return cards
+        .map((card) {
+          final point = pointForCard(card);
+          if (point == null) return null;
+          return _LocationGroupMarker(card: card, point: point);
+        })
+        .whereType<_LocationGroupMarker>()
+        .toList();
+  }
+
+  static LatLng? pointForCard(GalleryCard card) {
+    for (final photo in card.photos) {
+      final lat = photo.latitude;
+      final lng = photo.longitude;
+      if (_PhotoCluster._isValidCoordinate(lat, lng)) {
+        return LatLng(lat!, lng!);
+      }
+    }
+    return null;
+  }
+}
+
 class _PhotoCluster {
   final LatLng point;
   final List<GalleryPhoto> photos;
@@ -1070,13 +1271,11 @@ class _PhotoCluster {
   static List<_PhotoCluster> fromPhotos(List<GalleryPhoto> photos) {
     final grouped = <String, List<GalleryPhoto>>{};
     final points = <String, LatLng>{};
-    final missingCoordinatePhotos = <GalleryPhoto>[];
 
     for (final photo in photos) {
       final lat = photo.latitude;
       final lng = photo.longitude;
       if (!_isValidCoordinate(lat, lng)) {
-        missingCoordinatePhotos.add(photo);
         continue;
       }
       final validLat = lat!;
@@ -1095,24 +1294,7 @@ class _PhotoCluster {
         )
         .toList();
     clusters.sort((a, b) => b.photos.length.compareTo(a.photos.length));
-    final visibleClusters = clusters
-        .take(math.min(clusters.length, 80))
-        .toList();
-
-    if (missingCoordinatePhotos.isEmpty) return visibleClusters;
-    final base = visibleClusters.isEmpty
-        ? _GalleryLocationScreenState._fallbackCenter
-        : visibleClusters.first.point;
-    final randomCount = math.min(missingCoordinatePhotos.length, 10);
-    for (var index = 0; index < randomCount; index++) {
-      visibleClusters.add(
-        _PhotoCluster(
-          point: _offsetPoint(base, index),
-          photos: [missingCoordinatePhotos[index]],
-        ),
-      );
-    }
-    return visibleClusters;
+    return clusters.take(80).toList();
   }
 
   static bool _isValidCoordinate(double? lat, double? lng) {
@@ -1122,25 +1304,5 @@ class _PhotoCluster {
         lng.isFinite &&
         lat.abs() <= 90 &&
         lng.abs() <= 180;
-  }
-
-  static LatLng _offsetPoint(LatLng base, int index) {
-    const offsets = [
-      Offset(0.012, 0.000),
-      Offset(-0.010, 0.008),
-      Offset(0.007, -0.011),
-      Offset(-0.006, -0.010),
-      Offset(0.014, 0.010),
-      Offset(-0.014, 0.001),
-      Offset(0.004, 0.016),
-      Offset(0.017, -0.005),
-      Offset(-0.016, -0.013),
-      Offset(0.000, -0.017),
-    ];
-    final offset = offsets[index % offsets.length];
-    return LatLng(
-      (base.latitude + offset.dx).clamp(-85.0, 85.0),
-      (base.longitude + offset.dy).clamp(-180.0, 180.0),
-    );
   }
 }

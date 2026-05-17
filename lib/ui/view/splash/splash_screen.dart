@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -7,7 +8,7 @@ import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_images.dart';
 import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/storage_helper.dart';
-import 'package:harismruti/widget/carousel/auth_recent_carousel.dart';
+import 'package:harismruti/widget/background/animated_words_background.dart';
 import 'package:harismruti/widget/internet_status_widget.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -26,7 +27,7 @@ class SplashScreenState extends State<SplashScreen>
     super.initState();
     _introController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 1000),
     )..forward();
     _checkInternetAndNavigate();
   }
@@ -44,7 +45,7 @@ class SplashScreenState extends State<SplashScreen>
       });
     }
 
-    await Future.delayed(const Duration(milliseconds: 1800));
+    await Future.delayed(const Duration(milliseconds: 2200));
     if (!mounted) return;
 
     if (StorageHelper.isLogin()) {
@@ -65,46 +66,158 @@ class SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          const AuthRecentCarousel(),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.white.withAlpha(190),
-                  Colors.white.withAlpha(70),
-                  Colors.white.withAlpha(220),
-                ],
-                stops: const [0, 0.48, 1],
+      body: AnimatedWordsBackground(
+        topToBottom: true,
+        opacity: 0.68,
+        veilAlpha: 72,
+        chipBackground: true,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment.center,
+                  radius: 0.86,
+                  colors: [
+                    Colors.white.withAlpha(8),
+                    Colors.white.withAlpha(76),
+                    const Color(0xFFF8F6F3).withAlpha(126),
+                  ],
+                  stops: const [0, 0.62, 1],
+                ),
               ),
             ),
-          ),
-          SafeArea(
-            child: AnimatedBuilder(
-              animation: _introController,
-              builder: (context, child) {
-                final value = Curves.easeOutCubic.transform(
-                  _introController.value,
-                );
-                return Opacity(
-                  opacity: value,
-                  child: Transform.translate(
-                    offset: Offset(0, 18 * (1 - value)),
-                    child: Transform.scale(
-                      scale: 0.94 + (value * 0.06),
-                      child: child,
-                    ),
+            SafeArea(
+              child: AnimatedBuilder(
+                animation: _introController,
+                builder: (context, child) {
+                  final value = Curves.easeOutBack.transform(
+                    _introController.value,
+                  );
+                  return Opacity(
+                    opacity: _introController.value,
+                    child: Transform.scale(scale: value, child: child),
+                  );
+                },
+                child: const Center(child: _CrazyLogoCelebration()),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+const List<Color> _wordColors = [
+  Color(0xFF933525),
+  Color(0xFFE05A47),
+  Color(0xFFF6A20A),
+  Color(0xFF2E8B7C),
+  Color(0xFF2477A8),
+  Color(0xFF7B4BB7),
+  Color(0xFFC14683),
+  Color(0xFF4E7D2D),
+];
+
+class _CrazyLogoCelebration extends StatefulWidget {
+  const _CrazyLogoCelebration();
+
+  @override
+  State<_CrazyLogoCelebration> createState() => _CrazyLogoCelebrationState();
+}
+
+class _CrazyLogoCelebrationState extends State<_CrazyLogoCelebration>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 5),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 330,
+      height: 330,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              ...List.generate(9, (index) {
+                final angle =
+                    (_controller.value * math.pi * 2) +
+                    (index * math.pi * 2 / 9);
+                final wave =
+                    math.sin((_controller.value * math.pi * 2) + index) * 10;
+                final radius = 118 + wave;
+                final dx = math.cos(angle) * radius;
+                final dy = math.sin(angle) * radius;
+                final color = _wordColors[index % _wordColors.length];
+
+                return Transform.translate(
+                  offset: Offset(dx, dy),
+                  child: Transform.rotate(
+                    angle: -angle * 0.35,
+                    child: _OrbitSpark(color: color, index: index),
                   ),
                 );
-              },
-              child: const Center(child: _SplashLogoCard()),
-            ),
+              }),
+              Transform.rotate(
+                angle: math.sin(_controller.value * math.pi * 2) * 0.025,
+                child: const _SplashLogoCard(),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _OrbitSpark extends StatelessWidget {
+  final Color color;
+  final int index;
+
+  const _OrbitSpark({required this.color, required this.index});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDot = index.isEven;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          width: isDot ? 14 : 34,
+          height: isDot ? 14 : 8,
+          decoration: BoxDecoration(
+            color: color.withAlpha(isDot ? 150 : 135),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: Colors.white.withAlpha(170)),
+            boxShadow: [
+              BoxShadow(
+                color: color.withAlpha(70),
+                blurRadius: 18,
+                spreadRadius: 1,
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -116,19 +229,19 @@ class _SplashLogoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(36),
+      borderRadius: BorderRadius.circular(38),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
         child: Container(
-          width: 236,
+          width: 238,
           padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
           decoration: BoxDecoration(
-            color: Colors.white.withAlpha(205),
-            borderRadius: BorderRadius.circular(36),
-            border: Border.all(color: Colors.white.withAlpha(230)),
+            color: Colors.white.withAlpha(208),
+            borderRadius: BorderRadius.circular(38),
+            border: Border.all(color: Colors.white.withAlpha(235)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withAlpha(28),
+                color: primaryColor.withAlpha(30),
                 blurRadius: 34,
                 offset: const Offset(0, 18),
               ),
@@ -151,12 +264,12 @@ class _SplashLogoCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                "Your gallery of smruti.",
+                "àª¤à«àª‚ àª°àª¾àªœà«€ àª¥àª¾",
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: primaryColor,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ],

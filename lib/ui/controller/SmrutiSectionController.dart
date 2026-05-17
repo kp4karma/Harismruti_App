@@ -4,6 +4,7 @@ import 'package:harismruti/ui/view/home/album_smruti.dart';
 import 'package:harismruti/ui/view/home/collection_smruti.dart';
 import 'package:harismruti/ui/view/home/location_smruti.dart';
 import 'package:harismruti/ui/view/home/my_collection_smruti.dart';
+import 'package:harismruti/ui/view/home/my_diary_smruti.dart';
 import 'package:harismruti/ui/view/home/my_favorite_smruti.dart';
 import 'package:harismruti/ui/view/home/my_photos_smruti.dart';
 import 'package:harismruti/ui/view/home/recent_smruti.dart';
@@ -195,6 +196,9 @@ class SmrutiSectionController extends GetxController {
       case "My Phone":
       case "My Photos":
         return const MyPhotosSmruti();
+      case SmrutiSectionKeys.myDiary:
+      case "My Diray":
+        return const MyDiarySmruti();
       case SmrutiSectionKeys.myFavorite:
       case "My Favot":
       case "My Favorites":
@@ -251,14 +255,20 @@ class SmrutiSectionController extends GetxController {
       "widget": const MyPhotosSmruti(),
     },
     {
-      "title": SmrutiSectionKeys.myFavorite,
+      "title": SmrutiSectionKeys.myDiary,
       "order_index": 8,
+      "is_show": true,
+      "widget": const MyDiarySmruti(),
+    },
+    {
+      "title": SmrutiSectionKeys.myFavorite,
+      "order_index": 9,
       "is_show": true,
       "widget": const MyFavoriteSmruti(),
     },
     {
       "title": SmrutiSectionKeys.myCollection,
-      "order_index": 9,
+      "order_index": 10,
       "is_show": true,
       "widget": const MyCollectionSmruti(),
     },

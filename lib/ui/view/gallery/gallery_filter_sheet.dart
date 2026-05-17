@@ -6,7 +6,6 @@ import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
-import 'package:harismruti/ui/view/gallery/gallery_timeline_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 
@@ -30,6 +29,7 @@ class GalleryFilterSheet extends StatefulWidget {
 class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
   final GalleryController _controller = Get.find<GalleryController>();
   final TextEditingController _searchController = TextEditingController();
+  final Map<String, Set<String>> _selectedValues = {};
   int _selectedIndex = 0;
   String _query = '';
 
@@ -48,9 +48,52 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
     super.dispose();
   }
 
+  Map<String, List<String>> get _selectedForApi {
+    final selected = <String, List<String>>{};
+    _selectedValues.forEach((slug, values) {
+      if (values.isNotEmpty) selected[slug] = values.toList();
+    });
+    return selected;
+  }
+
+  int get _selectedCount => _selectedValues.values.fold<int>(
+    0,
+    (total, values) => total + values.length,
+  );
+
+  void _toggleOption(GalleryFilterGroup group, GalleryFilterOption option) {
+    setState(() {
+      final values = _selectedValues.putIfAbsent(group.slug, () => <String>{});
+      if (!values.add(option.value)) {
+        values.remove(option.value);
+      }
+      if (values.isEmpty) _selectedValues.remove(group.slug);
+    });
+    _controller.loadFilters(selected: _selectedForApi, force: true);
+  }
+
+  void _clearFilters() {
+    if (_selectedValues.isEmpty) return;
+    setState(_selectedValues.clear);
+    _controller.loadFilters(force: true);
+  }
+
+  void _applyFilters() {
+    final selected = _selectedForApi;
+    if (selected.isEmpty) return;
+    Navigator.pop(context);
+    Get.to(
+      () => GalleryDetailScreen.fromFilters(
+        title: 'Filtered Smruti',
+        subtitle: '$_selectedCount selected filters',
+        selected: selected,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final height = MediaQuery.of(context).size.height * 0.74;
+    final height = MediaQuery.of(context).size.height * 0.82;
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       child: BackdropFilter(
@@ -60,7 +103,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
           color: Colors.white.withAlpha(238),
           child: Column(
             children: [
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Container(
                 width: 44,
                 height: 5,
@@ -70,7 +113,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 12, 10),
+                padding: const EdgeInsets.fromLTRB(18, 12, 10, 6),
                 child: Row(
                   children: [
                     const Expanded(
@@ -91,7 +134,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
                 child: TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
@@ -103,10 +146,10 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                     filled: true,
                     fillColor: const Color(0xFFF3EEE9),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide.none,
                     ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
                   ),
                 ),
               ),
@@ -121,16 +164,18 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                   return Row(
                     children: [
                       SizedBox(
-                        width: 126,
+                        width: 116,
                         child: ListView.builder(
                           physics: const BouncingScrollPhysics(),
                           itemCount: groups.length,
                           itemBuilder: (context, index) {
                             final group = groups[index];
-                            final isSelected = index == _selectedIndex;
+                            final isSelected = index == safeIndex;
                             return _FilterCategoryTile(
                               group: group,
                               selected: isSelected,
+                              selectedCount:
+                                  _selectedValues[group.slug]?.length ?? 0,
                               onTap: () => setState(() {
                                 _selectedIndex = index;
                               }),
@@ -150,12 +195,22 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                             key: ValueKey(selected.slug),
                             group: selected,
                             query: _query,
+                            selectedValues:
+                                _selectedValues[selected.slug] ??
+                                const <String>{},
+                            onChanged: (option) =>
+                                _toggleOption(selected, option),
                           ),
                         ),
                       ),
                     ],
                   );
                 }),
+              ),
+              _FilterActionsBar(
+                selectedCount: _selectedCount,
+                onClear: _clearFilters,
+                onApply: _applyFilters,
               ),
             ],
           ),
@@ -168,11 +223,13 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
 class _FilterCategoryTile extends StatelessWidget {
   final GalleryFilterGroup group;
   final bool selected;
+  final int selectedCount;
   final VoidCallback onTap;
 
   const _FilterCategoryTile({
     required this.group,
     required this.selected,
+    required this.selectedCount,
     required this.onTap,
   });
 
@@ -183,21 +240,47 @@ class _FilterCategoryTile extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
-        margin: const EdgeInsets.fromLTRB(10, 4, 8, 4),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        margin: const EdgeInsets.fromLTRB(8, 3, 6, 3),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
         decoration: BoxDecoration(
-          color: selected ? primaryColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          color: selected ? primaryColor : primaryColor.withAlpha(10),
+          borderRadius: BorderRadius.circular(18),
         ),
-        child: Text(
-          group.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: selected ? Colors.white : Colors.black87,
-            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-            fontSize: 14,
-          ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                group.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: selected ? Colors.white : primaryColor,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            if (selectedCount > 0) ...[
+              const SizedBox(width: 6),
+              Container(
+                constraints: const BoxConstraints(minWidth: 22),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: selected ? Colors.white : primaryColor,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text(
+                  '$selectedCount',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: selected ? primaryColor : Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -207,11 +290,15 @@ class _FilterCategoryTile extends StatelessWidget {
 class _FilterOptionsList extends StatelessWidget {
   final GalleryFilterGroup group;
   final String query;
+  final Set<String> selectedValues;
+  final ValueChanged<GalleryFilterOption> onChanged;
 
   const _FilterOptionsList({
     super.key,
     required this.group,
     required this.query,
+    required this.selectedValues,
+    required this.onChanged,
   });
 
   @override
@@ -222,69 +309,130 @@ class _FilterOptionsList extends StatelessWidget {
               .where((option) => option.label.toLowerCase().contains(query))
               .toList();
 
-    if (options.isEmpty && group.slug != 'duration') {
+    if (options.isEmpty) {
       return const GalleryEmptyState(height: 240, message: 'No options found');
     }
 
     return ListView.separated(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(14, 0, 18, 24),
-      itemCount: options.length + (group.slug == 'duration' ? 1 : 0),
-      separatorBuilder: (_, __) =>
-          Divider(height: 1, color: Colors.black.withAlpha(16)),
+      padding: const EdgeInsets.fromLTRB(10, 0, 12, 14),
+      itemCount: options.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 4),
       itemBuilder: (context, index) {
-        if (group.slug == 'duration' && index == 0) {
-          return ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 4,
-              vertical: 8,
+        final option = options[index];
+        final isSelected = selectedValues.contains(option.value);
+        final color = primaryColor;
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: isSelected ? color.withAlpha(36) : color.withAlpha(16),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected ? color.withAlpha(130) : color.withAlpha(42),
             ),
-            leading: Icon(CupertinoIcons.calendar, color: primaryColor),
-            title: const Text(
-              'Browse Years',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+          ),
+          child: CheckboxListTile(
+            value: isSelected,
+            activeColor: color,
+            dense: true,
+            visualDensity: const VisualDensity(horizontal: -3, vertical: -4),
+            checkboxShape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6),
             ),
-            subtitle: const Text('Year, month and day timeline'),
-            trailing: Icon(CupertinoIcons.chevron_right, color: primaryColor),
-            onTap: () {
-              Navigator.pop(context);
-              Get.to(() => const GalleryTimelineScreen());
-            },
-          );
-        }
-        final option = options[group.slug == 'duration' ? index - 1 : index];
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 4,
-            vertical: 6,
-          ),
-          title: Text(
-            option.label,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-          ),
-          subtitle: Text('${option.count} Photos'),
-          trailing: Icon(CupertinoIcons.chevron_right, color: primaryColor),
-          onTap: () {
-            Navigator.pop(context);
-            if (group.slug == 'duration') {
-              Get.to(
-                () => GalleryTimelineScreen(year: int.tryParse(option.value)),
-              );
-            } else {
-              Get.to(
-                () => GalleryDetailScreen.fromFilter(
-                  title: group.title,
-                  slug: group.slug,
-                  value: option.value,
-                  count: option.count,
+            contentPadding: const EdgeInsets.fromLTRB(4, 0, 8, 0),
+            title: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    option.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: color.withAlpha(235),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                    ),
+                  ),
                 ),
-              );
-            }
-          },
+                const SizedBox(width: 8),
+                Icon(
+                  CupertinoIcons.photo_on_rectangle,
+                  size: 12,
+                  color: color.withAlpha(165),
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  '${option.count}',
+                  style: TextStyle(
+                    color: Colors.black.withAlpha(120),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+            controlAffinity: ListTileControlAffinity.leading,
+            onChanged: (_) => onChanged(option),
+          ),
         );
       },
+    );
+  }
+}
+
+class _FilterActionsBar extends StatelessWidget {
+  final int selectedCount;
+  final VoidCallback onClear;
+  final VoidCallback onApply;
+
+  const _FilterActionsBar({
+    required this.selectedCount,
+    required this.onClear,
+    required this.onApply,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withAlpha(245),
+          border: Border(top: BorderSide(color: Colors.black.withAlpha(14))),
+        ),
+        child: Row(
+          children: [
+            TextButton(
+              onPressed: selectedCount == 0 ? null : onClear,
+              child: const Text('Clear'),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: selectedCount == 0 ? null : onApply,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.black.withAlpha(22),
+                  disabledForegroundColor: Colors.black.withAlpha(95),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ),
+                child: Text(
+                  selectedCount == 0
+                      ? 'Select filters'
+                      : 'Apply $selectedCount filters',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

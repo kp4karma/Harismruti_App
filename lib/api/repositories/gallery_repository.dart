@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:dio/dio.dart';
 import 'package:harismruti/api/api_client.dart';
 import 'package:harismruti/api/api_endpoints.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
@@ -35,10 +36,17 @@ class GalleryRepository {
     return GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items;
   }
 
-  Future<List<GalleryFilterGroup>> getFilters({int limit = 200}) async {
+  Future<List<GalleryFilterGroup>> getFilters({
+    int limit = 200,
+    Map<String, List<String>> selected = const {},
+  }) async {
+    final queryParams = <String, dynamic>{'limit': limit};
+    selected.forEach((slug, values) {
+      if (values.isNotEmpty) queryParams[slug] = values.join(',');
+    });
     final response = await ApiClient.get(
       ApiEndpoints.filters,
-      queryParams: {'limit': limit},
+      queryParams: queryParams,
     );
     return GalleryPage.fromJson(
       response.data,
@@ -49,6 +57,62 @@ class GalleryRepository {
   Future<GalleryPhotoAttributes> getPhotoAttributes(int photoId) async {
     final response = await ApiClient.get(ApiEndpoints.photoAttributes(photoId));
     return GalleryPhotoAttributes.fromJson(response.data);
+  }
+
+  Future<Map<String, dynamic>> getMyLibrary() async {
+    final response = await ApiClient.get(ApiEndpoints.myLibrary);
+    return asJsonMap(response.data);
+  }
+
+  Future<void> addFavorite(int photoId) async {
+    await ApiClient.post(ApiEndpoints.myFavorites, data: {'photo_id': photoId});
+  }
+
+  Future<void> removeFavorite(int photoId) async {
+    await ApiClient.delete(ApiEndpoints.myFavorite(photoId));
+  }
+
+  Future<void> addTag({required int photoId, required String tag}) async {
+    await ApiClient.post(
+      ApiEndpoints.myTags,
+      data: {'photo_id': photoId, 'tag': tag},
+    );
+  }
+
+  Future<void> removeTag({required int photoId, required String tag}) async {
+    await ApiClient.delete(ApiEndpoints.myTag(photoId, tag));
+  }
+
+  Future<void> addPhotoToCollection({
+    required String name,
+    required int photoId,
+  }) async {
+    await ApiClient.post(
+      ApiEndpoints.myCollections,
+      data: {'name': name, 'photo_id': photoId},
+    );
+  }
+
+  Future<void> removeCollection(String name) async {
+    await ApiClient.delete(ApiEndpoints.myCollection(name));
+  }
+
+  Future<Map<String, dynamic>> uploadMyImage({
+    required String path,
+    required String pose,
+  }) async {
+    final response = await ApiClient.postMedia(
+      ApiEndpoints.myImages,
+      data: FormData.fromMap({
+        'pose': pose,
+        'file': await MultipartFile.fromFile(path),
+      }),
+    );
+    return asJsonMap(response.data);
+  }
+
+  Future<void> deleteMyImage(int imageId) async {
+    await ApiClient.delete(ApiEndpoints.myImage(imageId));
   }
 
   Future<List<GalleryCard>> getCollections({int samples = 4}) async {
@@ -107,6 +171,22 @@ class GalleryRepository {
     final response = await ApiClient.get(
       ApiEndpoints.byAttributePhotos(slug),
       queryParams: {'value': value, 'page': page, 'per_page': perPage},
+    );
+    return GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items;
+  }
+
+  Future<List<GalleryPhoto>> getFilteredPhotos({
+    required Map<String, List<String>> selected,
+    int page = 1,
+    int perPage = 60,
+  }) async {
+    final queryParams = <String, dynamic>{'page': page, 'per_page': perPage};
+    selected.forEach((slug, values) {
+      if (values.isNotEmpty) queryParams[slug] = values.join(',');
+    });
+    final response = await ApiClient.get(
+      ApiEndpoints.filteredPhotos,
+      queryParams: queryParams,
     );
     return GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items;
   }

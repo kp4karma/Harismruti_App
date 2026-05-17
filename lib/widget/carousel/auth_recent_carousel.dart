@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:harismruti/api/repositories/auth_carousel_repository.dart';
-import 'package:harismruti/utils/app_string.dart';
 import 'package:harismruti/widget/carousel/auto_scroll_carousel.dart';
 
 class AuthRecentCarousel extends StatefulWidget {
@@ -28,7 +27,7 @@ class _AuthRecentCarouselState extends State<AuthRecentCarousel> {
       builder: (context, snapshot) {
         final data = snapshot.data;
         return AutoScrollCarousel(
-          imageUrls: data?.imageUrls ?? imageUrls.take(5).toList(),
+          imageUrls: data?.imageUrls ?? const [],
           imageHeaders: data?.headers ?? const {},
         );
       },

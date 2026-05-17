@@ -24,7 +24,7 @@ class SmrutiWith extends StatelessWidget {
       }
 
       return SizedBox(
-        height: 210,
+        height: 255,
         child: ListView.builder(
           physics: const BouncingScrollPhysics(),
           scrollDirection: Axis.horizontal,
@@ -33,7 +33,7 @@ class SmrutiWith extends StatelessWidget {
           itemBuilder: (context, index) => GalleryWithFeatureCard(
             card: items[index],
             headers: galleryController.imageHeaders,
-            width: index.isEven ? 284 : 258,
+            width: index.isEven ? 300 : 276,
           ),
         ),
       );

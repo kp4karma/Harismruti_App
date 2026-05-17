@@ -1,9 +1,6 @@
-import 'dart:convert';
-
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/api/repositories/gallery_repository.dart';
-import 'package:harismruti/utils/storage_helper.dart';
 
 const bool kShowFavoriteCountOnImages = false;
 
@@ -48,6 +45,7 @@ class GalleryController extends GetxController {
   final RxList<GalleryCard> people = <GalleryCard>[].obs;
   final RxList<GalleryCard> wallpapers = <GalleryCard>[].obs;
   final RxList<GalleryFilterGroup> filters = <GalleryFilterGroup>[].obs;
+  final RxBool areFiltersLoading = false.obs;
   final RxSet<int> favoritePhotoIds = <int>{}.obs;
   final RxMap<int, GalleryPhoto> savedPhotos = <int, GalleryPhoto>{}.obs;
   final RxMap<int, List<String>> userTags = <int, List<String>>{}.obs;
@@ -71,7 +69,7 @@ class GalleryController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _loadLocalLibrary();
+    loadMyLibrary();
     loadHome();
   }
 
@@ -85,6 +83,24 @@ class GalleryController extends GetxController {
       .toList();
 
   List<String> tagsForPhoto(int photoId) => userTags[photoId] ?? const [];
+  List<String> get allUserTags {
+    final tags = userTags.values.expand((values) => values).toSet().toList();
+    tags.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return tags;
+  }
+
+  List<String> get allUserCollectionNames {
+    final names = userCollections.map((collection) => collection.name).toList();
+    names.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return names;
+  }
+
+  List<String> collectionNamesForPhoto(int photoId) {
+    return userCollections
+        .where((collection) => collection.photoIds.contains(photoId))
+        .map((collection) => collection.name)
+        .toList();
+  }
 
   List<GalleryPhoto> photosForCollection(UserPhotoCollection collection) {
     return collection.photoIds
@@ -93,15 +109,65 @@ class GalleryController extends GetxController {
         .toList();
   }
 
+  Future<void> loadMyLibrary() async {
+    try {
+      final data = await _repository.getMyLibrary();
+      final favoriteIds =
+          (data['favorite_photo_ids'] is List
+                  ? data['favorite_photo_ids'] as List
+                  : const [])
+              .map(
+                (value) =>
+                    value is int ? value : int.tryParse(value.toString()),
+              )
+              .whereType<int>()
+              .toSet();
+
+      final photos =
+          (data['photos'] is List ? data['photos'] as List : const [])
+              .map(GalleryPhoto.fromJson)
+              .where((photo) => photo.id > 0)
+              .toList();
+      for (final photo in photos) {
+        savedPhotos[photo.id] = photo;
+      }
+
+      final rawTags = asJsonMap(data['tags']);
+      userTags.assignAll(
+        rawTags.map((key, value) {
+          final values = value is List
+              ? value.map((item) => item.toString()).toList()
+              : <String>[];
+          return MapEntry(int.tryParse(key) ?? 0, values);
+        })..removeWhere((key, value) => key <= 0),
+      );
+
+      final collections =
+          (data['collections'] is List ? data['collections'] as List : const [])
+              .map(UserPhotoCollection.fromJson)
+              .where((collection) => collection.name.isNotEmpty)
+              .toList();
+
+      favoritePhotoIds.assignAll(favoriteIds);
+      userCollections.assignAll(collections);
+      savedPhotos.refresh();
+    } catch (_) {
+      favoritePhotoIds.clear();
+      userTags.clear();
+      userCollections.clear();
+    }
+  }
+
   void toggleFavorite(GalleryPhoto photo) {
     _rememberPhoto(photo);
     if (favoritePhotoIds.contains(photo.id)) {
       favoritePhotoIds.remove(photo.id);
+      _repository.removeFavorite(photo.id);
     } else {
       favoritePhotoIds.add(photo.id);
+      _repository.addFavorite(photo.id);
     }
     favoritePhotoIds.refresh();
-    _saveFavoriteIds();
   }
 
   void addTagToPhoto(GalleryPhoto photo, String tag) {
@@ -116,7 +182,7 @@ class GalleryController extends GetxController {
       current.add(normalized);
       userTags[photo.id] = current;
       userTags.refresh();
-      _saveUserTags();
+      _repository.addTag(photoId: photo.id, tag: normalized);
     }
   }
 
@@ -129,7 +195,7 @@ class GalleryController extends GetxController {
       userTags[photoId] = current;
     }
     userTags.refresh();
-    _saveUserTags();
+    _repository.removeTag(photoId: photoId, tag: tag);
   }
 
   void addPhotoToCollection(GalleryPhoto photo, String collectionName) {
@@ -153,7 +219,7 @@ class GalleryController extends GetxController {
       }
     }
     userCollections.refresh();
-    _saveUserCollections();
+    _repository.addPhotoToCollection(name: name, photoId: photo.id);
   }
 
   void removeCollection(String collectionName) {
@@ -162,7 +228,7 @@ class GalleryController extends GetxController {
           collection.name.toLowerCase() == collectionName.toLowerCase(),
     );
     userCollections.refresh();
-    _saveUserCollections();
+    _repository.removeCollection(collectionName);
   }
 
   Future<void> loadHome({bool force = false}) {
@@ -192,9 +258,17 @@ class GalleryController extends GetxController {
     }
   }
 
-  Future<void> loadFilters() async {
-    if (filters.isNotEmpty) return;
-    filters.assignAll(await _repository.getFilters());
+  Future<void> loadFilters({
+    Map<String, List<String>> selected = const {},
+    bool force = false,
+  }) async {
+    if (!force && selected.isEmpty && filters.isNotEmpty) return;
+    areFiltersLoading.value = true;
+    try {
+      filters.assignAll(await _repository.getFilters(selected: selected));
+    } finally {
+      areFiltersLoading.value = false;
+    }
   }
 
   Future<List<GalleryPhoto>> loadPhotosForCard(GalleryCard card) {
@@ -229,6 +303,12 @@ class GalleryController extends GetxController {
       value: value,
       perPage: 120,
     );
+  }
+
+  Future<List<GalleryPhoto>> loadPhotosForFilters({
+    required Map<String, List<String>> selected,
+  }) {
+    return _repository.getFilteredPhotos(selected: selected, perPage: 120);
   }
 
   Future<GalleryPhotoAttributes> loadPhotoAttributes(int photoId) {
@@ -282,100 +362,9 @@ class GalleryController extends GetxController {
     }
   }
 
-  void _loadLocalLibrary() {
-    final favorites =
-        StorageHelper.getValue<List>(key: StorageKeys.favoritePhotos) ??
-        const [];
-    favoritePhotoIds.assignAll(
-      favorites
-          .map((value) => value is int ? value : int.tryParse(value.toString()))
-          .whereType<int>(),
-    );
-
-    final snapshots = StorageHelper.getValue<String>(
-      key: StorageKeys.galleryPhotoSnapshots,
-    );
-    if (snapshots?.isNotEmpty == true) {
-      try {
-        final decoded = jsonDecode(snapshots!);
-        if (decoded is Map) {
-          savedPhotos.assignAll(
-            decoded.map(
-              (key, value) => MapEntry(
-                int.tryParse(key.toString()) ?? 0,
-                GalleryPhoto.fromJson(value),
-              ),
-            )..removeWhere((key, value) => key <= 0),
-          );
-        }
-      } catch (_) {
-        savedPhotos.clear();
-      }
-    }
-
-    final tags = StorageHelper.getValue<String>(key: StorageKeys.photoUserTags);
-    if (tags?.isNotEmpty == true) {
-      try {
-        final decoded = jsonDecode(tags!);
-        if (decoded is Map) {
-          userTags.assignAll(
-            decoded.map((key, value) {
-              final values = value is List
-                  ? value.map((item) => item.toString()).toList()
-                  : <String>[];
-              return MapEntry(int.tryParse(key.toString()) ?? 0, values);
-            })..removeWhere((key, value) => key <= 0),
-          );
-        }
-      } catch (_) {
-        userTags.clear();
-      }
-    }
-
-    final collections =
-        StorageHelper.getValue<List>(key: StorageKeys.userCollections) ??
-        const [];
-    userCollections.assignAll(
-      collections
-          .map(UserPhotoCollection.fromJson)
-          .where((collection) => collection.name.isNotEmpty),
-    );
-  }
-
   void _rememberPhoto(GalleryPhoto photo) {
     if (photo.id <= 0) return;
     savedPhotos[photo.id] = photo;
     savedPhotos.refresh();
-    StorageHelper.setValue(
-      key: StorageKeys.galleryPhotoSnapshots,
-      value: jsonEncode(
-        savedPhotos.map(
-          (key, value) => MapEntry(key.toString(), value.toJson()),
-        ),
-      ),
-    );
-  }
-
-  void _saveFavoriteIds() {
-    StorageHelper.setValue(
-      key: StorageKeys.favoritePhotos,
-      value: favoritePhotoIds.toList(),
-    );
-  }
-
-  void _saveUserTags() {
-    StorageHelper.setValue(
-      key: StorageKeys.photoUserTags,
-      value: jsonEncode(
-        userTags.map((key, value) => MapEntry(key.toString(), value)),
-      ),
-    );
-  }
-
-  void _saveUserCollections() {
-    StorageHelper.setValue(
-      key: StorageKeys.userCollections,
-      value: userCollections.map((collection) => collection.toJson()).toList(),
-    );
   }
 }

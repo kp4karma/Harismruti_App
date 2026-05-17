@@ -4,28 +4,38 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'package:harismruti/api/repositories/gallery_repository.dart';
+import 'package:harismruti/ui/controller/gallery_controller.dart';
+import 'package:harismruti/ui/controller/ProfileController.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 
 enum MyPhotoPose { front, left, right, other }
 
-enum MyPhotoReviewStatus { pending, verified, rejected }
+enum MyPhotoReviewStatus { draft, pending, verified, rejected }
 
 class MyPhotoItem {
   const MyPhotoItem({
     required this.path,
     required this.pose,
     required this.reviewStatus,
+    this.id,
+    this.remoteUrl,
     this.note,
   });
 
+  final int? id;
   final String path;
   final MyPhotoPose pose;
   final MyPhotoReviewStatus reviewStatus;
+  final String? remoteUrl;
   final String? note;
 
   Map<String, dynamic> toJson() => {
+    'id': id,
     'path': path,
+    'remote_url': remoteUrl,
     'pose': pose.name,
     'review_status': reviewStatus.name,
     'note': note,
@@ -33,7 +43,9 @@ class MyPhotoItem {
 
   factory MyPhotoItem.fromJson(Map<String, dynamic> json) {
     return MyPhotoItem(
+      id: json['id'] is int ? json['id'] as int : int.tryParse('${json['id']}'),
       path: json['path']?.toString() ?? '',
+      remoteUrl: json['remote_url']?.toString() ?? json['url']?.toString(),
       pose: MyPhotoPose.values.firstWhere(
         (pose) => pose.name == json['pose'],
         orElse: () => MyPhotoPose.other,
@@ -45,6 +57,40 @@ class MyPhotoItem {
       note: json['note']?.toString(),
     );
   }
+
+  factory MyPhotoItem.fromRemote(dynamic raw) {
+    final json = raw is Map
+        ? Map<String, dynamic>.from(raw)
+        : <String, dynamic>{};
+    return MyPhotoItem(
+      id: json['id'] is int ? json['id'] as int : int.tryParse('${json['id']}'),
+      path: '',
+      remoteUrl:
+          json['url']?.toString() ??
+          json['remote_url']?.toString() ??
+          json['image_url']?.toString() ??
+          json['thumbnail_url']?.toString(),
+      pose: MyPhotoPose.values.firstWhere(
+        (pose) => pose.name == json['pose'],
+        orElse: () => MyPhotoPose.other,
+      ),
+      reviewStatus: MyPhotoReviewStatus.values.firstWhere(
+        (status) =>
+            status.name ==
+            (json['review_status'] ?? json['status'] ?? json['approval_status'])
+                ?.toString()
+                .toLowerCase(),
+        orElse: () => MyPhotoReviewStatus.pending,
+      ),
+      note:
+          json['note']?.toString() ??
+          json['rejection_reason']?.toString() ??
+          json['reason']?.toString(),
+    );
+  }
+
+  bool get hasLocalFile => path.isNotEmpty && File(path).existsSync();
+  bool get hasRemoteImage => remoteUrl != null && remoteUrl!.isNotEmpty;
 }
 
 class MyPhotoValidationResult {
@@ -59,12 +105,19 @@ class MyPhotoValidationResult {
 }
 
 class MyPhotosController extends GetxController {
+  MyPhotosController({GalleryRepository? repository})
+    : _repository = repository ?? const GalleryRepository();
+
+  final GalleryRepository _repository;
+
   static const int maxPhotos = 10;
   static const double _frontPoseLimit = 12;
   static const double _sidePoseLimit = 18;
 
   final RxList<MyPhotoItem> photos = <MyPhotoItem>[].obs;
+  final RxList<GalleryPhoto> matchedPhotos = <GalleryPhoto>[].obs;
   final RxBool isUploading = false.obs;
+  final RxBool isFetchingMatches = false.obs;
   final RxString helperMessage = ''.obs;
   final FaceDetector _faceDetector = FaceDetector(
     options: FaceDetectorOptions(
@@ -90,13 +143,43 @@ class MyPhotosController extends GetxController {
       requiredPoses.every((pose) => photoForPose(pose) != null);
 
   bool get canSubmitTrainingSet =>
-      canSubmitRequiredPhotos && otherPhotos.length >= 4 && !reviewLocked;
+      canSubmitRequiredPhotos && !reviewLocked && !hasRejectedPhotos;
 
-  bool get reviewLocked => photos.any(
-    (photo) =>
-        photo.reviewStatus == MyPhotoReviewStatus.pending ||
-        photo.reviewStatus == MyPhotoReviewStatus.verified,
-  );
+  bool get hasRejectedPhotos =>
+      photos.any((photo) => photo.reviewStatus == MyPhotoReviewStatus.rejected);
+
+  bool get reviewLocked =>
+      photos.any(
+        (photo) =>
+            photo.reviewStatus == MyPhotoReviewStatus.pending ||
+            photo.reviewStatus == MyPhotoReviewStatus.verified,
+      ) &&
+      !hasRejectedPhotos;
+
+  MyPhotoReviewStatus get overallReviewStatus {
+    if (photos.isEmpty) return MyPhotoReviewStatus.draft;
+    if (photos.any(
+      (photo) => photo.reviewStatus == MyPhotoReviewStatus.rejected,
+    )) {
+      return MyPhotoReviewStatus.rejected;
+    }
+    if (photos.every(
+      (photo) => photo.reviewStatus == MyPhotoReviewStatus.verified,
+    )) {
+      return MyPhotoReviewStatus.verified;
+    }
+    if (photos.any(
+      (photo) => photo.reviewStatus == MyPhotoReviewStatus.pending,
+    )) {
+      return MyPhotoReviewStatus.pending;
+    }
+    return MyPhotoReviewStatus.draft;
+  }
+
+  bool get isVerified => overallReviewStatus == MyPhotoReviewStatus.verified;
+  bool get isRejected => overallReviewStatus == MyPhotoReviewStatus.rejected;
+  bool get isPendingReview =>
+      overallReviewStatus == MyPhotoReviewStatus.pending;
 
   bool get canEditUploads =>
       !reviewLocked ||
@@ -114,6 +197,7 @@ class MyPhotosController extends GetxController {
   void onInit() {
     super.onInit();
     _loadPhotos();
+    _loadRemotePhotos();
   }
 
   @override
@@ -150,7 +234,7 @@ class MyPhotosController extends GetxController {
       MyPhotoItem(
         path: path,
         pose: pose,
-        reviewStatus: MyPhotoReviewStatus.pending,
+        reviewStatus: MyPhotoReviewStatus.draft,
       ),
     );
     _sortPhotos();
@@ -180,7 +264,7 @@ class MyPhotosController extends GetxController {
         MyPhotoItem(
           path: path,
           pose: MyPhotoPose.other,
-          reviewStatus: MyPhotoReviewStatus.pending,
+          reviewStatus: MyPhotoReviewStatus.draft,
         ),
       );
       accepted++;
@@ -189,7 +273,7 @@ class MyPhotosController extends GetxController {
     return accepted;
   }
 
-  void removePhoto(MyPhotoItem item) {
+  Future<void> removePhoto(MyPhotoItem item) async {
     if (!canEditPhoto(item)) {
       helperMessage.value =
           'Uploaded images are locked. Remove is available only after admin rejection.';
@@ -197,10 +281,21 @@ class MyPhotosController extends GetxController {
     }
     photos.remove(item);
     _savePhotos();
+    if (item.id != null) {
+      try {
+        await _repository.deleteMyImage(item.id!);
+      } catch (_) {}
+    }
   }
 
   bool canEditPhoto(MyPhotoItem item) {
-    return item.reviewStatus == MyPhotoReviewStatus.rejected || !reviewLocked;
+    return item.reviewStatus == MyPhotoReviewStatus.draft ||
+        item.reviewStatus == MyPhotoReviewStatus.rejected ||
+        !photos.any(
+          (photo) =>
+              photo.reviewStatus == MyPhotoReviewStatus.pending ||
+              photo.reviewStatus == MyPhotoReviewStatus.verified,
+        );
   }
 
   bool isPoseLocked(MyPhotoPose pose) {
@@ -214,19 +309,49 @@ class MyPhotosController extends GetxController {
           'Front, left and right face selfies are compulsory.';
       return;
     }
-    if (otherPhotos.length < 4) {
-      helperMessage.value = 'Please add at least 4 gallery images.';
-      return;
-    }
     if (reviewLocked) {
       helperMessage.value = 'Photos are already uploaded for admin review.';
       return;
     }
     isUploading.value = true;
-    await Future<void>.delayed(const Duration(milliseconds: 450));
-    isUploading.value = false;
-    helperMessage.value = 'Selfies checked and sent for admin review.';
-    _savePhotos();
+    try {
+      for (final photo in photos) {
+        if (photo.reviewStatus == MyPhotoReviewStatus.pending ||
+            photo.reviewStatus == MyPhotoReviewStatus.verified) {
+          continue;
+        }
+        await _repository.uploadMyImage(
+          path: photo.path,
+          pose: photo.pose.name,
+        );
+      }
+      photos.assignAll([
+        for (final photo in photos)
+          MyPhotoItem(
+            id: photo.id,
+            path: photo.path,
+            pose: photo.pose,
+            reviewStatus: MyPhotoReviewStatus.pending,
+            remoteUrl: photo.remoteUrl,
+            note: photo.note,
+          ),
+      ]);
+      _sortPhotos();
+      final front = photoForPose(MyPhotoPose.front);
+      if (front != null && Get.isRegistered<ProfileController>()) {
+        final profileController = Get.find<ProfileController>();
+        profileController.profileImage.value = File(front.path);
+        profileController.loadUploadedProfileImageUrl();
+      }
+      helperMessage.value =
+          'Photos uploaded. Verification pending for admin approval.';
+      _savePhotos();
+      await _loadRemotePhotos();
+    } catch (error) {
+      helperMessage.value = error.toString().replaceFirst('Exception: ', '');
+    } finally {
+      isUploading.value = false;
+    }
   }
 
   Future<MyPhotoValidationResult> validatePhoto(
@@ -381,13 +506,67 @@ class MyPhotosController extends GetxController {
     final loaded = stored
         .whereType<Map>()
         .map((json) => MyPhotoItem.fromJson(Map<String, dynamic>.from(json)))
-        .where(
-          (photo) => photo.path.isNotEmpty && File(photo.path).existsSync(),
-        )
+        .where((photo) => photo.hasLocalFile || photo.hasRemoteImage)
         .toList();
 
     photos.assignAll(loaded);
     _sortPhotos();
+  }
+
+  Future<void> _loadRemotePhotos() async {
+    try {
+      final library = await _repository.getMyLibrary();
+      final remote = library['user_images'] is List
+          ? (library['user_images'] as List)
+                .map(MyPhotoItem.fromRemote)
+                .where((photo) => photo.hasRemoteImage)
+                .toList()
+          : <MyPhotoItem>[];
+      final matched =
+          (library['photos'] is List ? library['photos'] as List : const [])
+              .map(GalleryPhoto.fromJson)
+              .where((photo) => photo.id > 0)
+              .toList();
+      matchedPhotos.assignAll(matched);
+      if (remote.isNotEmpty) {
+        photos
+          ..clear()
+          ..addAll(remote);
+        _sortPhotos();
+        _savePhotos();
+      }
+      if (remote.any(
+        (photo) => photo.reviewStatus == MyPhotoReviewStatus.verified,
+      )) {
+        await fetchServerMatches();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> fetchServerMatches() async {
+    if (!isVerified || isFetchingMatches.value) return;
+    isFetchingMatches.value = true;
+    try {
+      if (Get.isRegistered<GalleryController>()) {
+        final galleryController = Get.find<GalleryController>();
+        await galleryController.loadMyLibrary();
+        await galleryController.loadHome(force: true);
+      }
+      final library = await _repository.getMyLibrary();
+      final matched =
+          (library['photos'] is List ? library['photos'] as List : const [])
+              .map(GalleryPhoto.fromJson)
+              .where((photo) => photo.id > 0)
+              .toList();
+      matchedPhotos.assignAll(matched);
+      helperMessage.value = matched.isEmpty
+          ? 'Verified. We are fetching your smruti from the server.'
+          : 'Verified. Your smruti photos are ready.';
+    } catch (error) {
+      helperMessage.value = error.toString().replaceFirst('Exception: ', '');
+    } finally {
+      isFetchingMatches.value = false;
+    }
   }
 
   void _savePhotos() {
@@ -449,6 +628,8 @@ extension MyPhotoReviewStatusLabel on MyPhotoReviewStatus {
     switch (this) {
       case MyPhotoReviewStatus.pending:
         return 'Pending';
+      case MyPhotoReviewStatus.draft:
+        return 'Ready';
       case MyPhotoReviewStatus.verified:
         return 'Verified';
       case MyPhotoReviewStatus.rejected:
@@ -460,6 +641,8 @@ extension MyPhotoReviewStatusLabel on MyPhotoReviewStatus {
     switch (this) {
       case MyPhotoReviewStatus.pending:
         return const Color(0xFF8A6A00);
+      case MyPhotoReviewStatus.draft:
+        return const Color(0xFF246B8F);
       case MyPhotoReviewStatus.verified:
         return const Color(0xFF167A3C);
       case MyPhotoReviewStatus.rejected:
@@ -468,4 +651,17 @@ extension MyPhotoReviewStatusLabel on MyPhotoReviewStatus {
   }
 
   Color get backgroundColor => color.withValues(alpha: 0.12);
+
+  IconData get icon {
+    switch (this) {
+      case MyPhotoReviewStatus.pending:
+        return Icons.hourglass_top_rounded;
+      case MyPhotoReviewStatus.draft:
+        return Icons.cloud_upload_rounded;
+      case MyPhotoReviewStatus.verified:
+        return Icons.verified_rounded;
+      case MyPhotoReviewStatus.rejected:
+        return Icons.error_rounded;
+    }
+  }
 }

@@ -53,6 +53,19 @@ class ImagePickerHelper {
     );
   }
 
+  static Future<List<String>> pickGalleryImages({
+    required bool allowMultiple,
+    required bool enableCrop,
+    CropStyle cropStyle = CropStyle.rectangle,
+  }) {
+    return _pickImage(
+      ImageSource.gallery,
+      allowMultiple,
+      enableCrop,
+      cropStyle,
+    );
+  }
+
   static Future<List<String>> _pickImage(
     ImageSource source,
     bool allowMultiple,

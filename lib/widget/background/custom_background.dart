@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:harismruti/widget/background/animated_gallery_background.dart';
+import 'package:harismruti/widget/background/animated_words_background.dart';
 
 class CustomBackground extends StatelessWidget {
   final Widget child;
@@ -8,6 +8,12 @@ class CustomBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedGalleryBackground(tileOpacity: 0.18, child: child);
+    return AnimatedWordsBackground(
+      topToBottom: true,
+      opacity: 0.28,
+      veilAlpha: 142,
+      chipBackground: false,
+      child: child,
+    );
   }
 }

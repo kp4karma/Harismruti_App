@@ -1,7 +1,6 @@
 import 'dart:math';
 
 import 'package:harismruti/api/repositories/gallery_repository.dart';
-import 'package:harismruti/utils/app_string.dart';
 
 class AuthCarouselImages {
   final List<String> imageUrls;
@@ -32,18 +31,14 @@ class AuthCarouselRepository {
               .toList()
             ..shuffle(Random());
 
-      if (urls.isEmpty) return _fallback();
+      if (urls.isEmpty) return AuthCarouselImages(imageUrls: const []);
 
       return AuthCarouselImages(
         imageUrls: urls.take(displayCount).toList(),
         headers: imageHeaders,
       );
     } catch (_) {
-      return _fallback();
+      return AuthCarouselImages(imageUrls: const []);
     }
-  }
-
-  AuthCarouselImages _fallback() {
-    return AuthCarouselImages(imageUrls: imageUrls);
   }
 }

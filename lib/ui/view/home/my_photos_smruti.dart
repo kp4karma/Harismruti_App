@@ -7,9 +7,11 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:get/get.dart';
+import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/helper/image_service.dart';
 import 'package:harismruti/ui/controller/my_photos_controller.dart';
 import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/widget/network_Image_with_loader.dart';
 
 class MyPhotosSmruti extends StatelessWidget {
   const MyPhotosSmruti({super.key});
@@ -22,9 +24,12 @@ class MyPhotosSmruti extends StatelessWidget {
       final requiredDone = controller.requiredPoses
           .where((pose) => controller.photoForPose(pose) != null)
           .length;
-      final status = controller.reviewLocked
-          ? 'Verification submitted'
-          : '$requiredDone/3 face views ready';
+      final status = switch (controller.overallReviewStatus) {
+        MyPhotoReviewStatus.verified => 'Verified',
+        MyPhotoReviewStatus.pending => 'Verification pending',
+        MyPhotoReviewStatus.rejected => 'Rejected - upload again',
+        MyPhotoReviewStatus.draft => '$requiredDone/3 face views ready',
+      };
 
       return GestureDetector(
         onTap: () => Navigator.push(
@@ -143,8 +148,6 @@ class MyPhoneGuideScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _TrainingHero(controller: controller),
-                    const SizedBox(height: 12),
                     _RequiredCaptureGrid(controller: controller),
                     const SizedBox(height: 12),
                     _GalleryUploadCard(controller: controller),
@@ -163,81 +166,6 @@ class MyPhoneGuideScreen extends StatelessWidget {
           ],
         );
       }),
-    );
-  }
-}
-
-class _TrainingHero extends StatelessWidget {
-  final MyPhotosController controller;
-
-  const _TrainingHero({required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    final status = controller.reviewLocked
-        ? 'Photos are locked after upload'
-        : 'Capture clear views for AI training';
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Face training setup',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  status,
-                  style: TextStyle(
-                    color: Colors.black.withAlpha(145),
-                    fontWeight: FontWeight.w700,
-                    height: 1.3,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          _QualityOrb(value: controller.trainingProgress),
-        ],
-      ),
-    );
-  }
-}
-
-class _QualityOrb extends StatelessWidget {
-  final double value;
-
-  const _QualityOrb({required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 56,
-      width: 56,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          CircularProgressIndicator(
-            value: value,
-            strokeWidth: 5,
-            backgroundColor: primaryColor.withAlpha(24),
-            color: primaryColor,
-          ),
-          Text(
-            '${(value * 100).round()}%',
-            style: const TextStyle(fontWeight: FontWeight.w900),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -409,7 +337,7 @@ class _RequiredCaptureGrid extends StatelessWidget {
                   const SizedBox(width: 10),
                   const Expanded(
                     child: Text(
-                      'Required live captures',
+                      'Required Live Selfie',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
@@ -493,7 +421,7 @@ class _CapturePoseRow extends StatelessWidget {
               width: 76,
               child: item == null
                   ? _FaceFramePlaceholder(pose: pose)
-                  : Image.file(File(item!.path), fit: BoxFit.cover),
+                  : _MyPhotoImage(item: item!),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -705,7 +633,7 @@ class _GalleryUploadCard extends StatelessWidget {
             children: [
               const Expanded(
                 child: Text(
-                  'Gallery photos',
+                  'Gallery Photos',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
                 ),
               ),
@@ -721,7 +649,7 @@ class _GalleryUploadCard extends StatelessWidget {
             ],
           ),
           Text(
-            '${otherPhotos.length}/4 required. Add any clear four images from gallery.',
+            '${otherPhotos.length} selected. Add gallery photos if you want.',
             style: TextStyle(
               color: Colors.black.withAlpha(130),
               fontWeight: FontWeight.w700,
@@ -751,22 +679,18 @@ class _GalleryUploadCard extends StatelessWidget {
     );
   }
 
-  void _pickOtherPhotos(BuildContext context) {
+  Future<void> _pickOtherPhotos(BuildContext context) async {
     if (!controller.canEditUploads) {
       controller.helperMessage.value =
           'Uploaded photos are locked unless admin rejects them.';
       return;
     }
-    ImagePickerHelper.showPickerSheet(
-      context: context,
-      themeColor: primaryColor,
+    final paths = await ImagePickerHelper.pickGalleryImages(
       allowMultiple: true,
       enableCrop: false,
-      onImagesPicked: (paths) async {
-        final allowed = paths.take(controller.remainingSlots).toList();
-        await controller.addOtherPhotos(allowed);
-      },
     );
+    final allowed = paths.take(controller.remainingSlots).toList();
+    await controller.addOtherPhotos(allowed);
   }
 }
 
@@ -787,7 +711,7 @@ class _SmallPhotoTile extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              child: Image.file(File(item.path), fit: BoxFit.cover),
+              child: _MyPhotoImage(item: item),
             ),
             if (controller.canEditPhoto(item))
               Positioned(
@@ -812,6 +736,26 @@ class _SmallPhotoTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _MyPhotoImage extends StatelessWidget {
+  final MyPhotoItem item;
+
+  const _MyPhotoImage({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    if (item.hasLocalFile) {
+      return Image.file(File(item.path), fit: BoxFit.cover);
+    }
+    if (item.hasRemoteImage) {
+      return NetworkImageWithLoader(imageUrl: item.remoteUrl!, title: '');
+    }
+    return Container(
+      color: primaryColor.withAlpha(14),
+      child: Icon(CupertinoIcons.photo, color: primaryColor),
     );
   }
 }
@@ -846,11 +790,21 @@ class _SubmitCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final canSubmit =
         controller.canSubmitTrainingSet && !controller.isUploading.value;
+    final label = switch (controller.overallReviewStatus) {
+      MyPhotoReviewStatus.verified => 'Verified',
+      MyPhotoReviewStatus.pending => 'Pending Admin Approval',
+      MyPhotoReviewStatus.rejected => 'Submit for Approval',
+      MyPhotoReviewStatus.draft => 'Submit for Approval',
+    };
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
-        onPressed: canSubmit ? controller.submitForReview : null,
-        icon: controller.isUploading.value
+        onPressed: canSubmit
+            ? controller.submitForReview
+            : controller.isVerified
+            ? controller.fetchServerMatches
+            : null,
+        icon: controller.isUploading.value || controller.isFetchingMatches.value
             ? const SizedBox(
                 height: 18,
                 width: 18,
@@ -859,12 +813,12 @@ class _SubmitCard extends StatelessWidget {
                   strokeWidth: 2,
                 ),
               )
-            : const Icon(CupertinoIcons.checkmark_shield),
-        label: Text(
-          controller.reviewLocked
-              ? 'Submitted for Admin Review'
-              : 'Upload Training Photos',
-        ),
+            : Icon(
+                controller.isVerified
+                    ? CupertinoIcons.checkmark_shield_fill
+                    : CupertinoIcons.cloud_upload,
+              ),
+        label: Text(label),
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryColor,
           foregroundColor: Colors.white,
@@ -914,14 +868,36 @@ class _MatchedPhotosSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final photos = controller.photos;
-    if (photos.isEmpty) return const SizedBox.shrink();
+    if (controller.overallReviewStatus == MyPhotoReviewStatus.draft) {
+      return const SizedBox.shrink();
+    }
+    if (!controller.isVerified) {
+      return _ReviewStatePanel(controller: controller);
+    }
+    final photos = controller.matchedPhotos;
+    if (controller.isFetchingMatches.value && photos.isEmpty) {
+      return const _ServerFetchPanel();
+    }
+    if (photos.isEmpty) {
+      return _ReviewStatePanel(controller: controller);
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Found photos',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Found photos',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+              ),
+            ),
+            _StatusPill(
+              label: 'Verified',
+              color: const Color(0xFF167A3C),
+              background: const Color(0xFF167A3C).withAlpha(18),
+            ),
+          ],
         ),
         const SizedBox(height: 10),
         GridView.builder(
@@ -937,30 +913,134 @@ class _MatchedPhotosSection extends StatelessWidget {
           ),
           itemBuilder: (context, index) {
             final item = photos[index];
-            return GestureDetector(
-              onTap: () => _showPhotoActions(context, item),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(18),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.file(File(item.path), fit: BoxFit.cover),
-                    Positioned(
-                      left: 8,
-                      bottom: 8,
-                      child: _StatusPill(
-                        label: item.pose.label,
-                        color: Colors.white,
-                        background: Colors.black.withAlpha(115),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
+            return _MatchedPhotoTile(photo: item);
           },
         ),
       ],
+    );
+  }
+}
+
+class _ReviewStatePanel extends StatelessWidget {
+  final MyPhotosController controller;
+
+  const _ReviewStatePanel({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    if (controller.photos.isEmpty) return const SizedBox.shrink();
+    final status = controller.overallReviewStatus;
+    final title = switch (status) {
+      MyPhotoReviewStatus.verified => 'Server fetching',
+      MyPhotoReviewStatus.pending => 'Waiting for admin approval',
+      MyPhotoReviewStatus.rejected => 'Upload needs changes',
+      MyPhotoReviewStatus.draft => 'Ready to upload',
+    };
+    final message = switch (status) {
+      MyPhotoReviewStatus.verified =>
+        'Verified. We are fetching your matched smruti photos from the server.',
+      MyPhotoReviewStatus.pending =>
+        'Your live selfies are submitted. Editing is locked until admin review finishes.',
+      MyPhotoReviewStatus.rejected =>
+        'Rejected photos are visible above. Retake or remove them, then submit again.',
+      MyPhotoReviewStatus.draft =>
+        'Complete Front, Left and Right live selfies, then submit for approval.',
+    };
+    final color = status.color;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(status.icon, color: color, size: 24),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  style: TextStyle(
+                    color: Colors.black.withAlpha(135),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServerFetchPanel extends StatelessWidget {
+  const _ServerFetchPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          CircularProgressIndicator(color: primaryColor, strokeWidth: 2),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Fetching your smruti photos from server',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MatchedPhotoTile extends StatelessWidget {
+  final GalleryPhoto photo;
+
+  const _MatchedPhotoTile({required this.photo});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          NetworkImageWithLoader(imageUrl: photo.thumbnailUrl, title: ''),
+          Positioned(
+            left: 8,
+            bottom: 8,
+            child: _StatusPill(
+              label: photo.title ?? 'Smruti',
+              color: Colors.white,
+              background: Colors.black.withAlpha(115),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1228,8 +1308,8 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
                 ],
               ),
               const SizedBox(height: 34),
-              const Text(
-                'Face Recognition',
+              Text(
+                '${widget.pose.label} Face',
                 style: TextStyle(
                   color: Colors.black,
                   fontSize: 22,
@@ -1238,7 +1318,7 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
               ),
               const SizedBox(height: 4),
               Text(
-                'Please into the camera and hold still',
+                'Please look into the camera and hold still',
                 style: TextStyle(
                   color: Colors.black.withAlpha(120),
                   fontSize: 11,
@@ -1328,10 +1408,10 @@ class _AnimatedFaceScanner extends StatelessWidget {
                 ),
               ),
               ClipRRect(
-                borderRadius: BorderRadius.circular(88),
+                borderRadius: BorderRadius.zero,
                 child: Container(
-                  height: 216,
-                  width: 198,
+                  height: 230,
+                  width: 230,
                   color: color.withAlpha(22),
                   child:
                       cameraReady &&
@@ -1346,13 +1426,13 @@ class _AnimatedFaceScanner extends StatelessWidget {
                 ),
               ),
               CustomPaint(
-                size: const Size(220, 264),
-                painter: _OvalFramePainter(color: color),
+                size: const Size(246, 246),
+                painter: _SquareFramePainter(color: color),
               ),
               Positioned(
-                left: 42,
-                right: 42,
-                top: 68 + animation.value * 142,
+                left: 33,
+                right: 33,
+                top: 70 + animation.value * 176,
                 child: Container(
                   height: 3,
                   decoration: BoxDecoration(
@@ -1376,26 +1456,66 @@ class _AnimatedFaceScanner extends StatelessWidget {
   }
 }
 
-class _OvalFramePainter extends CustomPainter {
+class _SquareFramePainter extends CustomPainter {
   final Color color;
 
-  const _OvalFramePainter({required this.color});
+  const _SquareFramePainter({required this.color});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rect = Rect.fromLTWH(12, 8, size.width - 24, size.height - 16);
     final paint = Paint()
       ..color = color
       ..strokeWidth = 5
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
-    canvas.drawArc(rect, math.pi, math.pi, false, paint);
-    canvas.drawArc(rect, 0, math.pi, false, paint);
+    const cornerLength = 48.0;
+    final rect = Rect.fromLTWH(6, 6, size.width - 12, size.height - 12);
+
+    canvas.drawLine(
+      rect.topLeft,
+      rect.topLeft.translate(cornerLength, 0),
+      paint,
+    );
+    canvas.drawLine(
+      rect.topLeft,
+      rect.topLeft.translate(0, cornerLength),
+      paint,
+    );
+    canvas.drawLine(
+      rect.topRight,
+      rect.topRight.translate(-cornerLength, 0),
+      paint,
+    );
+    canvas.drawLine(
+      rect.topRight,
+      rect.topRight.translate(0, cornerLength),
+      paint,
+    );
+    canvas.drawLine(
+      rect.bottomLeft,
+      rect.bottomLeft.translate(cornerLength, 0),
+      paint,
+    );
+    canvas.drawLine(
+      rect.bottomLeft,
+      rect.bottomLeft.translate(0, -cornerLength),
+      paint,
+    );
+    canvas.drawLine(
+      rect.bottomRight,
+      rect.bottomRight.translate(-cornerLength, 0),
+      paint,
+    );
+    canvas.drawLine(
+      rect.bottomRight,
+      rect.bottomRight.translate(0, -cornerLength),
+      paint,
+    );
   }
 
   @override
-  bool shouldRepaint(covariant _OvalFramePainter oldDelegate) =>
+  bool shouldRepaint(covariant _SquareFramePainter oldDelegate) =>
       oldDelegate.color != color;
 }
 

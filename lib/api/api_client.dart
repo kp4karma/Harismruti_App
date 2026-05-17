@@ -54,28 +54,16 @@ class ApiClient {
             }
 
             final osType = Platform.isAndroid ? 'Android' : 'iOS';
-            final isGalleryApi =
-                options.path.contains('/api/v1/mobile') ||
-                options.path.startsWith('/home') ||
-                options.path.startsWith('/recent') ||
-                options.path.startsWith('/collections') ||
-                options.path.startsWith('/attributes') ||
-                options.path.startsWith('/smruti-of') ||
-                options.path.startsWith('/by-attribute') ||
-                options.path.startsWith('/locations') ||
-                options.path.startsWith('/people') ||
-                options.path.startsWith('/faces') ||
-                options.path.startsWith('/photos');
-
             if (ApiEndpoints.mobileApiKey.isNotEmpty) {
               options.headers['X-API-Key'] = ApiEndpoints.mobileApiKey;
             }
 
-            if (!isGalleryApi &&
-                !shouldSkipAuth &&
-                token != null &&
-                token.isNotEmpty) {
+            if (!shouldSkipAuth && token != null && token.isNotEmpty) {
               options.headers['Authorization'] = 'Bearer $token';
+            }
+            final mobileUserKey = _mobileUserKey();
+            if (mobileUserKey.isNotEmpty) {
+              options.headers['X-Mobile-User-Key'] = mobileUserKey;
             }
 
             if (options.data != null && options.data is! FormData) {
@@ -279,6 +267,23 @@ DATA: $responseData
 
   static Future<String?> _getAccessToken() async {
     return StorageHelper.getValue(key: StorageKeys.accessToken);
+  }
+
+  static String _mobileUserKey() {
+    final profileJson = StorageHelper.getValue<String>(
+      key: StorageKeys.userProfile,
+    );
+    if (profileJson == null || profileJson.isEmpty) return '';
+    try {
+      final decoded = jsonDecode(profileJson);
+      if (decoded is Map) {
+        for (final key in ['id', 'user_id', 'mobile', 'username', 'email']) {
+          final value = decoded[key]?.toString().trim() ?? '';
+          if (value.isNotEmpty && value != 'null') return value;
+        }
+      }
+    } catch (_) {}
+    return '';
   }
 
   static Future<bool> _shouldRetry(DioException error) async {

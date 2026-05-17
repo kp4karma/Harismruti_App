@@ -5,6 +5,7 @@ import 'package:flutter_tilt/flutter_tilt.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
+import 'package:harismruti/ui/view/Profile/smruti_section_setting.dart';
 import 'package:harismruti/ui/view/gallery/gallery_filter_sheet.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_string.dart';
@@ -131,7 +132,10 @@ class _HomeScreenState extends State<HomeScreen>
                       ...displaySections.map(
                         (section) => Column(
                           children: [
-                            SubHeader(title: section['title']),
+                            SubHeader(
+                              title: section['title'],
+                              onTap: _openCustomizePreferences,
+                            ),
                             section['widget'],
                           ],
                         ),
@@ -146,6 +150,13 @@ class _HomeScreenState extends State<HomeScreen>
         ),
       );
     });
+  }
+
+  void _openCustomizePreferences() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => SmrutiSectionSettingsScreen()),
+    );
   }
 
   bool _hasVisibleSectionContent(Map<String, dynamic> section) {
