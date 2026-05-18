@@ -149,6 +149,28 @@ class SmrutiSectionController extends GetxController {
     saveSectionsToStorage();
   }
 
+  void resetToDefaultOrder() {
+    final visibilityByTitle = {
+      for (final section in sections) section['title']: section['is_show'],
+    };
+    final defaults = _defaultSections().where(
+      (section) => !_isRemovedHomeSection(section['title']),
+    );
+
+    sections.assignAll(
+      defaults.map((section) {
+        final title = section['title'];
+        return {
+          ...section,
+          'is_show': visibilityByTitle[title] ?? section['is_show'],
+          'widget': _getWidgetByTitle(title),
+        };
+      }).toList(),
+    );
+    resetVisibleCount();
+    saveSectionsToStorage();
+  }
+
   void reorderSections(int oldIndex, int newIndex) {
     if (newIndex > oldIndex) newIndex--;
 

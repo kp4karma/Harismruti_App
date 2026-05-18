@@ -32,6 +32,7 @@ class HomeSectionDetailScreen extends StatefulWidget {
 class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
   final GalleryController _controller = Get.find<GalleryController>();
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   String _query = '';
 
   @override
@@ -40,11 +41,13 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
     _searchController.addListener(() {
       setState(() => _query = _searchController.text.trim().toLowerCase());
     });
+    _searchFocusNode.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -56,20 +59,36 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
       body: Obx(() {
         final items = _itemsForTitle(widget.title);
         final visibleItems = _filterItems(items);
+        final suggestions = _suggestionsForItems(items);
 
-        return Column(
+        return Stack(
           children: [
-            _SearchFilterBar(
-              controller: _searchController,
-              onFilterTap: () => showGalleryFilterSheet(context),
+            Column(
+              children: [
+                _SearchFilterBar(
+                  controller: _searchController,
+                  focusNode: _searchFocusNode,
+                  onFilterTap: () => showGalleryFilterSheet(context),
+                ),
+                Expanded(
+                  child: visibleItems.isEmpty
+                      ? const GalleryEmptyState(
+                          height: 260,
+                          message: 'No smruti found',
+                        )
+                      : _buildSectionBody(visibleItems),
+                ),
+              ],
             ),
-            Expanded(
-              child: visibleItems.isEmpty
-                  ? const GalleryEmptyState(
-                      height: 260,
-                      message: 'No smruti found',
-                    )
-                  : _buildSectionBody(visibleItems),
+            Positioned(
+              left: 16,
+              right: 78,
+              top: 74,
+              child: _SearchSuggestionsList(
+                suggestions: suggestions,
+                isVisible: _searchFocusNode.hasFocus && suggestions.isNotEmpty,
+                onTap: _applySuggestion,
+              ),
             ),
           ],
         );
@@ -333,6 +352,61 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
         .toList(growable: false);
   }
 
+  List<_SearchSuggestion> _suggestionsForItems(List<Object> items) {
+    final query = _query;
+    final suggestions = <String, _SearchSuggestion>{};
+
+    for (final item in items) {
+      final suggestion = _suggestionForItem(item);
+      if (suggestion == null) continue;
+      final searchable = '${suggestion.title} ${suggestion.subtitle}'
+          .toLowerCase();
+      if (query.isNotEmpty && !searchable.contains(query)) continue;
+
+      final key = suggestion.title.toLowerCase();
+      suggestions.putIfAbsent(key, () => suggestion);
+      if (suggestions.length >= 8) break;
+    }
+
+    return suggestions.values.toList(growable: false);
+  }
+
+  _SearchSuggestion? _suggestionForItem(Object item) {
+    return switch (item) {
+      GalleryCard() => _SearchSuggestion(
+        title: item.title,
+        subtitle: item.subtitle.isNotEmpty
+            ? item.subtitle
+            : '${item.count ?? item.photos.length} Photos',
+        icon: CupertinoIcons.photo_on_rectangle,
+      ),
+      GalleryPhoto() => _SearchSuggestion(
+        title: item.title ?? 'Smruti',
+        subtitle: item.subtitle ?? _formatDate(item.takenAt),
+        icon: CupertinoIcons.photo,
+      ),
+      _UserCollectionItem() => _SearchSuggestion(
+        title: item.title,
+        subtitle: '${item.photos.length} Photos',
+        icon: CupertinoIcons.collections,
+      ),
+      DiaryEntry() => _SearchSuggestion(
+        title: item.title,
+        subtitle: _diarySubtitle(item),
+        icon: CupertinoIcons.book,
+      ),
+      _ => null,
+    };
+  }
+
+  void _applySuggestion(_SearchSuggestion suggestion) {
+    _searchController.text = suggestion.title;
+    _searchController.selection = TextSelection.collapsed(
+      offset: _searchController.text.length,
+    );
+    _searchFocusNode.unfocus();
+  }
+
   void _openCard(GalleryCard card) {
     if (card.type == 'collection') {
       Navigator.push(
@@ -415,9 +489,14 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
 
 class _SearchFilterBar extends StatelessWidget {
   final TextEditingController controller;
+  final FocusNode focusNode;
   final VoidCallback onFilterTap;
 
-  const _SearchFilterBar({required this.controller, required this.onFilterTap});
+  const _SearchFilterBar({
+    required this.controller,
+    required this.focusNode,
+    required this.onFilterTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -432,12 +511,26 @@ class _SearchFilterBar extends StatelessWidget {
                 filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                 child: TextField(
                   controller: controller,
+                  focusNode: focusNode,
                   textInputAction: TextInputAction.search,
                   decoration: InputDecoration(
                     hintText: 'Search smruti',
                     prefixIcon: Icon(
                       CupertinoIcons.search,
                       color: primaryColor,
+                    ),
+                    suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: controller,
+                      builder: (context, value, _) {
+                        if (value.text.isEmpty) return const SizedBox.shrink();
+                        return GestureDetector(
+                          onTap: controller.clear,
+                          child: Icon(
+                            CupertinoIcons.xmark_circle_fill,
+                            color: Colors.black.withAlpha(95),
+                          ),
+                        );
+                      },
                     ),
                     filled: true,
                     fillColor: Colors.white.withAlpha(230),
@@ -462,6 +555,145 @@ class _SearchFilterBar extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SearchSuggestion {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+
+  const _SearchSuggestion({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+  });
+}
+
+class _SearchSuggestionsList extends StatelessWidget {
+  final List<_SearchSuggestion> suggestions;
+  final bool isVisible;
+  final ValueChanged<_SearchSuggestion> onTap;
+
+  const _SearchSuggestionsList({
+    required this.suggestions,
+    required this.isVisible,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 180),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      child: isVisible
+          ? Material(
+              key: const ValueKey('search-suggestions'),
+              color: Colors.transparent,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                  child: Container(
+                    constraints: const BoxConstraints(maxHeight: 246),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(238),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: primaryColor.withAlpha(16)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(20),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: suggestions.length,
+                      separatorBuilder: (_, __) => Divider(
+                        height: 1,
+                        indent: 58,
+                        color: primaryColor.withAlpha(12),
+                      ),
+                      itemBuilder: (context, index) {
+                        final suggestion = suggestions[index];
+                        return InkWell(
+                          onTap: () => onTap(suggestion),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 9,
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 34,
+                                  height: 34,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: primaryColor.withAlpha(18),
+                                    borderRadius: BorderRadius.circular(11),
+                                  ),
+                                  child: Icon(
+                                    suggestion.icon,
+                                    size: 18,
+                                    color: primaryColor,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        suggestion.title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Color(0xFF322318),
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                      if (suggestion.subtitle.isNotEmpty) ...[
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          suggestion.subtitle,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: Colors.black.withAlpha(120),
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                Icon(
+                                  CupertinoIcons.arrow_up_left,
+                                  color: primaryColor.withAlpha(150),
+                                  size: 18,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            )
+          : const SizedBox.shrink(key: ValueKey('search-suggestions-empty')),
     );
   }
 }

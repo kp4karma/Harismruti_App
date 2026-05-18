@@ -5,6 +5,7 @@ import 'package:harismruti/utils/size_config.dart';
 class CustomButton extends StatelessWidget {
   final String text;
   final VoidCallback onTap;
+  final bool isEnabled;
   final Color? color;
   final Color? textColor;
   final double widthFactor;
@@ -15,6 +16,7 @@ class CustomButton extends StatelessWidget {
     super.key,
     required this.text,
     required this.onTap,
+    this.isEnabled = true,
     this.color,
     this.textColor,
     this.widthFactor = 80,
@@ -25,12 +27,12 @@ class CustomButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: isEnabled ? onTap : null,
       child: Container(
         width: SizeConfig.widthMultiplier! * widthFactor,
         height: SizeConfig.heightMultiplier! * heightFactor,
         decoration: BoxDecoration(
-          color: color ?? primaryColor,
+          color: isEnabled ? color ?? primaryColor : Colors.black.withAlpha(45),
           borderRadius: BorderRadius.circular(borderRadius),
         ),
         child: Center(
@@ -38,7 +40,9 @@ class CustomButton extends StatelessWidget {
             text,
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: textColor ?? Colors.white,
+              color: isEnabled
+                  ? textColor ?? Colors.white
+                  : Colors.black.withAlpha(105),
               letterSpacing: 1,
               fontSize: 16,
             ),

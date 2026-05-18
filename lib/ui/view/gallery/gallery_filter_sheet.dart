@@ -38,7 +38,10 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
     super.initState();
     _controller.loadFilters();
     _searchController.addListener(() {
-      setState(() => _query = _searchController.text.trim().toLowerCase());
+      setState(() {
+        _query = _searchController.text.trim().toLowerCase();
+        _selectedIndex = 0;
+      });
     });
   }
 
@@ -70,6 +73,57 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
       if (values.isEmpty) _selectedValues.remove(group.slug);
     });
     _controller.loadFilters(selected: _selectedForApi, force: true);
+  }
+
+  List<GalleryFilterGroup> _availableGroups(List<GalleryFilterGroup> groups) {
+    return groups.where((group) => group.options.isNotEmpty).toList();
+  }
+
+  List<GalleryFilterGroup> _searchMatchedGroups(
+    List<GalleryFilterGroup> groups,
+  ) {
+    if (_query.isEmpty) return groups;
+    return groups
+        .where(
+          (group) => group.options.any(
+            (option) => option.label.toLowerCase().contains(_query),
+          ),
+        )
+        .toList();
+  }
+
+  void _pruneUnavailableSelections(List<GalleryFilterGroup> groups) {
+    if (_selectedValues.isEmpty) return;
+
+    final availableValues = {
+      for (final group in groups)
+        group.slug: group.options.map((option) => option.value).toSet(),
+    };
+    var changed = false;
+
+    for (final slug in _selectedValues.keys.toList()) {
+      final selected = _selectedValues[slug];
+      final available = availableValues[slug];
+      if (selected == null) continue;
+      if (available == null) {
+        _selectedValues.remove(slug);
+        changed = true;
+        continue;
+      }
+
+      final before = selected.length;
+      selected.removeWhere((value) => !available.contains(value));
+      if (selected.isEmpty) {
+        _selectedValues.remove(slug);
+      }
+      changed = changed || selected.length != before;
+    }
+
+    if (changed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+    }
   }
 
   void _clearFilters() {
@@ -155,8 +209,25 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
               ),
               Expanded(
                 child: Obx(() {
-                  final groups = _controller.filtersWithUserTags;
-                  if (groups.isEmpty) return const _FilterSheetLoading();
+                  final availableGroups = _availableGroups(
+                    _controller.filtersWithUserTags,
+                  );
+                  if (availableGroups.isEmpty) {
+                    return const _FilterSheetLoading();
+                  }
+                  _pruneUnavailableSelections(availableGroups);
+                  final groups = _searchMatchedGroups(availableGroups);
+                  if (groups.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'No options found',
+                        style: TextStyle(
+                          color: primaryColor.withAlpha(170),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    );
+                  }
                   final safeIndex = _selectedIndex >= groups.length
                       ? groups.length - 1
                       : _selectedIndex;
@@ -250,7 +321,7 @@ class _FilterCategoryTile extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                group.title,
+                _filterGroupDisplayTitle(group),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -285,6 +356,13 @@ class _FilterCategoryTile extends StatelessWidget {
       ),
     );
   }
+}
+
+String _filterGroupDisplayTitle(GalleryFilterGroup group) {
+  final title = group.title.trim();
+  if (title.toLowerCase() == 'location') return 'Place';
+  if (title.toLowerCase() == 'locations') return 'Places';
+  return group.title;
 }
 
 class _FilterOptionsList extends StatelessWidget {

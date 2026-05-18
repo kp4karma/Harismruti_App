@@ -29,6 +29,9 @@ class AnimatedWordsBackground extends StatefulWidget {
 class _AnimatedWordsBackgroundState extends State<AnimatedWordsBackground>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  bool _showWords = true;
+
+  static const Duration _fadeOutDuration = Duration(milliseconds: 450);
 
   static const List<String> _words = [
     'દાસત્વ',
@@ -128,7 +131,11 @@ class _AnimatedWordsBackgroundState extends State<AnimatedWordsBackground>
     final animateFor = widget.animateFor;
     if (animateFor != null) {
       Future.delayed(animateFor, () {
-        if (mounted) _controller.stop();
+        if (!mounted) return;
+        setState(() => _showWords = false);
+        Future.delayed(_fadeOutDuration, () {
+          if (mounted) _controller.stop();
+        });
       });
     }
   }
@@ -152,23 +159,28 @@ class _AnimatedWordsBackgroundState extends State<AnimatedWordsBackground>
       child: Stack(
         fit: StackFit.expand,
         children: [
-          AnimatedBuilder(
-            animation: _controller,
-            builder: (context, child) {
-              return LayoutBuilder(
-                builder: (context, constraints) {
-                  return Stack(
-                    children: _particles.map((particle) {
-                      return _buildWord(
-                        particle,
-                        constraints.maxWidth,
-                        constraints.maxHeight,
-                      );
-                    }).toList(),
-                  );
-                },
-              );
-            },
+          AnimatedOpacity(
+            opacity: _showWords ? 1 : 0,
+            duration: _fadeOutDuration,
+            curve: Curves.easeOut,
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, child) {
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    return Stack(
+                      children: _particles.map((particle) {
+                        return _buildWord(
+                          particle,
+                          constraints.maxWidth,
+                          constraints.maxHeight,
+                        );
+                      }).toList(),
+                    );
+                  },
+                );
+              },
+            ),
           ),
           DecoratedBox(
             decoration: BoxDecoration(

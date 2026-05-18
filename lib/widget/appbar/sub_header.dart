@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:harismruti/utils/app_color.dart';
 
 class SubHeader extends StatelessWidget {
   final String title;
@@ -36,15 +37,22 @@ class SubHeader extends StatelessWidget {
                 GestureDetector(
                   onTap: onTap,
                   child: Container(
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
+                    decoration: BoxDecoration(
+                      color: primaryColor,
                       shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: primaryColor.withAlpha(52),
+                          blurRadius: 14,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
                     ),
                     child: const Padding(
                       padding: EdgeInsets.all(6.0),
                       child: Icon(
                         Icons.chevron_right_rounded,
-                        color: Color(0xFF322318),
+                        color: Colors.white,
                         size: 20,
                       ),
                     ),

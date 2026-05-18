@@ -18,7 +18,7 @@ class AuthController extends GetxController {
 
   final RxBool isLoading = false.obs;
   final RxString lastMobile = ''.obs;
-  final RxString lastValidationMethod = 'whatsapp'.obs;
+  final RxString lastValidationMethod = 'email'.obs;
 
   Future<bool> login({
     required String mobile,
@@ -56,9 +56,12 @@ class AuthController extends GetxController {
     final formattedMobile = _formatMobile(mobile);
     if (fullName.trim().isEmpty ||
         formattedMobile.isEmpty ||
-        city.trim().isEmpty ||
         email.trim().isEmpty) {
-      TopNotification.error('Please fill all fields');
+      TopNotification.error('Please fill all required fields');
+      return false;
+    }
+    if (!_isValidEmail(email)) {
+      TopNotification.error('Please enter valid email');
       return false;
     }
 
@@ -115,6 +118,12 @@ class AuthController extends GetxController {
       mobile: lastMobile.value,
       validationMethod: lastValidationMethod.value,
     );
+  }
+
+  bool _isValidEmail(String email) {
+    return RegExp(
+      r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$',
+    ).hasMatch(email.trim());
   }
 
   Future<bool> _runAuthRequest(Future<bool> Function() request) async {

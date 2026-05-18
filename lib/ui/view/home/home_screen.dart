@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_tilt/flutter_tilt.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/helper/auth_redirect_helper.dart';
-import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_filter_sheet.dart';
@@ -15,7 +14,6 @@ import 'package:harismruti/widget/appbar/custom_appbar.dart';
 import 'package:harismruti/widget/appbar/sub_header.dart';
 import 'package:harismruti/widget/background/custom_background.dart';
 import 'package:harismruti/widget/bottom_bar/bottom_bar.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -151,7 +149,6 @@ class _HomeScreenState extends State<HomeScreen>
                           ],
                         ),
                       ),
-                      const _VrundAppPromotion(),
                       const SizedBox(height: kBottomNavigationBarHeight),
                     ],
                   ),
@@ -218,232 +215,5 @@ class _HomeScreenState extends State<HomeScreen>
       'My Favorites' => true,
       _ => false,
     };
-  }
-}
-
-class _VrundAppPromotion extends StatelessWidget {
-  static const String _logoAsset = 'assets/vrund_app_logo.jpg';
-  static final Uri _androidUri = Uri.parse(
-    'https://play.google.com/store/apps/details?id=com.suhradvrund&pcampaignid=web_share',
-  );
-  static final Uri _iosUri = Uri.parse(
-    'https://apps.apple.com/in/app/hariprabodham-vrund/id6474902923',
-  );
-
-  const _VrundAppPromotion();
-
-  @override
-  Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final isCompact = width < 380;
-
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 22),
-      padding: EdgeInsets.all(isCompact ? 14 : 16),
-      decoration: BoxDecoration(
-        color: Colors.white.withAlpha(236),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: primaryColor.withAlpha(28)),
-        boxShadow: [
-          BoxShadow(
-            color: primaryColor.withAlpha(18),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: isCompact ? 72 : 84,
-                height: isCompact ? 72 : 84,
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: primaryColor.withAlpha(18)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: primaryColor.withAlpha(18),
-                      blurRadius: 14,
-                      offset: const Offset(0, 7),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: Image.asset(
-                    _logoAsset,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, _, _) => Icon(
-                      Icons.play_circle_fill_rounded,
-                      color: primaryColor,
-                      size: 30,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Hariprabodham Vrund',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: primaryColor,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Video and Audio Smruti with live pravachan updates.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.black.withAlpha(166),
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: const [
-              _PromoFeature(icon: Icons.videocam_rounded, label: 'Video'),
-              _PromoFeature(icon: Icons.headphones_rounded, label: 'Audio'),
-              _PromoFeature(icon: Icons.sensors_rounded, label: 'Live'),
-            ],
-          ),
-          const SizedBox(height: 14),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final stackButtons = constraints.maxWidth < 330;
-
-              final androidButton = _StoreButton(
-                icon: Icons.android_rounded,
-                label: 'Android App',
-                onTap: () => _openStore(_androidUri),
-              );
-              final iosButton = _StoreButton(
-                icon: Icons.phone_iphone_rounded,
-                label: 'iOS App',
-                onTap: () => _openStore(_iosUri),
-              );
-
-              if (stackButtons) {
-                return Column(
-                  children: [
-                    androidButton,
-                    const SizedBox(height: 8),
-                    iosButton,
-                  ],
-                );
-              }
-
-              return Row(
-                children: [
-                  Expanded(child: androidButton),
-                  const SizedBox(width: 8),
-                  Expanded(child: iosButton),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  static Future<void> _openStore(Uri uri) async {
-    final didLaunch = await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
-    );
-
-    if (!didLaunch) {
-      TopNotification.error(
-        'Unable to open the app store link.',
-        title: 'Hariprabodham Vrund',
-      );
-    }
-  }
-}
-
-class _PromoFeature extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _PromoFeature({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: secondaryColor.withAlpha(22),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: secondaryColor, size: 17),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: primaryColor,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StoreButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _StoreButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 46,
-      child: FilledButton.icon(
-        onPressed: onTap,
-        icon: Icon(icon, size: 20),
-        label: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            label,
-            maxLines: 1,
-            style: const TextStyle(fontWeight: FontWeight.w800),
-          ),
-        ),
-        style: FilledButton.styleFrom(
-          backgroundColor: primaryColor,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-        ),
-      ),
-    );
   }
 }

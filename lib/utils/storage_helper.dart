@@ -17,6 +17,7 @@ class StorageKeys {
   static const String photoUserTags = 'photoUserTags';
   static const String userCollections = 'userCollections';
   static const String authCarouselImages = 'authCarouselImages';
+  static const String reorderTutorialSeen = 'reorderTutorialSeenV2';
 }
 
 class StorageHelper {
@@ -39,7 +40,14 @@ class StorageHelper {
   }
 
   static void clearStorage() {
+    final reorderTutorialSeen = getValue<bool>(
+      key: StorageKeys.reorderTutorialSeen,
+      defaultValue: false,
+    );
     _box.erase();
+    if (reorderTutorialSeen == true) {
+      setValue(key: StorageKeys.reorderTutorialSeen, value: true);
+    }
   }
 
   static bool hasKey(String key) {

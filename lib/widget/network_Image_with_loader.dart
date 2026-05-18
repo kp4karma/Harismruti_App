@@ -7,12 +7,14 @@ class NetworkImageWithLoader extends StatelessWidget {
   final String imageUrl;
   final String title;
   final Map<String, String>? headers;
+  final BoxFit fit;
 
   const NetworkImageWithLoader({
     super.key,
     required this.imageUrl,
     required this.title,
     this.headers,
+    this.fit = BoxFit.cover,
   });
 
   @override
@@ -27,7 +29,7 @@ class NetworkImageWithLoader extends StatelessWidget {
       ),
       errorWidget: (context, url, error) =>
           Icon(CupertinoIcons.photo, color: primaryColor),
-      fit: BoxFit.cover,
+      fit: fit,
     );
   }
 }

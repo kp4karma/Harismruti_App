@@ -7,15 +7,18 @@ import 'package:dio/dio.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/helper/auth_redirect_helper.dart';
 import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
+import 'package:harismruti/ui/view/gallery/gallery_location_screen.dart';
 import 'package:harismruti/ui/view/home/my_diary_smruti.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
+import 'package:latlong2/latlong.dart' hide Path;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -27,6 +30,7 @@ class GalleryDetailScreen extends StatefulWidget {
   final String subtitle;
   final String? coverUrl;
   final Future<List<GalleryPhoto>> Function() loader;
+  final bool showRecentPhotoMetadata;
 
   const GalleryDetailScreen({
     super.key,
@@ -34,6 +38,7 @@ class GalleryDetailScreen extends StatefulWidget {
     required this.subtitle,
     required this.loader,
     this.coverUrl,
+    this.showRecentPhotoMetadata = false,
   });
 
   factory GalleryDetailScreen.fromCard(GalleryCard card) {
@@ -127,6 +132,7 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
                   photos: photos,
                   title: widget.title,
                   headers: _galleryController.imageHeaders,
+                  showRecentPhotoMetadata: widget.showRecentPhotoMetadata,
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 28)),
               ],
@@ -354,11 +360,13 @@ class _MosaicPhotoSliver extends StatelessWidget {
   final List<GalleryPhoto> photos;
   final String title;
   final Map<String, String>? headers;
+  final bool showRecentPhotoMetadata;
 
   const _MosaicPhotoSliver({
     required this.photos,
     required this.title,
     required this.headers,
+    required this.showRecentPhotoMetadata,
   });
 
   @override
@@ -378,6 +386,7 @@ class _MosaicPhotoSliver extends StatelessWidget {
             title: title,
             headers: headers,
             reversed: rowIndex.isOdd,
+            showRecentPhotoMetadata: showRecentPhotoMetadata,
           );
         },
       ),
@@ -392,6 +401,7 @@ class _MosaicRow extends StatelessWidget {
   final String title;
   final Map<String, String>? headers;
   final bool reversed;
+  final bool showRecentPhotoMetadata;
 
   const _MosaicRow({
     required this.photos,
@@ -400,6 +410,7 @@ class _MosaicRow extends StatelessWidget {
     required this.title,
     required this.headers,
     required this.reversed,
+    required this.showRecentPhotoMetadata,
   });
 
   @override
@@ -413,6 +424,7 @@ class _MosaicRow extends StatelessWidget {
           index: startIndex,
           title: title,
           headers: headers,
+          showRecentPhotoMetadata: showRecentPhotoMetadata,
         ),
       );
     }
@@ -425,6 +437,7 @@ class _MosaicRow extends StatelessWidget {
         index: startIndex,
         title: title,
         headers: headers,
+        showRecentPhotoMetadata: showRecentPhotoMetadata,
       ),
     );
     final stack = Expanded(
@@ -439,6 +452,7 @@ class _MosaicRow extends StatelessWidget {
               index: startIndex + 1,
               title: title,
               headers: headers,
+              showRecentPhotoMetadata: showRecentPhotoMetadata,
             ),
           ),
           if (photos.length > 2) ...[
@@ -451,6 +465,7 @@ class _MosaicRow extends StatelessWidget {
                 index: startIndex + 2,
                 title: title,
                 headers: headers,
+                showRecentPhotoMetadata: showRecentPhotoMetadata,
               ),
             ),
           ],
@@ -478,6 +493,7 @@ class _MosaicTile extends StatelessWidget {
   final int index;
   final String title;
   final Map<String, String>? headers;
+  final bool showRecentPhotoMetadata;
 
   const _MosaicTile({
     required this.photo,
@@ -485,6 +501,7 @@ class _MosaicTile extends StatelessWidget {
     required this.index,
     required this.title,
     required this.headers,
+    required this.showRecentPhotoMetadata,
   });
 
   @override
@@ -498,6 +515,7 @@ class _MosaicTile extends StatelessWidget {
               photos: allPhotos,
               initialIndex: index,
               title: title,
+              showRecentPhotoMetadata: showRecentPhotoMetadata,
             ),
           ),
         );
@@ -535,12 +553,14 @@ class GalleryFullscreenViewer extends StatefulWidget {
   final List<GalleryPhoto> photos;
   final int initialIndex;
   final String title;
+  final bool showRecentPhotoMetadata;
 
   const GalleryFullscreenViewer({
     super.key,
     required this.photos,
     required this.initialIndex,
     required this.title,
+    this.showRecentPhotoMetadata = false,
   });
 
   @override
@@ -548,15 +568,24 @@ class GalleryFullscreenViewer extends StatefulWidget {
       _GalleryFullscreenViewerState();
 }
 
-class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
+class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
+    with SingleTickerProviderStateMixin {
   late final PageController _pageController;
   late final ScrollController _thumbnailScrollController;
+  late final TransformationController _transformationController;
+  late final AnimationController _zoomAnimationController;
+  Animation<Matrix4>? _zoomAnimation;
+  VoidCallback? _zoomAnimationListener;
+  AnimationStatusListener? _zoomAnimationStatusListener;
   late int _index;
   final GalleryController _controller = Get.find<GalleryController>();
   final Map<int, Future<GalleryPhotoAttributes>> _attributesCache = {};
   final Map<int, Future<String>> _imageSizeCache = {};
   final Map<int, Future<String>> _storageSizeCache = {};
   bool _showFavoriteBurst = false;
+  bool _chromeVisible = true;
+  bool _isZoomed = false;
+  Offset _lastDoubleTapPosition = Offset.zero;
 
   @override
   void initState() {
@@ -564,6 +593,11 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
     _index = widget.initialIndex;
     _pageController = PageController(initialPage: widget.initialIndex);
     _thumbnailScrollController = ScrollController();
+    _transformationController = TransformationController();
+    _zoomAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _precacheAround(_index);
       _centerThumbnail(_index, animated: false);
@@ -574,6 +608,9 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
   void dispose() {
     _pageController.dispose();
     _thumbnailScrollController.dispose();
+    _clearZoomAnimation();
+    _zoomAnimationController.dispose();
+    _transformationController.dispose();
     super.dispose();
   }
 
@@ -591,9 +628,31 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
       final metadataSize = _formatPhotoDimensions(photo.width, photo.height);
       if (metadataSize != null) return metadataSize;
 
-      final completer = Completer<String>();
+      final fullImageSize = await _imageDimensionsFromProvider(photo.fullUrl);
+      if (fullImageSize != null) return fullImageSize;
+
+      final downloadedFullSize = await _imageDimensionsFromBytes(photo.fullUrl);
+      if (downloadedFullSize != null) return downloadedFullSize;
+
+      final thumbnailSize = await _imageDimensionsFromProvider(
+        photo.thumbnailUrl,
+      );
+      if (thumbnailSize != null) return thumbnailSize;
+
+      final downloadedThumbnailSize = await _imageDimensionsFromBytes(
+        photo.thumbnailUrl,
+      );
+      return downloadedThumbnailSize ?? 'Not available';
+    });
+  }
+
+  Future<String?> _imageDimensionsFromProvider(String url) async {
+    if (url.isEmpty || !mounted) return null;
+
+    final completer = Completer<String?>();
+    try {
       final provider = CachedNetworkImageProvider(
-        photo.fullUrl,
+        url,
         headers: _controller.imageHeaders,
       );
       late final ImageStreamListener listener;
@@ -602,18 +661,44 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
         (image, _) {
           stream.removeListener(listener);
           completer.complete(
-            _formatPhotoDimensions(image.image.width, image.image.height) ??
-                'Not available',
+            _formatPhotoDimensions(image.image.width, image.image.height),
           );
         },
         onError: (error, stackTrace) {
           stream.removeListener(listener);
-          completer.complete('Not available');
+          completer.complete(null);
         },
       );
       stream.addListener(listener);
-      return completer.future;
-    });
+      return completer.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          stream.removeListener(listener);
+          return null;
+        },
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String?> _imageDimensionsFromBytes(String url) async {
+    if (url.isEmpty) return null;
+    try {
+      final response = await Dio().get<List<int>>(
+        url,
+        options: Options(
+          headers: _controller.imageHeaders,
+          responseType: ResponseType.bytes,
+        ),
+      );
+      final data = response.data;
+      if (data == null || data.isEmpty) return null;
+      final image = await decodeImageFromList(Uint8List.fromList(data));
+      return _formatPhotoDimensions(image.width, image.height);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<String> _storageSizeFor(GalleryPhoto photo) {
@@ -739,12 +824,104 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
     if (!wasFavorite) _playFavoriteBurst();
   }
 
-  void _favoriteCurrentPhoto() {
-    if (!AuthRedirectHelper.ensureLoggedIn()) return;
-    if (!_controller.isFavorite(_photo.id)) {
-      _controller.toggleFavorite(_photo);
+  void _toggleChrome() {
+    setState(() => _chromeVisible = !_chromeVisible);
+  }
+
+  void _rememberDoubleTapPosition(TapDownDetails details) {
+    _lastDoubleTapPosition = details.localPosition;
+  }
+
+  void _syncZoomState() {
+    final isZoomed = _transformationController.value.getMaxScaleOnAxis() > 1.05;
+    if (_isZoomed == isZoomed) return;
+    setState(() => _isZoomed = isZoomed);
+  }
+
+  void _clearZoomAnimation() {
+    final animation = _zoomAnimation;
+    final listener = _zoomAnimationListener;
+    final statusListener = _zoomAnimationStatusListener;
+    if (animation != null && listener != null) {
+      animation.removeListener(listener);
     }
-    _playFavoriteBurst();
+    if (animation != null && statusListener != null) {
+      animation.removeStatusListener(statusListener);
+    }
+    _zoomAnimation = null;
+    _zoomAnimationListener = null;
+    _zoomAnimationStatusListener = null;
+  }
+
+  void _animateZoomTo(Matrix4 target, {required bool isZoomed}) {
+    _zoomAnimationController.stop();
+    _clearZoomAnimation();
+    final animation =
+        Matrix4Tween(
+          begin: _transformationController.value,
+          end: target,
+        ).animate(
+          CurvedAnimation(
+            parent: _zoomAnimationController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
+
+    void listener() {
+      _transformationController.value = animation.value;
+    }
+
+    void statusListener(AnimationStatus status) {
+      if (status != AnimationStatus.completed) return;
+      _clearZoomAnimation();
+      if (mounted) {
+        setState(() => _isZoomed = isZoomed);
+      }
+    }
+
+    _zoomAnimation = animation;
+    _zoomAnimationListener = listener;
+    _zoomAnimationStatusListener = statusListener;
+    animation.addListener(listener);
+    animation.addStatusListener(statusListener);
+    setState(() {
+      if (isZoomed) {
+        _isZoomed = true;
+        _chromeVisible = false;
+      }
+    });
+    _zoomAnimationController.forward(from: 0);
+  }
+
+  void _resetZoom({bool animated = true}) {
+    if (animated) {
+      _animateZoomTo(Matrix4.identity(), isZoomed: false);
+    } else {
+      _zoomAnimationController.stop();
+      _transformationController.value = Matrix4.identity();
+      _isZoomed = false;
+    }
+  }
+
+  void _toggleZoom() {
+    final currentScale = _transformationController.value.getMaxScaleOnAxis();
+    if (currentScale > 1.05) {
+      setState(() {
+        _chromeVisible = true;
+      });
+      _resetZoom();
+      return;
+    }
+
+    const zoom = 2.75;
+    final position = _lastDoubleTapPosition;
+    final viewport = MediaQuery.sizeOf(context);
+    final target = Matrix4.identity()
+      ..setEntry(0, 0, zoom)
+      ..setEntry(1, 1, zoom)
+      ..setEntry(0, 3, (viewport.width / 2) - (position.dx * zoom))
+      ..setEntry(1, 3, (viewport.height / 2) - (position.dy * zoom));
+    _animateZoomTo(target, isZoomed: true);
   }
 
   Future<void> _openAddCollectionSheet() async {
@@ -857,18 +1034,57 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
     );
   }
 
+  String _formatRecentViewerTitle(GalleryPhoto photo) {
+    return photo.title?.trim().isNotEmpty == true
+        ? photo.title!.trim()
+        : 'Recent Smruti';
+  }
+
+  String _formatRecentViewerSubtitle(GalleryPhoto photo) {
+    return _formatPhotoDateTime(photo.takenAt) ??
+        '${_index + 1} of ${widget.photos.length}';
+  }
+
+  String? _formatPhotoDateTime(DateTime? date) {
+    if (date == null) return null;
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final hour = date.hour == 0 || date.hour == 12 ? 12 : date.hour % 12;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final period = date.hour >= 12 ? 'PM' : 'AM';
+    return '${date.day} ${months[date.month - 1]} ${date.year}, $hour:$minute $period';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: _isZoomed ? Colors.black : Colors.white,
       body: Stack(
         children: [
           PageView.builder(
             controller: _pageController,
             itemCount: widget.photos.length,
             allowImplicitScrolling: true,
+            physics: _isZoomed
+                ? const NeverScrollableScrollPhysics()
+                : const PageScrollPhysics(),
             onPageChanged: (value) {
-              setState(() => _index = value);
+              setState(() {
+                _index = value;
+                _resetZoom(animated: false);
+              });
               _precacheAround(value);
               _centerThumbnail(value);
             },
@@ -876,15 +1092,27 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
               final photo = widget.photos[index];
               return GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onDoubleTap: _favoriteCurrentPhoto,
+                onTap: _toggleChrome,
+                onDoubleTapDown: _rememberDoubleTapPosition,
+                onDoubleTap: _toggleZoom,
                 onVerticalDragEnd: (details) {
+                  if (_isZoomed) return;
                   if ((details.primaryVelocity ?? 0) < -240) {
                     _openInfoSheet();
                   }
                 },
                 child: InteractiveViewer(
+                  transformationController: _transformationController,
                   minScale: 1,
-                  maxScale: 4,
+                  maxScale: 5,
+                  boundaryMargin: const EdgeInsets.all(96),
+                  clipBehavior: Clip.none,
+                  onInteractionStart: (_) {
+                    _zoomAnimationController.stop();
+                    _clearZoomAnimation();
+                  },
+                  onInteractionUpdate: (_) => _syncZoomState(),
+                  onInteractionEnd: (_) => _syncZoomState(),
                   child: Center(
                     child: Hero(
                       tag: 'photo-${photo.id}',
@@ -892,6 +1120,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
                         photo: photo,
                         title: widget.title,
                         headers: _controller.imageHeaders,
+                        chromeVisible: _chromeVisible,
                       ),
                     ),
                   ),
@@ -900,12 +1129,31 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
             },
           ),
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 8, 18, 0),
-              child: _ViewerTopBar(
-                title: widget.title,
-                position: '${_index + 1} of ${widget.photos.length}',
-                onBack: () => Navigator.pop(context),
+            child: AnimatedSlide(
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+              offset: _chromeVisible ? Offset.zero : const Offset(0, -1.25),
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 180),
+                opacity: _chromeVisible ? 1 : 0,
+                child: IgnorePointer(
+                  ignoring: !_chromeVisible,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 8, 18, 0),
+                    child: _ViewerTopBar(
+                      title: widget.showRecentPhotoMetadata
+                          ? _formatRecentViewerTitle(_photo)
+                          : widget.title,
+                      position: widget.showRecentPhotoMetadata
+                          ? _formatRecentViewerSubtitle(_photo)
+                          : '${_index + 1} of ${widget.photos.length}',
+                      attributesFuture: widget.showRecentPhotoMetadata
+                          ? _attributesFor(_photo.id)
+                          : null,
+                      onBack: () => Navigator.pop(context),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -935,32 +1183,44 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer> {
             left: 0,
             right: 0,
             bottom: 16 + MediaQuery.of(context).padding.bottom,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _ViewerThumbStrip(
-                  photos: widget.photos,
-                  selectedIndex: _index,
-                  controller: _thumbnailScrollController,
-                  headers: _controller.imageHeaders,
-                  onTap: (index) {
-                    _pageController.animateToPage(
-                      index,
-                      duration: const Duration(milliseconds: 260),
-                      curve: Curves.easeOutCubic,
-                    );
-                  },
+            child: AnimatedSlide(
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+              offset: _chromeVisible ? Offset.zero : const Offset(0, 1.3),
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 180),
+                opacity: _chromeVisible ? 1 : 0,
+                child: IgnorePointer(
+                  ignoring: !_chromeVisible,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _ViewerThumbStrip(
+                        photos: widget.photos,
+                        selectedIndex: _index,
+                        controller: _thumbnailScrollController,
+                        headers: _controller.imageHeaders,
+                        onTap: (index) {
+                          _pageController.animateToPage(
+                            index,
+                            duration: const Duration(milliseconds: 260),
+                            curve: Curves.easeOutCubic,
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 13),
+                      _ViewerActions(
+                        isFavorite: _controller.isFavorite(_photo.id),
+                        onShare: _sharePhoto,
+                        onFavorite: _toggleFavorite,
+                        onInfo: _openInfoSheet,
+                        onOptions: _showMoreOptions,
+                        onCollection: _openAddCollectionSheet,
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 13),
-                _ViewerActions(
-                  isFavorite: _controller.isFavorite(_photo.id),
-                  onShare: _sharePhoto,
-                  onFavorite: _toggleFavorite,
-                  onInfo: _openInfoSheet,
-                  onOptions: _showMoreOptions,
-                  onCollection: _openAddCollectionSheet,
-                ),
-              ],
+              ),
             ),
           ),
         ],
@@ -1121,7 +1381,7 @@ class _TextEntryBottomSheetState extends State<_TextEntryBottomSheet> {
                         ),
                         const SizedBox(width: 10),
                         GestureDetector(
-                          onTap: _openCreateSheet,
+                          onTap: _submit,
                           child: Container(
                             width: 52,
                             height: 52,
@@ -1195,175 +1455,6 @@ class _TextEntryBottomSheetState extends State<_TextEntryBottomSheet> {
                         );
                       },
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _openCreateSheet() async {
-    final isCollection = widget.title.toLowerCase().contains('collection');
-    final value = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _CreateValueBottomSheet(
-        title: isCollection ? 'New Collection' : 'New Tag',
-        hint: widget.hint,
-        action: isCollection ? 'Add Collection' : 'Add Tag',
-        existingValues: [...widget.suggestions, ...widget.selectedValues],
-      ),
-    );
-    final clean = value?.trim();
-    if (clean == null || clean.isEmpty) return;
-    if (!mounted) return;
-    Navigator.pop(context, clean);
-  }
-}
-
-class _CreateValueBottomSheet extends StatefulWidget {
-  final String title;
-  final String hint;
-  final String action;
-  final List<String> existingValues;
-
-  const _CreateValueBottomSheet({
-    required this.title,
-    required this.hint,
-    required this.action,
-    required this.existingValues,
-  });
-
-  @override
-  State<_CreateValueBottomSheet> createState() =>
-      _CreateValueBottomSheetState();
-}
-
-class _CreateValueBottomSheetState extends State<_CreateValueBottomSheet> {
-  late final TextEditingController _controller;
-  late final FocusNode _focusNode;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController();
-    _focusNode = FocusNode();
-    _controller.addListener(() {
-      if (_error != null) setState(() => _error = null);
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final value = _controller.text.trim();
-    if (value.isEmpty) {
-      setState(() => _error = 'Please enter a name');
-      _focusNode.requestFocus();
-      return;
-    }
-    final exists = widget.existingValues.any(
-      (item) => item.toLowerCase() == value.toLowerCase(),
-    );
-    if (exists) {
-      setState(() => _error = 'This already exists');
-      return;
-    }
-    Navigator.pop(context, value);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8F6F3).withAlpha(248),
-              border: Border(
-                top: BorderSide(color: primaryColor.withAlpha(18)),
-              ),
-            ),
-            child: SafeArea(
-              top: false,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: Text(
-                          'Cancel',
-                          style: TextStyle(
-                            color: primaryColor,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Text(
-                          widget.title,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Color(0xFF322318),
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 54),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  TextField(
-                    controller: _controller,
-                    focusNode: _focusNode,
-                    autofocus: true,
-                    textInputAction: TextInputAction.done,
-                    decoration: InputDecoration(
-                      hintText: widget.hint,
-                      errorText: _error,
-                      filled: true,
-                      fillColor: Colors.white.withAlpha(235),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                    onSubmitted: (_) => _submit(),
-                  ),
-                  const SizedBox(height: 14),
-                  ElevatedButton(
-                    onPressed: _submit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: Text(widget.action),
                   ),
                 ],
               ),
@@ -1460,17 +1551,26 @@ class _FullscreenImage extends StatelessWidget {
   final GalleryPhoto photo;
   final String title;
   final Map<String, String>? headers;
+  final bool chromeVisible;
 
   const _FullscreenImage({
     required this.photo,
     required this.title,
     required this.headers,
+    required this.chromeVisible,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 96, 0, 132),
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+      padding: EdgeInsets.fromLTRB(
+        0,
+        chromeVisible ? 96 : 0,
+        0,
+        chromeVisible ? 132 : 0,
+      ),
       child: Center(
         child: SizedBox(
           width: double.infinity,
@@ -1503,11 +1603,13 @@ class _FullscreenImage extends StatelessWidget {
 class _ViewerTopBar extends StatelessWidget {
   final String title;
   final String position;
+  final Future<GalleryPhotoAttributes>? attributesFuture;
   final VoidCallback onBack;
 
   const _ViewerTopBar({
     required this.title,
     required this.position,
+    this.attributesFuture,
     required this.onBack,
   });
 
@@ -1516,48 +1618,73 @@ class _ViewerTopBar extends StatelessWidget {
     return Row(
       children: [
         _ViewerCircleButton(icon: CupertinoIcons.chevron_left, onTap: onBack),
-        const Spacer(),
-        Container(
-          constraints: const BoxConstraints(minWidth: 112),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white.withAlpha(235),
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withAlpha(18),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.black,
+        const SizedBox(width: 10),
+        Expanded(
+          child: FutureBuilder<GalleryPhotoAttributes>(
+            future: attributesFuture,
+            builder: (context, snapshot) {
+              final attrs = snapshot.data;
+              final place = [
+                attrs?.location,
+                attrs?.country,
+              ].where((value) => value?.trim().isNotEmpty == true).join(' - ');
+              final displayTitle = place.isNotEmpty ? place : title;
+
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(178),
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(color: Colors.white.withAlpha(210)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(30),
+                          blurRadius: 22,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          displayTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.black,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          position,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.black.withAlpha(166),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 1),
-              Text(
-                position,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.black.withAlpha(155),
-                ),
-              ),
-            ],
+              );
+            },
           ),
         ),
-        const Spacer(),
-        const SizedBox(width: 44),
+        const SizedBox(width: 54),
       ],
     );
   }
@@ -2039,61 +2166,200 @@ class _InfoMapCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 150,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: const Color(0xFFEAF2EC),
-      ),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          CustomPaint(painter: _SoftMapPainter()),
-          Positioned(
-            right: 20,
-            top: 18,
-            child: Icon(CupertinoIcons.location_solid, color: primaryColor),
-          ),
-          Center(
-            child: Container(
-              width: 72,
-              height: 72,
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: primaryColor.withAlpha(55),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
+    final point = _photoPoint(photo, attrs);
+
+    return GestureDetector(
+      onTap: () => _openLocationMap(context),
+      child: Container(
+        height: 166,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          color: const Color(0xFFEAF2EC),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(18),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (point == null)
+              CustomPaint(painter: _SoftMapPainter())
+            else
+              FlutterMap(
+                options: MapOptions(
+                  initialCenter: point,
+                  initialZoom: 14,
+                  interactionOptions: const InteractionOptions(
+                    flags: InteractiveFlag.none,
+                  ),
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate:
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    fallbackUrl:
+                        'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.harismruti.app',
+                    maxZoom: 18,
+                  ),
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: point,
+                        width: 86,
+                        height: 86,
+                        child: Center(
+                          child: Icon(
+                            CupertinoIcons.location_solid,
+                            color: primaryColor,
+                            size: 46,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: CachedNetworkImage(
-                  imageUrl: photo.thumbnailUrl,
-                  fit: BoxFit.cover,
-                  fadeInDuration: Duration.zero,
-                  fadeOutDuration: Duration.zero,
+            Container(color: Colors.white.withAlpha(34)),
+            Center(
+              child: Container(
+                width: 72,
+                height: 72,
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: primaryColor.withAlpha(55),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: CachedNetworkImage(
+                    imageUrl: photo.thumbnailUrl,
+                    fit: BoxFit.cover,
+                    fadeInDuration: Duration.zero,
+                    fadeOutDuration: Duration.zero,
+                  ),
                 ),
               ),
             ),
-          ),
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: 14,
-            child: Text(
-              attrs.placeLabel,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+            Positioned(
+              left: 14,
+              right: 14,
+              bottom: 12,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(205),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: Colors.white.withAlpha(220)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          CupertinoIcons.map_pin_ellipse,
+                          color: primaryColor,
+                          size: 19,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            attrs.placeLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          CupertinoIcons.chevron_right,
+                          color: primaryColor,
+                          size: 18,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  LatLng? _photoPoint(GalleryPhoto photo, GalleryPhotoAttributes attrs) {
+    final lat = photo.latitude ?? attrs.latitude;
+    final lng = photo.longitude ?? attrs.longitude;
+    if (lat == null ||
+        lng == null ||
+        !lat.isFinite ||
+        !lng.isFinite ||
+        lat.abs() > 90 ||
+        lng.abs() > 180) {
+      return null;
+    }
+    return LatLng(lat, lng);
+  }
+
+  GalleryPhoto _photoWithAttributeLocation() {
+    return GalleryPhoto(
+      id: photo.id,
+      thumbnailUrl: photo.thumbnailUrl,
+      fullUrl: photo.fullUrl,
+      title: photo.title,
+      subtitle: photo.subtitle,
+      takenAt: photo.takenAt,
+      width: photo.width,
+      height: photo.height,
+      fileSizeBytes: photo.fileSizeBytes,
+      fileSizeLabel: photo.fileSizeLabel,
+      latitude: photo.latitude ?? attrs.latitude,
+      longitude: photo.longitude ?? attrs.longitude,
+    );
+  }
+
+  GalleryCard _locationCard() {
+    final displayTitle = attrs.location?.trim().isNotEmpty == true
+        ? attrs.location!.trim()
+        : attrs.placeLabel;
+    return GalleryCard(
+      id: photo.id,
+      title: displayTitle,
+      subtitle: '1 Photo',
+      type: 'location',
+      value: displayTitle,
+      count: 1,
+      photos: [_photoWithAttributeLocation()],
+    );
+  }
+
+  void _openLocationMap(BuildContext context) {
+    final navigator = Navigator.of(context);
+    navigator.pop();
+    navigator.push(
+      CupertinoPageRoute(
+        builder: (_) => GalleryLocationScreen(card: _locationCard()),
       ),
     );
   }

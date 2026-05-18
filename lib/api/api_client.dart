@@ -93,7 +93,14 @@ class ApiClient {
             return handler.next(options);
           },
           onResponse: (response, handler) {
-            log(response.toString());
+            if (kDebugMode) {
+              final responseText = response.toString();
+              log(
+                responseText.length > 1200
+                    ? '${responseText.substring(0, 1200)}...'
+                    : responseText,
+              );
+            }
             if (response.statusCode == 200 || response.statusCode == 201) {
               return handler.next(response);
             }

@@ -7,6 +7,9 @@ import 'package:harismruti/api/models/gallery_models.dart';
 class GalleryRepository {
   const GalleryRepository();
 
+  static const String _latestSort = 'latest';
+  static const String _descendingOrder = 'desc';
+
   Map<String, String> get imageHeaders {
     if (ApiEndpoints.mobileApiKey.isEmpty) return const {};
     return {'X-API-Key': ApiEndpoints.mobileApiKey};
@@ -16,10 +19,13 @@ class GalleryRepository {
     try {
       final response = await ApiClient.get(
         ApiEndpoints.home,
-        queryParams: {'samples': samples},
+        queryParams: _latestQueryParams({'samples': samples}),
       );
       final bundle = GalleryHomeBundle.fromJson(response.data);
-      return await _fillMissingHomeSections(bundle, samples: samples);
+      return await _fillMissingHomeSections(
+        _sortHomeBundleNewestFirst(bundle),
+        samples: samples,
+      );
     } catch (error) {
       if (kDebugMode) {
         debugPrint('Home bundle failed, loading sections separately: $error');
@@ -31,16 +37,18 @@ class GalleryRepository {
   Future<List<GalleryPhoto>> getRecent({int page = 1, int perPage = 60}) async {
     final response = await ApiClient.get(
       ApiEndpoints.recent,
-      queryParams: {'page': page, 'per_page': perPage},
+      queryParams: _latestQueryParams({'page': page, 'per_page': perPage}),
     );
-    return GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items;
+    return _sortPhotosNewestFirst(
+      GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items,
+    );
   }
 
   Future<List<GalleryFilterGroup>> getFilters({
     int limit = 200,
     Map<String, List<String>> selected = const {},
   }) async {
-    final queryParams = <String, dynamic>{'limit': limit};
+    final queryParams = _latestQueryParams({'limit': limit});
     selected.forEach((slug, values) {
       if (values.isNotEmpty) queryParams[slug] = values.join(',');
     });
@@ -118,12 +126,14 @@ class GalleryRepository {
   Future<List<GalleryCard>> getCollections({int samples = 4}) async {
     final response = await ApiClient.get(
       ApiEndpoints.collections,
-      queryParams: {'samples': samples},
+      queryParams: _latestQueryParams({'samples': samples}),
     );
-    return GalleryPage.fromJson(
-      response.data,
-      (raw) => GalleryCard.fromJson(raw, fallbackType: 'collection'),
-    ).items;
+    return _sortCardsNewestFirst(
+      GalleryPage.fromJson(
+        response.data,
+        (raw) => GalleryCard.fromJson(raw, fallbackType: 'collection'),
+      ).items,
+    );
   }
 
   Future<List<GalleryCard>> getSmrutiOf({
@@ -133,19 +143,25 @@ class GalleryRepository {
   }) async {
     final response = await ApiClient.get(
       ApiEndpoints.smrutiOf,
-      queryParams: {'type': type, 'samples': samples, 'limit': limit},
+      queryParams: _latestQueryParams({
+        'type': type,
+        'samples': samples,
+        'limit': limit,
+      }),
     );
-    return GalleryPage.fromJson(
-      response.data,
-      (raw) => GalleryCard.fromJson(raw, fallbackType: type),
-    ).items;
+    return _sortCardsNewestFirst(
+      GalleryPage.fromJson(
+        response.data,
+        (raw) => GalleryCard.fromJson(raw, fallbackType: type),
+      ).items,
+    );
   }
 
   Future<List<GalleryCard>> getPeople({
     int samples = 4,
     int limit = 60,
     int offset = 0,
-    String sort = 'count',
+    String sort = _latestSort,
   }) async {
     final response = await ApiClient.get(
       ApiEndpoints.people,
@@ -154,12 +170,15 @@ class GalleryRepository {
         'limit': limit,
         'offset': offset,
         'sort': sort,
+        'order': _descendingOrder,
       },
     );
-    return GalleryPage.fromJson(
-      response.data,
-      (raw) => GalleryCard.fromJson(raw, fallbackType: 'person'),
-    ).items;
+    return _sortCardsNewestFirst(
+      GalleryPage.fromJson(
+        response.data,
+        (raw) => GalleryCard.fromJson(raw, fallbackType: 'person'),
+      ).items,
+    );
   }
 
   Future<List<GalleryPhoto>> getByAttributePhotos({
@@ -170,9 +189,15 @@ class GalleryRepository {
   }) async {
     final response = await ApiClient.get(
       ApiEndpoints.byAttributePhotos(slug),
-      queryParams: {'value': value, 'page': page, 'per_page': perPage},
+      queryParams: _latestQueryParams({
+        'value': value,
+        'page': page,
+        'per_page': perPage,
+      }),
     );
-    return GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items;
+    return _sortPhotosNewestFirst(
+      GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items,
+    );
   }
 
   Future<List<GalleryPhoto>> getFilteredPhotos({
@@ -180,7 +205,7 @@ class GalleryRepository {
     int page = 1,
     int perPage = 60,
   }) async {
-    final queryParams = <String, dynamic>{'page': page, 'per_page': perPage};
+    final queryParams = _latestQueryParams({'page': page, 'per_page': perPage});
     selected.forEach((slug, values) {
       if (values.isNotEmpty) queryParams[slug] = values.join(',');
     });
@@ -188,7 +213,9 @@ class GalleryRepository {
       ApiEndpoints.filteredPhotos,
       queryParams: queryParams,
     );
-    return GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items;
+    return _sortPhotosNewestFirst(
+      GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items,
+    );
   }
 
   Future<List<GalleryPhoto>> getCollectionYearPhotos({
@@ -198,9 +225,11 @@ class GalleryRepository {
   }) async {
     final response = await ApiClient.get(
       ApiEndpoints.collectionYearPhotos(year),
-      queryParams: {'page': page, 'per_page': perPage},
+      queryParams: _latestQueryParams({'page': page, 'per_page': perPage}),
     );
-    return GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items;
+    return _sortPhotosNewestFirst(
+      GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items,
+    );
   }
 
   Future<List<GalleryTimeBucket>> getCollectionMonths({
@@ -209,12 +238,11 @@ class GalleryRepository {
   }) async {
     final response = await ApiClient.get(
       ApiEndpoints.collectionMonths(year),
-      queryParams: {'samples': samples},
+      queryParams: _latestQueryParams({'samples': samples}),
     );
-    return GalleryPage.fromJson(
-      response.data,
-      GalleryTimeBucket.fromJson,
-    ).items;
+    return _sortTimeBucketsNewestFirst(
+      GalleryPage.fromJson(response.data, GalleryTimeBucket.fromJson).items,
+    );
   }
 
   Future<List<GalleryTimeBucket>> getCollectionDays({
@@ -224,12 +252,11 @@ class GalleryRepository {
   }) async {
     final response = await ApiClient.get(
       ApiEndpoints.collectionDays(year, month),
-      queryParams: {'samples': samples},
+      queryParams: _latestQueryParams({'samples': samples}),
     );
-    return GalleryPage.fromJson(
-      response.data,
-      GalleryTimeBucket.fromJson,
-    ).items;
+    return _sortTimeBucketsNewestFirst(
+      GalleryPage.fromJson(response.data, GalleryTimeBucket.fromJson).items,
+    );
   }
 
   Future<List<GalleryPhoto>> getCollectionDayPhotos({
@@ -241,9 +268,11 @@ class GalleryRepository {
   }) async {
     final response = await ApiClient.get(
       ApiEndpoints.collectionDayPhotos(year, month, day),
-      queryParams: {'page': page, 'per_page': perPage},
+      queryParams: _latestQueryParams({'page': page, 'per_page': perPage}),
     );
-    return GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items;
+    return _sortPhotosNewestFirst(
+      GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items,
+    );
   }
 
   Future<List<GalleryPhoto>> getPersonPhotos({
@@ -253,9 +282,79 @@ class GalleryRepository {
   }) async {
     final response = await ApiClient.get(
       ApiEndpoints.personPhotos(groupId),
-      queryParams: {'page': page, 'per_page': perPage},
+      queryParams: _latestQueryParams({'page': page, 'per_page': perPage}),
     );
-    return GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items;
+    return _sortPhotosNewestFirst(
+      GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items,
+    );
+  }
+
+  Map<String, dynamic> _latestQueryParams(Map<String, dynamic> params) {
+    return {
+      ...params,
+      'sort': params['sort'] ?? _latestSort,
+      'order': params['order'] ?? _descendingOrder,
+    };
+  }
+
+  GalleryHomeBundle _sortHomeBundleNewestFirst(GalleryHomeBundle bundle) {
+    return GalleryHomeBundle(
+      recent: _sortPhotosNewestFirst(bundle.recent),
+      collections: _sortCardsNewestFirst(bundle.collections),
+      smrutiWith: _sortCardsNewestFirst(bundle.smrutiWith),
+      smrutiOf: _sortCardsNewestFirst(bundle.smrutiOf),
+      locations: _sortCardsNewestFirst(bundle.locations),
+      albums: _sortCardsNewestFirst(bundle.albums),
+      people: _sortCardsNewestFirst(bundle.people),
+      wallpapers: _sortCardsNewestFirst(bundle.wallpapers),
+    );
+  }
+
+  List<GalleryPhoto> _sortPhotosNewestFirst(List<GalleryPhoto> photos) {
+    final sorted = photos.toList();
+    sorted.sort((a, b) {
+      final dateCompare = _photoDateMillis(b).compareTo(_photoDateMillis(a));
+      if (dateCompare != 0) return dateCompare;
+      return b.id.compareTo(a.id);
+    });
+    return sorted;
+  }
+
+  List<GalleryCard> _sortCardsNewestFirst(List<GalleryCard> cards) {
+    final sorted = cards.toList();
+    sorted.sort((a, b) {
+      final dateCompare = _cardDateMillis(b).compareTo(_cardDateMillis(a));
+      if (dateCompare != 0) return dateCompare;
+      return b.id.compareTo(a.id);
+    });
+    return sorted;
+  }
+
+  List<GalleryTimeBucket> _sortTimeBucketsNewestFirst(
+    List<GalleryTimeBucket> buckets,
+  ) {
+    final sorted = buckets.toList();
+    sorted.sort((a, b) {
+      final yearCompare = b.year.compareTo(a.year);
+      if (yearCompare != 0) return yearCompare;
+      final monthCompare = (b.month ?? 0).compareTo(a.month ?? 0);
+      if (monthCompare != 0) return monthCompare;
+      return (b.day ?? 0).compareTo(a.day ?? 0);
+    });
+    return sorted;
+  }
+
+  int _cardDateMillis(GalleryCard card) {
+    var newest = 0;
+    for (final photo in card.photos) {
+      final photoMillis = _photoDateMillis(photo);
+      if (photoMillis > newest) newest = photoMillis;
+    }
+    return newest;
+  }
+
+  int _photoDateMillis(GalleryPhoto photo) {
+    return photo.takenAt?.millisecondsSinceEpoch ?? 0;
   }
 
   Future<GalleryHomeBundle> _fillMissingHomeSections(

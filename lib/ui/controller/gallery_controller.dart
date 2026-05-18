@@ -588,7 +588,7 @@ class GalleryController extends GetxController {
     errorMessage.value = '';
 
     try {
-      final bundle = await _repository.getHomeBundle(samples: 4);
+      final bundle = await _repository.getHomeBundle(samples: 8);
       recentPhotos.assignAll(bundle.recent);
       collections.assignAll(bundle.collections);
       smrutiWith.assignAll(bundle.smrutiWith);

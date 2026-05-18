@@ -30,6 +30,20 @@ double? _readDouble(Map<String, dynamic> json, List<String> keys) {
   return null;
 }
 
+int _photoSortValue(GalleryPhoto photo) {
+  return photo.takenAt?.millisecondsSinceEpoch ?? photo.id;
+}
+
+List<GalleryPhoto> _newestPhotosFirst(Iterable<GalleryPhoto> photos) {
+  final sorted = photos.toList();
+  sorted.sort((a, b) {
+    final valueCompare = _photoSortValue(b).compareTo(_photoSortValue(a));
+    if (valueCompare != 0) return valueCompare;
+    return b.id.compareTo(a.id);
+  });
+  return sorted;
+}
+
 List<dynamic> _readList(dynamic source, List<String> keys) {
   if (source is List) return source;
   if (source is Map) {
@@ -275,7 +289,7 @@ class GalleryCard {
         'representative_face_id',
         'cover_face_id',
       ]),
-      photos: samplePhotos,
+      photos: _newestPhotosFirst(samplePhotos),
     );
   }
 
@@ -441,11 +455,13 @@ class GalleryTimeBucket {
         'attribute_count',
         'attributes_count',
       ]),
-      photos: _readList(json, const [
-        'sample_photos',
-        'photos',
-        'items',
-      ]).map(GalleryPhoto.fromJson).toList(),
+      photos: _newestPhotosFirst(
+        _readList(json, const [
+          'sample_photos',
+          'photos',
+          'items',
+        ]).map(GalleryPhoto.fromJson),
+      ),
     );
   }
 

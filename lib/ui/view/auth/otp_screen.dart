@@ -20,6 +20,23 @@ class OTPScreen extends StatefulWidget {
 class _OTPScreenState extends State<OTPScreen> {
   final AuthController _authController = Get.find<AuthController>();
   String _otp = '';
+  bool _hasSubmittedOtp = false;
+
+  Future<void> _submitOtp(String otp) async {
+    final cleanOtp = otp.trim();
+    if (cleanOtp.length != 6 || _authController.isLoading.value) return;
+    if (_hasSubmittedOtp && cleanOtp == _otp) return;
+
+    setState(() {
+      _otp = cleanOtp;
+      _hasSubmittedOtp = true;
+    });
+
+    final verified = await _authController.verifyOtp(otp: cleanOtp);
+    if (!verified && mounted) {
+      setState(() => _hasSubmittedOtp = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -110,24 +127,26 @@ class _OTPScreenState extends State<OTPScreen> {
                               ),
                             ),
                             SizedBox(height: SizeConfig.heightMultiplier! * 4),
-                            PinCodeFields(
-                              length: 6,
-                              fieldBorderStyle: FieldBorderStyle.square,
-                              responsive: true,
-                              fieldHeight: SizeConfig.widthMultiplier! * 12,
-                              borderWidth: 1.0,
-                              activeBorderColor: primaryColor,
-                              activeBackgroundColor: Colors.transparent,
-                              borderRadius: BorderRadius.circular(12.0),
-                              keyboardType: TextInputType.number,
-                              autoHideKeyboard: true,
-                              fieldBackgroundColor: Colors.transparent,
-                              borderColor: Colors.grey,
-                              textStyle: const TextStyle(
-                                fontSize: 18.0,
-                                fontWeight: FontWeight.bold,
+                            AutofillGroup(
+                              child: PinCodeFields(
+                                length: 6,
+                                fieldBorderStyle: FieldBorderStyle.square,
+                                responsive: true,
+                                fieldHeight: SizeConfig.widthMultiplier! * 12,
+                                borderWidth: 1.0,
+                                activeBorderColor: primaryColor,
+                                activeBackgroundColor: Colors.transparent,
+                                borderRadius: BorderRadius.circular(12.0),
+                                keyboardType: TextInputType.number,
+                                autoHideKeyboard: true,
+                                fieldBackgroundColor: Colors.transparent,
+                                borderColor: Colors.grey,
+                                textStyle: const TextStyle(
+                                  fontSize: 18.0,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                onComplete: _submitOtp,
                               ),
-                              onComplete: (value) => _otp = value,
                             ),
                             SizedBox(height: SizeConfig.heightMultiplier! * 4),
                             GestureDetector(
@@ -148,8 +167,10 @@ class _OTPScreenState extends State<OTPScreen> {
                                 text: _authController.isLoading.value
                                     ? "Please wait..."
                                     : "Verify",
-                                onTap: () =>
-                                    _authController.verifyOtp(otp: _otp),
+                                isEnabled:
+                                    _otp.length == 6 &&
+                                    !_authController.isLoading.value,
+                                onTap: () => _submitOtp(_otp),
                               ),
                             ),
                             SizedBox(height: SizeConfig.heightMultiplier! * 4),

@@ -18,7 +18,7 @@ class RecentSmruti extends StatelessWidget {
     final galleryController = Get.find<GalleryController>();
 
     return Obx(() {
-      final photos = galleryController.recentPhotos;
+      final photos = _uniquePhotos(galleryController.recentPhotos);
       if (galleryController.isLoading.value && photos.isEmpty) {
         return GallerySectionLoader(height: 300.h);
       }
@@ -29,12 +29,25 @@ class RecentSmruti extends StatelessWidget {
       return SizedBox(
         height: 320.h,
         child: _AutoSwapRecentStack(
-          photos: photos.toList(),
+          photos: photos,
           headers: galleryController.imageHeaders,
           autoplay: autoplay,
         ),
       );
     });
+  }
+
+  List<GalleryPhoto> _uniquePhotos(Iterable<GalleryPhoto> photos) {
+    final seen = <String>{};
+    final uniquePhotos = <GalleryPhoto>[];
+
+    for (final photo in photos) {
+      final key = photo.id > 0 ? 'id:${photo.id}' : photo.thumbnailUrl;
+      if (key.isEmpty || !seen.add(key)) continue;
+      uniquePhotos.add(photo);
+    }
+
+    return uniquePhotos;
   }
 }
 
@@ -59,6 +72,7 @@ class _AutoSwapRecentStackState extends State<_AutoSwapRecentStack> {
 
   Timer? _timer;
   int _frontIndex = 0;
+  bool _autoplayStoppedByUser = false;
 
   @override
   void initState() {
@@ -86,8 +100,19 @@ class _AutoSwapRecentStackState extends State<_AutoSwapRecentStack> {
 
   void _startTimer() {
     _timer?.cancel();
-    if (!widget.autoplay || widget.photos.length <= 1) return;
+    if (_autoplayStoppedByUser ||
+        !widget.autoplay ||
+        widget.photos.length <= 1) {
+      return;
+    }
     _timer = Timer.periodic(_swapInterval, (_) => _showNext());
+  }
+
+  void _stopAutoplayForUser() {
+    if (_autoplayStoppedByUser) return;
+    _autoplayStoppedByUser = true;
+    _timer?.cancel();
+    _timer = null;
   }
 
   void _showNext() {
@@ -113,6 +138,7 @@ class _AutoSwapRecentStackState extends State<_AutoSwapRecentStack> {
           title: 'Recent Smruti',
           subtitle: '${widget.photos.length} Photos',
           coverUrl: photo.thumbnailUrl,
+          showRecentPhotoMetadata: true,
           loader: () async => widget.photos,
         ),
       ),
@@ -127,8 +153,10 @@ class _AutoSwapRecentStackState extends State<_AutoSwapRecentStack> {
       onHorizontalDragEnd: (details) {
         final velocity = details.primaryVelocity ?? 0;
         if (velocity < -120) {
+          _stopAutoplayForUser();
           _showNext();
         } else if (velocity > 120) {
+          _stopAutoplayForUser();
           _showPrevious();
         }
       },
@@ -138,25 +166,31 @@ class _AutoSwapRecentStackState extends State<_AutoSwapRecentStack> {
           clipBehavior: Clip.none,
           children: [
             for (var depth = visibleCount - 1; depth >= 0; depth--)
-              _RecentStackPosition(
-                depth: depth,
-                duration: _swapDuration,
-                child: _RecentPhotoCard(
-                  key: ValueKey(
-                    'recent-${widget.photos[(_frontIndex + depth) % widget.photos.length].id}-$depth',
-                  ),
-                  photo: widget
-                      .photos[(_frontIndex + depth) % widget.photos.length],
-                  headers: widget.headers,
-                  onTap: depth == 0
-                      ? () => _openDetail(context, widget.photos[_frontIndex])
-                      : null,
-                ),
-              ),
+              _buildPositionedCard(context, depth),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildPositionedCard(BuildContext context, int depth) {
+    final photo = widget.photos[(_frontIndex + depth) % widget.photos.length];
+
+    return _RecentStackPosition(
+      key: ValueKey(_photoKey(photo)),
+      depth: depth,
+      duration: _swapDuration,
+      child: _RecentPhotoCard(
+        photo: photo,
+        headers: widget.headers,
+        onTap: depth == 0 ? () => _openDetail(context, photo) : null,
+      ),
+    );
+  }
+
+  String _photoKey(GalleryPhoto photo) {
+    if (photo.id > 0) return 'recent-${photo.id}';
+    return 'recent-${photo.thumbnailUrl}';
   }
 }
 
@@ -166,6 +200,7 @@ class _RecentStackPosition extends StatelessWidget {
   final Widget child;
 
   const _RecentStackPosition({
+    super.key,
     required this.depth,
     required this.duration,
     required this.child,
@@ -223,32 +258,7 @@ class _RecentStackPosition extends StatelessWidget {
           duration: duration,
           curve: Curves.easeOutCubic,
           opacity: layout.opacity,
-          child: AnimatedSwitcher(
-            duration: duration,
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            transitionBuilder: (child, animation) {
-              final slide = Tween<Offset>(
-                begin: Offset(depth == 0 ? 0.10 : 0.03, 0.03),
-                end: Offset.zero,
-              ).animate(animation);
-
-              return FadeTransition(
-                opacity: animation,
-                child: SlideTransition(
-                  position: slide,
-                  child: ScaleTransition(
-                    scale: Tween<double>(
-                      begin: depth == 0 ? 0.96 : 0.98,
-                      end: 1,
-                    ).animate(animation),
-                    child: child,
-                  ),
-                ),
-              );
-            },
-            child: child,
-          ),
+          child: child,
         ),
       ),
     );
@@ -279,7 +289,6 @@ class _RecentPhotoCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   const _RecentPhotoCard({
-    super.key,
     required this.photo,
     required this.headers,
     this.onTap,

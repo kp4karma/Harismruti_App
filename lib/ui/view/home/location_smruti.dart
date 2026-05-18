@@ -1,6 +1,6 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/widget/gallery/gallery_card_widgets.dart';
@@ -13,37 +13,41 @@ class LocationSmruti extends StatefulWidget {
   State<LocationSmruti> createState() => _LocationSmrutiState();
 }
 
-class _LocationSmrutiState extends State<LocationSmruti> {
+class _LocationSmrutiState extends State<LocationSmruti>
+    with SingleTickerProviderStateMixin {
+  static const double _autoScrollPixelsPerSecond = 18;
+
   final ScrollController _scrollController = ScrollController();
-  Timer? _autoScrollTimer;
+  late final Ticker _autoScrollTicker;
+  Duration? _lastTickElapsed;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _startAutoScroll());
+    _autoScrollTicker = createTicker(_handleAutoScrollTick);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _autoScrollTicker.start();
+    });
   }
 
   @override
   void dispose() {
-    _autoScrollTimer?.cancel();
+    _autoScrollTicker.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  void _startAutoScroll() {
-    _autoScrollTimer?.cancel();
-    _autoScrollTimer = Timer.periodic(const Duration(milliseconds: 35), (_) {
-      if (!_scrollController.hasClients) return;
-      final position = _scrollController.position;
-      if (position.maxScrollExtent <= 0) return;
+  void _handleAutoScrollTick(Duration elapsed) {
+    final lastElapsed = _lastTickElapsed;
+    _lastTickElapsed = elapsed;
+    if (lastElapsed == null || !_scrollController.hasClients) return;
 
-      final next = position.pixels + 0.45;
-      if (next >= position.maxScrollExtent) {
-        _scrollController.jumpTo(0);
-      } else {
-        _scrollController.jumpTo(next);
-      }
-    });
+    final position = _scrollController.position;
+    if (position.userScrollDirection != ScrollDirection.idle) return;
+
+    final seconds = (elapsed - lastElapsed).inMicroseconds / 1000000;
+    final nextOffset = position.pixels + (_autoScrollPixelsPerSecond * seconds);
+    position.jumpTo(nextOffset.clamp(0.0, position.maxScrollExtent));
   }
 
   @override
@@ -59,6 +63,9 @@ class _LocationSmrutiState extends State<LocationSmruti> {
         return const GalleryEmptyState(height: 180);
       }
 
+      final groupCount = (locations.length / 3).ceil();
+      final itemCount = groupCount <= 1 ? groupCount : groupCount * 200;
+
       return SizedBox(
         height: 310,
         child: ListView.builder(
@@ -66,10 +73,11 @@ class _LocationSmrutiState extends State<LocationSmruti> {
           physics: const BouncingScrollPhysics(),
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-          itemCount: (locations.length / 3).ceil(),
+          itemCount: itemCount,
           itemBuilder: (context, index) {
             final layoutWidth = MediaQuery.of(context).size.width * 0.8;
-            final firstIndex = index * 3;
+            final groupIndex = index % groupCount;
+            final firstIndex = groupIndex * 3;
             final secondIndex = firstIndex + 1;
             final thirdIndex = firstIndex + 2;
             final bottomCards = [
@@ -81,6 +89,7 @@ class _LocationSmrutiState extends State<LocationSmruti> {
               headers: galleryController.imageHeaders,
               aspectRatio: 1,
               fillParent: true,
+              imageFit: BoxFit.fill,
             );
             final smallRow = Row(
               children: [
@@ -91,6 +100,7 @@ class _LocationSmrutiState extends State<LocationSmruti> {
                       headers: galleryController.imageHeaders,
                       aspectRatio: 1,
                       fillParent: true,
+                      imageFit: BoxFit.fill,
                     ),
                   ),
                   if (item != bottomCards.length - 1) const SizedBox(width: 6),
@@ -103,7 +113,7 @@ class _LocationSmrutiState extends State<LocationSmruti> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 5),
                 child: Column(
-                  children: index.isEven
+                  children: groupIndex.isEven
                       ? [
                           Expanded(flex: 6, child: bigCard),
                           const SizedBox(height: 6),

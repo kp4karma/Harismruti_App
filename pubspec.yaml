@@ -41,6 +41,7 @@ dependencies:
   google_mlkit_face_detection: ^0.13.2
   url_launcher: ^6.3.2
   share_plus: ^12.0.2
+  tutorial_coach_mark: ^1.3.3
 
 
 

@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
@@ -245,7 +244,7 @@ class GalleryCollectionCollageCard extends StatelessWidget {
           children: [
             Positioned.fill(
               bottom: 42,
-              child: _HomeFolderPhotoStack(
+              child: _HomeCollectionBentoCollage(
                 photos: visiblePhotos,
                 headers: headers,
                 seed: card.title.hashCode,
@@ -381,12 +380,12 @@ class _MiniSummary extends StatelessWidget {
   }
 }
 
-class _HomeFolderPhotoStack extends StatelessWidget {
+class _HomeCollectionBentoCollage extends StatelessWidget {
   final List<GalleryPhoto> photos;
   final Map<String, String>? headers;
   final int seed;
 
-  const _HomeFolderPhotoStack({
+  const _HomeCollectionBentoCollage({
     required this.photos,
     required this.headers,
     required this.seed,
@@ -400,90 +399,219 @@ class _HomeFolderPhotoStack extends StatelessWidget {
         child: Icon(CupertinoIcons.photo, color: primaryColor),
       );
     }
-    final random = math.Random(seed);
-    final repeated = List<GalleryPhoto>.generate(6, (index) {
-      final offset = seed.abs() % photos.length;
-      return photos[(index + offset) % photos.length];
+    final preferredPhotos = _landscapePhotosFirst(photos);
+    final orderedPhotos = List<GalleryPhoto>.generate(5, (index) {
+      final offset = seed.abs() % preferredPhotos.length;
+      return preferredPhotos[(index + offset) % preferredPhotos.length];
     });
-    final specs = [
-      _StackSpec(
-        _jitter(random, 0.00),
-        _jitter(random, 0.02),
-        0.45,
-        0.54,
-        -0.04,
-        20,
-      ),
-      _StackSpec(
-        _jitter(random, 0.42),
-        _jitter(random, 0.00),
-        0.54,
-        0.52,
-        0.03,
-        20,
-      ),
-      _StackSpec(
-        _jitter(random, 0.08),
-        _jitter(random, 0.47),
-        0.32,
-        0.34,
-        0.02,
-        15,
-      ),
-      _StackSpec(
-        _jitter(random, 0.39),
-        _jitter(random, 0.39),
-        0.29,
-        0.43,
-        -0.02,
-        15,
-      ),
-      _StackSpec(
-        _jitter(random, 0.66),
-        _jitter(random, 0.48),
-        0.30,
-        0.33,
-        0.02,
-        15,
-      ),
-      _StackSpec(
-        _jitter(random, 0.20),
-        _jitter(random, 0.73),
-        0.43,
-        0.25,
-        -0.01,
-        14,
-      ),
-    ];
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            for (var index = 0; index < specs.length; index++)
-              Positioned(
-                left: specs[index].left * constraints.maxWidth,
-                top: specs[index].top * constraints.maxHeight,
-                width: specs[index].width * constraints.maxWidth,
-                height: specs[index].height * constraints.maxHeight,
-                child: Transform.rotate(
-                  angle: specs[index].angle,
-                  child: _StackPhotoTile(
-                    photo: repeated[index],
-                    headers: headers,
-                    radius: specs[index].radius,
-                  ),
-                ),
-              ),
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5EFEA),
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withAlpha(238),
+            secondaryColor.withAlpha(22),
+            primaryColor.withAlpha(18),
           ],
-        );
-      },
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: primaryColor.withAlpha(14),
+            blurRadius: 28,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(19),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 7,
+              child: Column(
+                children: [
+                  Expanded(
+                    flex: 7,
+                    child: _CollectionBentoTile(
+                      photo: orderedPhotos[0],
+                      headers: headers,
+                      radius: 18,
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  Expanded(
+                    flex: 4,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _CollectionBentoTile(
+                            photo: orderedPhotos[2],
+                            headers: headers,
+                            radius: 14,
+                          ),
+                        ),
+                        const SizedBox(width: 7),
+                        Expanded(
+                          child: _CollectionBentoTile(
+                            photo: orderedPhotos[3],
+                            headers: headers,
+                            radius: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 7),
+            Expanded(
+              flex: 4,
+              child: Column(
+                children: [
+                  Expanded(
+                    flex: 5,
+                    child: _CollectionBentoTile(
+                      photo: orderedPhotos[1],
+                      headers: headers,
+                      radius: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  Expanded(
+                    flex: 6,
+                    child: _CollectionBentoTile(
+                      photo: orderedPhotos[4],
+                      headers: headers,
+                      radius: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  static double _jitter(math.Random random, double value) {
-    return value + (random.nextDouble() - 0.5) * 0.03;
+  static List<GalleryPhoto> _landscapePhotosFirst(List<GalleryPhoto> photos) {
+    final sorted = photos.toList();
+    sorted.sort((a, b) {
+      final orientation = _orientationRank(a).compareTo(_orientationRank(b));
+      if (orientation != 0) return orientation;
+      return b.id.compareTo(a.id);
+    });
+    return sorted;
+  }
+
+  static int _orientationRank(GalleryPhoto photo) {
+    final width = photo.width;
+    final height = photo.height;
+    if (width == null || height == null || width <= 0 || height <= 0) return 1;
+    return width >= height ? 0 : 2;
+  }
+}
+
+class _CollectionBentoTile extends StatelessWidget {
+  final GalleryPhoto photo;
+  final Map<String, String>? headers;
+  final double radius;
+
+  const _CollectionBentoTile({
+    required this.photo,
+    required this.headers,
+    required this.radius,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(226),
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: Colors.white.withAlpha(190), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(22),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: _CollectionPreviewImage(
+        photo: photo,
+        headers: headers,
+        fit: BoxFit.contain,
+        radius: radius,
+      ),
+    );
+  }
+}
+
+class _CollectionPreviewImage extends StatelessWidget {
+  final GalleryPhoto photo;
+  final Map<String, String>? headers;
+  final BoxFit fit;
+  final double radius;
+
+  const _CollectionPreviewImage({
+    required this.photo,
+    required this.headers,
+    required this.fit,
+    this.radius = 0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final image = NetworkImageWithLoader(
+      imageUrl: photo.thumbnailUrl,
+      title: photo.title ?? 'Smruti',
+      headers: headers,
+      fit: fit,
+    );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (fit == BoxFit.contain) ...[
+            ImageFiltered(
+              imageFilter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: Transform.scale(
+                scale: 1.24,
+                child: NetworkImageWithLoader(
+                  imageUrl: photo.thumbnailUrl,
+                  title: photo.title ?? 'Smruti',
+                  headers: headers,
+                ),
+              ),
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withAlpha(124),
+                    secondaryColor.withAlpha(28),
+                    primaryColor.withAlpha(32),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          image,
+        ],
+      ),
+    );
   }
 }
 
@@ -659,65 +787,12 @@ class GalleryWithFeatureCard extends StatelessWidget {
   }
 }
 
-class _StackPhotoTile extends StatelessWidget {
-  final GalleryPhoto photo;
-  final Map<String, String>? headers;
-  final double radius;
-
-  const _StackPhotoTile({
-    required this.photo,
-    required this.headers,
-    required this.radius,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: const Color(0xFFF2E9E4),
-        borderRadius: BorderRadius.circular(radius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(34),
-            blurRadius: 16,
-            spreadRadius: 1,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: NetworkImageWithLoader(
-        imageUrl: photo.thumbnailUrl,
-        title: photo.title ?? 'Smruti',
-        headers: headers,
-      ),
-    );
-  }
-}
-
-class _StackSpec {
-  final double left;
-  final double top;
-  final double width;
-  final double height;
-  final double angle;
-  final double radius;
-
-  const _StackSpec(
-    this.left,
-    this.top,
-    this.width,
-    this.height,
-    this.angle,
-    this.radius,
-  );
-}
-
 class GalleryGridCard extends StatelessWidget {
   final GalleryCard card;
   final Map<String, String>? headers;
   final double aspectRatio;
   final bool fillParent;
+  final BoxFit imageFit;
   final VoidCallback? onTap;
 
   const GalleryGridCard({
@@ -726,6 +801,7 @@ class GalleryGridCard extends StatelessWidget {
     this.headers,
     this.aspectRatio = 0.78,
     this.fillParent = false,
+    this.imageFit = BoxFit.cover,
     this.onTap,
   });
 
@@ -760,6 +836,7 @@ class GalleryGridCard extends StatelessWidget {
                     imageUrl: card.coverUrl,
                     title: card.title,
                     headers: headers,
+                    fit: imageFit,
                   ),
             DecoratedBox(
               decoration: BoxDecoration(

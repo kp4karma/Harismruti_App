@@ -3,10 +3,11 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:harismruti/helper/auth_redirect_helper.dart';
 import 'package:harismruti/ui/controller/ProfileController.dart';
 import 'package:harismruti/ui/view/Profile/profile_screen.dart';
+import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/utils/storage_helper.dart';
 
 class CustomAppbar extends StatelessWidget implements PreferredSizeWidget {
   final String? title;
@@ -99,7 +100,10 @@ class CustomAppbar extends StatelessWidget implements PreferredSizeWidget {
                   children: [
                     _ProfileAppbarButton(
                       onTap: () {
-                        if (!AuthRedirectHelper.ensureLoggedIn()) return;
+                        if (!StorageHelper.isLogin()) {
+                          Get.toNamed(AppRoutes.loginMobile);
+                          return;
+                        }
                         Navigator.push(
                           context,
                           CupertinoPageRoute(
