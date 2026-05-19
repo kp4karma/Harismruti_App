@@ -39,9 +39,7 @@ class GalleryRepository {
       ApiEndpoints.recent,
       queryParams: _latestQueryParams({'page': page, 'per_page': perPage}),
     );
-    return _sortPhotosNewestFirst(
-      GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items,
-    );
+    return GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items;
   }
 
   Future<List<GalleryFilterGroup>> getFilters({
@@ -299,12 +297,13 @@ class GalleryRepository {
 
   GalleryHomeBundle _sortHomeBundleNewestFirst(GalleryHomeBundle bundle) {
     return GalleryHomeBundle(
-      recent: _sortPhotosNewestFirst(bundle.recent),
+      recent: bundle.recent,
       collections: _sortCardsNewestFirst(bundle.collections),
       smrutiWith: _sortCardsNewestFirst(bundle.smrutiWith),
       smrutiOf: _sortCardsNewestFirst(bundle.smrutiOf),
       locations: _sortCardsNewestFirst(bundle.locations),
       albums: _sortCardsNewestFirst(bundle.albums),
+      subjects: _sortCardsNewestFirst(bundle.subjects),
       people: _sortCardsNewestFirst(bundle.people),
       wallpapers: _sortCardsNewestFirst(bundle.wallpapers),
     );
@@ -369,6 +368,7 @@ class GalleryRepository {
         bundle.people.isEmpty ||
         bundle.locations.isEmpty ||
         bundle.albums.isEmpty ||
+        bundle.subjects.isEmpty ||
         bundle.wallpapers.isEmpty;
 
     if (!shouldFetch) return bundle;
@@ -381,6 +381,7 @@ class GalleryRepository {
       smrutiOf: fallback.smrutiOf,
       locations: fallback.locations,
       albums: fallback.albums,
+      subjects: fallback.subjects,
       people: fallback.people,
       wallpapers: fallback.wallpapers,
     );
@@ -405,8 +406,8 @@ class GalleryRepository {
       safe(getSmrutiOf(type: 'person', samples: samples), <GalleryCard>[]),
       safe(getSmrutiOf(type: 'location', samples: samples), <GalleryCard>[]),
       safe(getSmrutiOf(type: 'album', samples: samples), <GalleryCard>[]),
-      safe(getPeople(samples: samples, limit: 60), <GalleryCard>[]),
       safe(getSmrutiOf(type: 'subject', samples: samples), <GalleryCard>[]),
+      safe(getPeople(samples: samples, limit: 60), <GalleryCard>[]),
     ]);
 
     return GalleryHomeBundle(
@@ -416,8 +417,8 @@ class GalleryRepository {
       smrutiOf: results[3] as List<GalleryCard>,
       locations: results[4] as List<GalleryCard>,
       albums: results[5] as List<GalleryCard>,
-      people: results[6] as List<GalleryCard>,
-      wallpapers: results[7] as List<GalleryCard>,
+      subjects: results[6] as List<GalleryCard>,
+      people: results[7] as List<GalleryCard>,
     );
   }
 }

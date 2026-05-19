@@ -8,6 +8,7 @@ class SmrutiSectionKeys {
   static const ofSmruti = "Smruti of";
   static const location = "Location";
   static const album = "Album";
+  static const subject = "Subject";
   static const collections = "Collections";
   static const people = "People";
   static const myPhotos = "My Smruti";

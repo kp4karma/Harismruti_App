@@ -197,10 +197,12 @@ class _HomeScreenState extends State<HomeScreen>
 
   bool _hasSectionDetailAction(String title) {
     return switch (title) {
+      SmrutiSectionKeys.recent ||
       SmrutiSectionKeys.withSmruti ||
       SmrutiSectionKeys.ofSmruti ||
       SmrutiSectionKeys.location ||
       SmrutiSectionKeys.album ||
+      SmrutiSectionKeys.subject ||
       SmrutiSectionKeys.collections ||
       SmrutiSectionKeys.myPhotos ||
       SmrutiSectionKeys.myDiary ||

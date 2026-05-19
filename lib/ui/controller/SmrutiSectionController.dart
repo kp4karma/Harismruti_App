@@ -10,6 +10,7 @@ import 'package:harismruti/ui/view/home/my_photos_smruti.dart';
 import 'package:harismruti/ui/view/home/recent_smruti.dart';
 import 'package:harismruti/ui/view/home/smruti_of.dart';
 import 'package:harismruti/ui/view/home/smruti_with.dart';
+import 'package:harismruti/ui/view/home/subject_smruti.dart';
 import 'package:harismruti/utils/app_string.dart';
 import 'package:harismruti/utils/size_config.dart';
 import 'package:harismruti/utils/storage_helper.dart';
@@ -212,6 +213,8 @@ class SmrutiSectionController extends GetxController {
         return const LocationSmruti();
       case SmrutiSectionKeys.album:
         return const AlbumSmruti();
+      case SmrutiSectionKeys.subject:
+        return const SubjectSmruti();
       case SmrutiSectionKeys.collections:
         return const CollectionSmruti();
       case SmrutiSectionKeys.myPhotos:
@@ -265,32 +268,38 @@ class SmrutiSectionController extends GetxController {
       "widget": const AlbumSmruti(),
     },
     {
-      "title": SmrutiSectionKeys.collections,
+      "title": SmrutiSectionKeys.subject,
       "order_index": 6,
+      "is_show": true,
+      "widget": const SubjectSmruti(),
+    },
+    {
+      "title": SmrutiSectionKeys.collections,
+      "order_index": 7,
       "is_show": true,
       "widget": const CollectionSmruti(),
     },
     {
       "title": SmrutiSectionKeys.myPhotos,
-      "order_index": 7,
+      "order_index": 8,
       "is_show": true,
       "widget": const MyPhotosSmruti(),
     },
     {
       "title": SmrutiSectionKeys.myDiary,
-      "order_index": 8,
+      "order_index": 9,
       "is_show": true,
       "widget": const MyDiarySmruti(),
     },
     {
       "title": SmrutiSectionKeys.myFavorite,
-      "order_index": 9,
+      "order_index": 10,
       "is_show": true,
       "widget": const MyFavoriteSmruti(),
     },
     {
       "title": SmrutiSectionKeys.myCollection,
-      "order_index": 10,
+      "order_index": 11,
       "is_show": true,
       "widget": const MyCollectionSmruti(),
     },

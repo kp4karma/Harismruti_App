@@ -31,6 +31,7 @@ class HomeSectionDetailScreen extends StatefulWidget {
 
 class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
   final GalleryController _controller = Get.find<GalleryController>();
+  final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   String _query = '';
@@ -42,10 +43,12 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
       setState(() => _query = _searchController.text.trim().toLowerCase());
     });
     _searchFocusNode.addListener(() => setState(() {}));
+    _scrollController.addListener(_maybeLoadMoreRecent);
   }
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
@@ -99,6 +102,8 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
   Widget _buildSectionBody(List<Object> visibleItems) {
     final cards = visibleItems.whereType<GalleryCard>().toList(growable: false);
     switch (widget.title) {
+      case SmrutiSectionKeys.recent:
+        return _buildRecentPhotoGallery(visibleItems);
       case SmrutiSectionKeys.withSmruti:
         return ListView.separated(
           physics: const BouncingScrollPhysics(),
@@ -112,6 +117,24 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
               headers: _controller.imageHeaders,
               width: double.infinity,
             ),
+          ),
+        );
+      case SmrutiSectionKeys.subject:
+        return GridView.builder(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          itemCount: cards.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 0.9,
+          ),
+          itemBuilder: (context, index) => GalleryGridCard(
+            card: cards[index],
+            headers: _controller.imageHeaders,
+            aspectRatio: 0.9,
+            fillParent: true,
           ),
         );
       case SmrutiSectionKeys.ofSmruti:
@@ -241,6 +264,135 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
     }
   }
 
+  Widget _buildRecentPhotoGallery(List<Object> visibleItems) {
+    final photos = visibleItems.whereType<GalleryPhoto>().toList(
+      growable: false,
+    );
+    final showFooter = _controller.isRecentPageLoading.value;
+    final groupCount = (photos.length / 3).ceil();
+
+    return ListView.builder(
+      controller: _scrollController,
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      itemCount: groupCount + (showFooter ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index >= groupCount) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 18),
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2.4)),
+          );
+        }
+
+        final start = index * 3;
+        final groupPhotos = photos.skip(start).take(3).toList(growable: false);
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _buildRecentGalleryGroup(
+            groupPhotos,
+            start,
+            index.isOdd,
+            photos,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRecentGalleryGroup(
+    List<GalleryPhoto> groupPhotos,
+    int startIndex,
+    bool reverse,
+    List<GalleryPhoto> allPhotos,
+  ) {
+    if (groupPhotos.length == 1) {
+      return SizedBox(
+        height: 232,
+        child: _RecentGalleryTile(
+          photo: groupPhotos.first,
+          headers: _controller.imageHeaders,
+          onTap: () => _openPhotoGallery(allPhotos, startIndex),
+        ),
+      );
+    }
+
+    if (groupPhotos.length == 2) {
+      final first = Expanded(
+        flex: 6,
+        child: _RecentGalleryTile(
+          photo: groupPhotos[0],
+          headers: _controller.imageHeaders,
+          onTap: () => _openPhotoGallery(allPhotos, startIndex),
+        ),
+      );
+      final second = Expanded(
+        flex: 5,
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: SizedBox(
+            height: 196,
+            child: _RecentGalleryTile(
+              photo: groupPhotos[1],
+              headers: _controller.imageHeaders,
+              onTap: () => _openPhotoGallery(allPhotos, startIndex + 1),
+            ),
+          ),
+        ),
+      );
+
+      return SizedBox(
+        height: 232,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: reverse
+              ? [second, const SizedBox(width: 10), first]
+              : [first, const SizedBox(width: 10), second],
+        ),
+      );
+    }
+
+    final largeTile = Expanded(
+      flex: 7,
+      child: _RecentGalleryTile(
+        photo: groupPhotos[0],
+        headers: _controller.imageHeaders,
+        onTap: () => _openPhotoGallery(allPhotos, startIndex),
+      ),
+    );
+    final stackedTiles = Expanded(
+      flex: 5,
+      child: Column(
+        children: [
+          Expanded(
+            child: _RecentGalleryTile(
+              photo: groupPhotos[1],
+              headers: _controller.imageHeaders,
+              onTap: () => _openPhotoGallery(allPhotos, startIndex + 1),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Expanded(
+            child: _RecentGalleryTile(
+              photo: groupPhotos[2],
+              headers: _controller.imageHeaders,
+              onTap: () => _openPhotoGallery(allPhotos, startIndex + 2),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return SizedBox(
+      height: 276,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: reverse
+            ? [stackedTiles, const SizedBox(width: 10), largeTile]
+            : [largeTile, const SizedBox(width: 10), stackedTiles],
+      ),
+    );
+  }
+
   Widget _buildSimpleCardList(List<Object> visibleItems) {
     return ListView.separated(
       physics: const BouncingScrollPhysics(),
@@ -300,6 +452,8 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
         return _controller.collections.toList(growable: false);
       case SmrutiSectionKeys.withSmruti:
         return _controller.smrutiWith.toList(growable: false);
+      case SmrutiSectionKeys.subject:
+        return _controller.subjects.toList(growable: false);
       case SmrutiSectionKeys.ofSmruti:
         return _controller.smrutiOf.toList(growable: false);
       case SmrutiSectionKeys.location:
@@ -470,6 +624,14 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
         ),
       ),
     );
+  }
+
+  void _maybeLoadMoreRecent() {
+    if (widget.title != SmrutiSectionKeys.recent) return;
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.extentAfter > 420) return;
+    _controller.loadMoreRecentPhotos();
   }
 
   String _formatDate(DateTime? date) {
@@ -842,6 +1004,67 @@ class _PhotoPosterCard extends StatelessWidget {
                   color: Colors.white,
                   fontWeight: FontWeight.w900,
                   fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RecentGalleryTile extends StatelessWidget {
+  final GalleryPhoto photo;
+  final Map<String, String>? headers;
+  final VoidCallback onTap;
+
+  const _RecentGalleryTile({
+    required this.photo,
+    required this.headers,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final title = photo.title?.trim().isNotEmpty == true
+        ? photo.title!.trim()
+        : 'Recent Smruti';
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(18),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            NetworkImageWithLoader(
+              imageUrl: photo.thumbnailUrl,
+              title: title,
+              headers: headers,
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withAlpha(16),
+                    Colors.black.withAlpha(132),
+                  ],
+                  stops: const [0.44, 0.72, 1],
                 ),
               ),
             ),

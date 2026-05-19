@@ -547,6 +547,7 @@ class GalleryHomeBundle {
   final List<GalleryCard> smrutiOf;
   final List<GalleryCard> locations;
   final List<GalleryCard> albums;
+  final List<GalleryCard> subjects;
   final List<GalleryCard> people;
   final List<GalleryCard> wallpapers;
 
@@ -557,6 +558,7 @@ class GalleryHomeBundle {
     this.smrutiOf = const [],
     this.locations = const [],
     this.albums = const [],
+    this.subjects = const [],
     this.people = const [],
     this.wallpapers = const [],
   });
@@ -603,6 +605,7 @@ class GalleryHomeBundle {
       ], 'person'),
       locations: cardsFor(const ['locations', 'location'], 'location'),
       albums: cardsFor(const ['albums', 'album'], 'album'),
+      subjects: cardsFor(const ['subjects', 'subject'], 'subject'),
       people: cardsFor(const ['people', 'persons'], 'person'),
       wallpapers: cardsFor(const ['wallpapers', 'wallpaper'], 'wallpaper'),
     );
@@ -615,6 +618,7 @@ class GalleryHomeBundle {
     List<GalleryCard>? smrutiOf,
     List<GalleryCard>? locations,
     List<GalleryCard>? albums,
+    List<GalleryCard>? subjects,
     List<GalleryCard>? people,
     List<GalleryCard>? wallpapers,
   }) {
@@ -631,6 +635,7 @@ class GalleryHomeBundle {
           ? this.locations
           : locations ?? const [],
       albums: this.albums.isNotEmpty ? this.albums : albums ?? const [],
+      subjects: this.subjects.isNotEmpty ? this.subjects : subjects ?? const [],
       people: this.people.isNotEmpty ? this.people : people ?? const [],
       wallpapers: this.wallpapers.isNotEmpty
           ? this.wallpapers

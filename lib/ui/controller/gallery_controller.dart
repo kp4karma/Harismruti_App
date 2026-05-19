@@ -47,11 +47,15 @@ class GalleryController extends GetxController {
   GalleryController({GalleryRepository? repository})
     : _repository = repository ?? const GalleryRepository();
 
+  static const int _recentPerPage = 60;
+
   final GalleryRepository _repository;
 
   final RxBool isLoading = false.obs;
   final RxBool isRefreshing = false.obs;
   final RxString errorMessage = ''.obs;
+  final RxBool isRecentPageLoading = false.obs;
+  final RxBool hasMoreRecentPhotos = true.obs;
 
   final RxList<GalleryPhoto> recentPhotos = <GalleryPhoto>[].obs;
   final RxList<GalleryCard> collections = <GalleryCard>[].obs;
@@ -59,6 +63,7 @@ class GalleryController extends GetxController {
   final RxList<GalleryCard> smrutiOf = <GalleryCard>[].obs;
   final RxList<GalleryCard> locations = <GalleryCard>[].obs;
   final RxList<GalleryCard> albums = <GalleryCard>[].obs;
+  final RxList<GalleryCard> subjects = <GalleryCard>[].obs;
   final RxList<GalleryCard> people = <GalleryCard>[].obs;
   final RxList<GalleryCard> wallpapers = <GalleryCard>[].obs;
   final RxList<GalleryFilterGroup> filters = <GalleryFilterGroup>[].obs;
@@ -72,6 +77,7 @@ class GalleryController extends GetxController {
 
   DateTime? _lastLoadedAt;
   Future<void>? _inFlightLoad;
+  int _recentPage = 1;
 
   Map<String, String> get imageHeaders => _repository.imageHeaders;
   bool get hasAnyData =>
@@ -81,6 +87,7 @@ class GalleryController extends GetxController {
       smrutiOf.isNotEmpty ||
       locations.isNotEmpty ||
       albums.isNotEmpty ||
+      subjects.isNotEmpty ||
       people.isNotEmpty ||
       wallpapers.isNotEmpty;
 
@@ -558,6 +565,46 @@ class GalleryController extends GetxController {
     return _repository.getPhotoAttributes(photoId);
   }
 
+  Future<void> loadMoreRecentPhotos() async {
+    if (isRecentPageLoading.value || !hasMoreRecentPhotos.value) return;
+    isRecentPageLoading.value = true;
+    try {
+      final nextPage = _recentPage + 1;
+      final photos = await _repository.getRecent(
+        page: nextPage,
+        perPage: _recentPerPage,
+      );
+      if (photos.isEmpty) {
+        hasMoreRecentPhotos.value = false;
+        return;
+      }
+
+      final existingIds = recentPhotos
+          .where((photo) => photo.id > 0)
+          .map((photo) => photo.id)
+          .toSet();
+      final existingUrls = recentPhotos
+          .where((photo) => photo.id <= 0)
+          .map((photo) => photo.thumbnailUrl)
+          .toSet();
+      final newPhotos = photos.where((photo) {
+        if (photo.id > 0) return existingIds.add(photo.id);
+        return photo.thumbnailUrl.isNotEmpty &&
+            existingUrls.add(photo.thumbnailUrl);
+      }).toList();
+
+      if (newPhotos.isNotEmpty) {
+        recentPhotos.addAll(newPhotos);
+      }
+      _recentPage = nextPage;
+      hasMoreRecentPhotos.value = photos.length >= _recentPerPage;
+    } catch (_) {
+      hasMoreRecentPhotos.value = true;
+    } finally {
+      isRecentPageLoading.value = false;
+    }
+  }
+
   Future<List<GalleryTimeBucket>> loadMonthsForYear(int year) {
     return _repository.getCollectionMonths(year: year);
   }
@@ -590,11 +637,14 @@ class GalleryController extends GetxController {
     try {
       final bundle = await _repository.getHomeBundle(samples: 8);
       recentPhotos.assignAll(bundle.recent);
+      _recentPage = 1;
+      hasMoreRecentPhotos.value = bundle.recent.length >= _recentPerPage;
       collections.assignAll(bundle.collections);
       smrutiWith.assignAll(bundle.smrutiWith);
       smrutiOf.assignAll(bundle.smrutiOf);
       locations.assignAll(bundle.locations);
       albums.assignAll(bundle.albums);
+      subjects.assignAll(bundle.subjects);
       people.assignAll(bundle.people);
       wallpapers.assignAll(bundle.wallpapers);
       _lastLoadedAt = DateTime.now();
