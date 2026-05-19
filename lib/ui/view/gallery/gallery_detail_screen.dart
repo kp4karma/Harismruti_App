@@ -1091,33 +1091,6 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
         : 'Recent Smruti';
   }
 
-  String _formatRecentViewerSubtitle(GalleryPhoto photo) {
-    return _formatPhotoDateTime(photo.takenAt) ??
-        '${_index + 1} of ${widget.photos.length}';
-  }
-
-  String? _formatPhotoDateTime(DateTime? date) {
-    if (date == null) return null;
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    final hour = date.hour == 0 || date.hour == 12 ? 12 : date.hour % 12;
-    final minute = date.minute.toString().padLeft(2, '0');
-    final period = date.hour >= 12 ? 'PM' : 'AM';
-    return '${date.day} ${months[date.month - 1]} ${date.year}, $hour:$minute $period';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1198,12 +1171,9 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                       title: widget.showRecentPhotoMetadata
                           ? _formatRecentViewerTitle(_photo)
                           : widget.title,
-                      position: widget.showRecentPhotoMetadata
-                          ? _formatRecentViewerSubtitle(_photo)
-                          : '${_index + 1} of ${widget.photos.length}',
-                      attributesFuture: widget.showRecentPhotoMetadata
-                          ? _attributesFor(_photo.id)
-                          : null,
+                      position: '${_index + 1} of ${widget.photos.length}',
+                      takenAt: _photo.takenAt,
+                      attributesFuture: _attributesFor(_photo.id),
                       onBack: () => Navigator.pop(context),
                     ),
                   ),
@@ -1657,12 +1627,14 @@ class _FullscreenImage extends StatelessWidget {
 class _ViewerTopBar extends StatelessWidget {
   final String title;
   final String position;
+  final DateTime? takenAt;
   final Future<GalleryPhotoAttributes>? attributesFuture;
   final VoidCallback onBack;
 
   const _ViewerTopBar({
     required this.title,
     required this.position,
+    this.takenAt,
     this.attributesFuture,
     required this.onBack,
   });
@@ -1678,11 +1650,15 @@ class _ViewerTopBar extends StatelessWidget {
             future: attributesFuture,
             builder: (context, snapshot) {
               final attrs = snapshot.data;
-              final place = [
+              final placeParts = [
                 attrs?.location,
-                attrs?.country,
-              ].where((value) => value?.trim().isNotEmpty == true).join(' - ');
+                attrs?.subLocation,
+              ].where((value) => value?.trim().isNotEmpty == true).toList();
+              final place = placeParts.isNotEmpty
+                  ? placeParts.join(' - ')
+                  : attrs?.country?.trim() ?? '';
               final displayTitle = place.isNotEmpty ? place : title;
+              final displaySubtitle = _formatTopDateTime(takenAt) ?? position;
 
               return ClipRRect(
                 borderRadius: BorderRadius.circular(28),
@@ -1721,7 +1697,7 @@ class _ViewerTopBar extends StatelessWidget {
                         ),
                         const SizedBox(height: 1),
                         Text(
-                          position,
+                          displaySubtitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -1741,6 +1717,46 @@ class _ViewerTopBar extends StatelessWidget {
         const SizedBox(width: 54),
       ],
     );
+  }
+
+  String? _formatTopDateTime(DateTime? value) {
+    if (value == null) return null;
+    final date = value.toLocal();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final photoDay = DateTime(date.year, date.month, date.day);
+    final daysAgo = today.difference(photoDay).inDays;
+    final dayLabel = switch (daysAgo) {
+      0 => 'Today',
+      1 => 'Yesterday',
+      _ => _formatShortDate(date),
+    };
+    return '$dayLabel  ${_formatTime(date)}';
+  }
+
+  String _formatShortDate(DateTime date) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+
+  String _formatTime(DateTime date) {
+    final hour = date.hour == 0 || date.hour == 12 ? 12 : date.hour % 12;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final period = date.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $period';
   }
 }
 
