@@ -39,6 +39,8 @@ class _SmrutiSectionSettingsScreenState
     if (_tutorialShown || _firstDragHandleKey.currentContext == null) return;
 
     _tutorialShown = true;
+    final screenSize = MediaQuery.sizeOf(context);
+    final safeTop = MediaQuery.paddingOf(context).top;
     final tutorialCoachMark = TutorialCoachMark(
       targets: [
         TargetFocus(
@@ -49,7 +51,12 @@ class _SmrutiSectionSettingsScreenState
           paddingFocus: 6,
           contents: [
             TargetContent(
-              align: ContentAlign.top,
+              align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(
+                top: safeTop + (screenSize.height * 0.22),
+                left: 16,
+                right: 16,
+              ),
               child: _ReorderCoachContent(onGotIt: _finishTutorial),
             ),
           ],
@@ -190,13 +197,13 @@ class _SmrutiSectionSettingsScreenState
         return Icons.auto_awesome_rounded;
       case SmrutiSectionKeys.withSmruti:
         return Icons.groups_rounded;
-      case SmrutiSectionKeys.ofSmruti:
+      case SmrutiSectionKeys.ofDarshan:
         return Icons.person_search_rounded;
       case SmrutiSectionKeys.location:
         return Icons.place_rounded;
       case SmrutiSectionKeys.album:
         return Icons.photo_album_rounded;
-      case SmrutiSectionKeys.collections:
+      case SmrutiSectionKeys.yearCollection:
       case SmrutiSectionKeys.myCollection:
         return Icons.collections_bookmark_rounded;
       case SmrutiSectionKeys.myPhotos:

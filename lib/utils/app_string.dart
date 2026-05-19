@@ -5,11 +5,11 @@ class AppText {
 class SmrutiSectionKeys {
   static const recent = "Recent Smruti";
   static const withSmruti = "Smruti with";
-  static const ofSmruti = "Smruti of";
+  static const ofDarshan = "Darshan of";
   static const location = "Location";
-  static const album = "Album";
-  static const subject = "Subject";
-  static const collections = "Collections";
+  static const album = "Smruti Category";
+  static const ofSmruti = "Smruti of ";
+  static const yearCollection = "Year";
   static const people = "People";
   static const myPhotos = "My Smruti";
   static const myDiary = "My Diary";

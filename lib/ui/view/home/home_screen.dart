@@ -199,11 +199,11 @@ class _HomeScreenState extends State<HomeScreen>
     return switch (title) {
       SmrutiSectionKeys.recent ||
       SmrutiSectionKeys.withSmruti ||
-      SmrutiSectionKeys.ofSmruti ||
+      SmrutiSectionKeys.ofDarshan ||
       SmrutiSectionKeys.location ||
       SmrutiSectionKeys.album ||
-      SmrutiSectionKeys.subject ||
-      SmrutiSectionKeys.collections ||
+      SmrutiSectionKeys.ofSmruti ||
+      SmrutiSectionKeys.yearCollection ||
       SmrutiSectionKeys.myPhotos ||
       SmrutiSectionKeys.myDiary ||
       SmrutiSectionKeys.myCollection ||

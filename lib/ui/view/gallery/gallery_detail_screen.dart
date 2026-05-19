@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -586,6 +587,8 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   bool _chromeVisible = true;
   bool _isZoomed = false;
   Offset _lastDoubleTapPosition = Offset.zero;
+  Offset? _oneFingerZoomAnchor;
+  double _oneFingerZoomStartScale = 1;
 
   @override
   void initState() {
@@ -832,6 +835,34 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     _lastDoubleTapPosition = details.localPosition;
   }
 
+  void _startOneFingerZoom(LongPressStartDetails details) {
+    _zoomAnimationController.stop();
+    _clearZoomAnimation();
+    _oneFingerZoomAnchor = details.localPosition;
+    _oneFingerZoomStartScale = _transformationController.value
+        .getMaxScaleOnAxis()
+        .clamp(1.0, 5.0);
+    HapticFeedback.selectionClick();
+    if (_chromeVisible) {
+      setState(() => _chromeVisible = false);
+    }
+  }
+
+  void _updateOneFingerZoom(LongPressMoveUpdateDetails details) {
+    final anchor = _oneFingerZoomAnchor;
+    if (anchor == null) return;
+    final factor = math
+        .pow(2, -details.localOffsetFromOrigin.dy / 220)
+        .toDouble();
+    final scale = (_oneFingerZoomStartScale * factor).clamp(1.0, 5.0);
+    _setZoomAt(anchor, scale);
+  }
+
+  void _endOneFingerZoom(LongPressEndDetails details) {
+    _oneFingerZoomAnchor = null;
+    _syncZoomState();
+  }
+
   void _syncZoomState() {
     final isZoomed = _transformationController.value.getMaxScaleOnAxis() > 1.05;
     if (_isZoomed == isZoomed) return;
@@ -900,6 +931,26 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       _zoomAnimationController.stop();
       _transformationController.value = Matrix4.identity();
       _isZoomed = false;
+    }
+  }
+
+  void _setZoomAt(Offset position, double zoom) {
+    if (zoom <= 1.02) {
+      _transformationController.value = Matrix4.identity();
+      if (_isZoomed) {
+        setState(() => _isZoomed = false);
+      }
+      return;
+    }
+
+    final viewport = MediaQuery.sizeOf(context);
+    _transformationController.value = Matrix4.identity()
+      ..setEntry(0, 0, zoom)
+      ..setEntry(1, 1, zoom)
+      ..setEntry(0, 3, (viewport.width / 2) - (position.dx * zoom))
+      ..setEntry(1, 3, (viewport.height / 2) - (position.dy * zoom));
+    if (!_isZoomed) {
+      setState(() => _isZoomed = true);
     }
   }
 
@@ -1095,6 +1146,9 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                 onTap: _toggleChrome,
                 onDoubleTapDown: _rememberDoubleTapPosition,
                 onDoubleTap: _toggleZoom,
+                onLongPressStart: _startOneFingerZoom,
+                onLongPressMoveUpdate: _updateOneFingerZoom,
+                onLongPressEnd: _endOneFingerZoom,
                 onVerticalDragEnd: (details) {
                   if (_isZoomed) return;
                   if ((details.primaryVelocity ?? 0) < -240) {

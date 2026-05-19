@@ -119,58 +119,36 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
             ),
           ),
         );
-      case SmrutiSectionKeys.subject:
-        return GridView.builder(
+      case SmrutiSectionKeys.ofSmruti:
+        return ListView.separated(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
           itemCount: cards.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 0.9,
-          ),
-          itemBuilder: (context, index) => GalleryGridCard(
-            card: cards[index],
-            headers: _controller.imageHeaders,
-            aspectRatio: 0.9,
-            fillParent: true,
+          separatorBuilder: (_, __) => const SizedBox(height: 14),
+          itemBuilder: (context, index) => SizedBox(
+            height: 248,
+            child: _SubjectRibbonDetailCard(
+              card: cards[index],
+              headers: _controller.imageHeaders,
+            ),
           ),
         );
-      case SmrutiSectionKeys.ofSmruti:
-        return GridView.builder(
+      case SmrutiSectionKeys.ofDarshan:
+        return ListView.separated(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
           itemCount: cards.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 0.8,
-          ),
-          itemBuilder: (context, index) => GalleryCoverCard(
-            card: cards[index],
-            headers: _controller.imageHeaders,
-            width: double.infinity,
-            height: 230,
+          separatorBuilder: (_, __) => const SizedBox(height: 14),
+          itemBuilder: (context, index) => SizedBox(
+            height: 235,
+            child: _SmrutiOfGlowDetailCard(
+              card: cards[index],
+              headers: _controller.imageHeaders,
+            ),
           ),
         );
       case SmrutiSectionKeys.location:
-        return GridView.builder(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          itemCount: cards.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 0.78,
-          ),
-          itemBuilder: (context, index) => GalleryGridCard(
-            card: cards[index],
-            headers: _controller.imageHeaders,
-          ),
-        );
+        return _buildLocationDetailGroups(cards);
       case SmrutiSectionKeys.album:
         return ListView.separated(
           physics: const BouncingScrollPhysics(),
@@ -186,7 +164,7 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
             ),
           ),
         );
-      case SmrutiSectionKeys.collections:
+      case SmrutiSectionKeys.yearCollection:
       case 'Collection':
         return ListView.separated(
           physics: const BouncingScrollPhysics(),
@@ -262,6 +240,68 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
       default:
         return _buildSimpleCardList(visibleItems);
     }
+  }
+
+  Widget _buildLocationDetailGroups(List<GalleryCard> cards) {
+    final groupCount = (cards.length / 3).ceil();
+
+    return ListView.builder(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+      itemCount: groupCount,
+      itemBuilder: (context, index) {
+        final firstIndex = index * 3;
+        final secondIndex = firstIndex + 1;
+        final thirdIndex = firstIndex + 2;
+        final bottomCards = [
+          if (secondIndex < cards.length) cards[secondIndex],
+          if (thirdIndex < cards.length) cards[thirdIndex],
+        ];
+        final bigCard = GalleryGridCard(
+          card: cards[firstIndex],
+          headers: _controller.imageHeaders,
+          aspectRatio: 1,
+          fillParent: true,
+          imageFit: BoxFit.fill,
+        );
+        final smallRow = Row(
+          children: [
+            for (var item = 0; item < bottomCards.length; item++) ...[
+              Expanded(
+                child: GalleryGridCard(
+                  card: bottomCards[item],
+                  headers: _controller.imageHeaders,
+                  aspectRatio: 1,
+                  fillParent: true,
+                  imageFit: BoxFit.fill,
+                ),
+              ),
+              if (item != bottomCards.length - 1) const SizedBox(width: 6),
+            ],
+          ],
+        );
+
+        return SizedBox(
+          height: 310,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Column(
+              children: index.isEven
+                  ? [
+                      Expanded(flex: 6, child: bigCard),
+                      const SizedBox(height: 6),
+                      Expanded(flex: 4, child: smallRow),
+                    ]
+                  : [
+                      Expanded(flex: 4, child: smallRow),
+                      const SizedBox(height: 6),
+                      Expanded(flex: 6, child: bigCard),
+                    ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildRecentPhotoGallery(List<Object> visibleItems) {
@@ -447,14 +487,14 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
     switch (title) {
       case SmrutiSectionKeys.recent:
         return _controller.recentPhotos.toList(growable: false);
-      case SmrutiSectionKeys.collections:
+      case SmrutiSectionKeys.yearCollection:
       case 'Collection':
         return _controller.collections.toList(growable: false);
       case SmrutiSectionKeys.withSmruti:
         return _controller.smrutiWith.toList(growable: false);
-      case SmrutiSectionKeys.subject:
-        return _controller.subjects.toList(growable: false);
       case SmrutiSectionKeys.ofSmruti:
+        return _controller.subjects.toList(growable: false);
+      case SmrutiSectionKeys.ofDarshan:
         return _controller.smrutiOf.toList(growable: false);
       case SmrutiSectionKeys.location:
         return _controller.locations.toList(growable: false);
@@ -856,6 +896,263 @@ class _SearchSuggestionsList extends StatelessWidget {
               ),
             )
           : const SizedBox.shrink(key: ValueKey('search-suggestions-empty')),
+    );
+  }
+}
+
+class _SubjectRibbonDetailCard extends StatelessWidget {
+  final GalleryCard card;
+  final Map<String, String>? headers;
+
+  const _SubjectRibbonDetailCard({required this.card, required this.headers});
+
+  @override
+  Widget build(BuildContext context) {
+    final countText = card.count?.toString() ?? card.subtitle;
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => GalleryDetailScreen.fromCard(card)),
+      ),
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: primaryColor.withAlpha(20),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            NetworkImageWithLoader(
+              imageUrl: card.coverUrl,
+              title: card.title,
+              headers: headers,
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withAlpha(8),
+                    Colors.black.withAlpha(30),
+                    Colors.black.withAlpha(170),
+                  ],
+                  stops: const [0.15, 0.55, 1],
+                ),
+              ),
+            ),
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 12,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(220),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      countText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: primaryColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    card.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      height: 1.05,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SmrutiOfGlowDetailCard extends StatelessWidget {
+  final GalleryCard card;
+  final Map<String, String>? headers;
+
+  const _SmrutiOfGlowDetailCard({required this.card, required this.headers});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => GalleryDetailScreen.fromCard(card)),
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: _SmrutiOfImageGlow(card: card, headers: headers),
+          ),
+          Positioned.fill(
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.white.withAlpha(52),
+                    Colors.black.withAlpha(18),
+                    Colors.black.withAlpha(72),
+                  ],
+                ),
+                border: Border.all(color: Colors.white.withAlpha(82)),
+              ),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: card.coverUrl.isEmpty
+                          ? ColoredBox(
+                              color: primaryColor.withAlpha(28),
+                              child: Center(
+                                child: Icon(
+                                  CupertinoIcons.photo,
+                                  color: primaryColor,
+                                ),
+                              ),
+                            )
+                          : NetworkImageWithLoader(
+                              imageUrl: card.coverUrl,
+                              title: card.title,
+                              headers: headers,
+                              fit: BoxFit.cover,
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    card.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      height: 1.05,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    card.subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withAlpha(205),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      height: 1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SmrutiOfImageGlow extends StatelessWidget {
+  final GalleryCard card;
+  final Map<String, String>? headers;
+
+  const _SmrutiOfImageGlow({required this.card, required this.headers});
+
+  @override
+  Widget build(BuildContext context) {
+    if (card.coverUrl.isEmpty) {
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          color: primaryColor.withAlpha(54),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: primaryColor.withAlpha(62),
+              blurRadius: 22,
+              spreadRadius: 1,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ImageFiltered(
+            imageFilter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: Transform.scale(
+              scale: 1.18,
+              child: Opacity(
+                opacity: 0.82,
+                child: NetworkImageWithLoader(
+                  imageUrl: card.coverUrl,
+                  title: card.title,
+                  headers: headers,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.black.withAlpha(36),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(30),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

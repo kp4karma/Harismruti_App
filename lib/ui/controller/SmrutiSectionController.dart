@@ -207,15 +207,15 @@ class SmrutiSectionController extends GetxController {
         return const RecentSmruti();
       case SmrutiSectionKeys.withSmruti:
         return const SmrutiWith();
-      case SmrutiSectionKeys.ofSmruti:
+      case SmrutiSectionKeys.ofDarshan:
         return const SmrutiOf();
       case SmrutiSectionKeys.location:
         return const LocationSmruti();
       case SmrutiSectionKeys.album:
         return const AlbumSmruti();
-      case SmrutiSectionKeys.subject:
+      case SmrutiSectionKeys.ofSmruti:
         return const SubjectSmruti();
-      case SmrutiSectionKeys.collections:
+      case SmrutiSectionKeys.yearCollection:
         return const CollectionSmruti();
       case SmrutiSectionKeys.myPhotos:
       case "My Phone":
@@ -250,7 +250,7 @@ class SmrutiSectionController extends GetxController {
       "widget": const SmrutiWith(),
     },
     {
-      "title": SmrutiSectionKeys.ofSmruti,
+      "title": SmrutiSectionKeys.ofDarshan,
       "order_index": 3,
       "is_show": true,
       "widget": const SmrutiOf(),
@@ -268,13 +268,13 @@ class SmrutiSectionController extends GetxController {
       "widget": const AlbumSmruti(),
     },
     {
-      "title": SmrutiSectionKeys.subject,
+      "title": SmrutiSectionKeys.ofSmruti,
       "order_index": 6,
       "is_show": true,
       "widget": const SubjectSmruti(),
     },
     {
-      "title": SmrutiSectionKeys.collections,
+      "title": SmrutiSectionKeys.yearCollection,
       "order_index": 7,
       "is_show": true,
       "widget": const CollectionSmruti(),

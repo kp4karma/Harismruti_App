@@ -1140,6 +1140,8 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
   bool _taking = false;
   bool _checking = false;
   bool _cameraReady = false;
+  bool _autoProbePaused = false;
+  int _autoProbeFailures = 0;
   String _reason = 'Place your face inside the frame';
 
   @override
@@ -1173,6 +1175,7 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
         enableAudio: false,
       );
       await controller.initialize();
+      await controller.setFlashMode(FlashMode.off).catchError((_) {});
       if (!mounted) {
         await controller.dispose();
         return;
@@ -1182,7 +1185,7 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
         _cameraReady = true;
         _reason = 'Hold your face inside the frame';
       });
-      _timer = Timer.periodic(const Duration(milliseconds: 900), (_) {
+      _timer = Timer.periodic(const Duration(seconds: 3), (_) {
         _probeFaceQuality();
       });
     } catch (_) {
@@ -1201,7 +1204,8 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
         !camera.value.isInitialized ||
         camera.value.isTakingPicture ||
         _checking ||
-        _taking) {
+        _taking ||
+        _autoProbePaused) {
       return;
     }
     _checking = true;
@@ -1216,14 +1220,21 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
           _quality = 1;
           _reason = 'Face recognized successfully';
         });
+        _timer?.cancel();
+        _timer = null;
         await _acceptCapturedFile(file.path);
         return;
       }
 
       final nextScore = _scoreForReason(result.message);
+      final needsLight = _needsMoreLight(result.message);
+      _autoProbeFailures++;
       setState(() {
         _quality = nextScore;
-        _reason = result.message;
+        _autoProbePaused = needsLight || _autoProbeFailures >= 3;
+        _reason = _autoProbePaused
+            ? 'Need better light. Tap Capture when ready.'
+            : result.message;
       });
       unawaited(File(file.path).delete().catchError((_) => File(file.path)));
     } catch (_) {
@@ -1239,15 +1250,26 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
   }
 
   Future<void> _capture() async {
-    if (_taking) return;
+    if (_taking || _checking) return;
     final camera = _cameraController;
-    if (camera == null || !camera.value.isInitialized) {
+    if (camera == null ||
+        !camera.value.isInitialized ||
+        camera.value.isTakingPicture) {
       setState(() => _reason = 'Camera is not ready');
       return;
     }
     _taking = true;
-    final file = await camera.takePicture();
-    await _acceptCapturedFile(file.path);
+    try {
+      await camera.setFlashMode(FlashMode.off);
+      final file = await camera.takePicture();
+      await _acceptCapturedFile(file.path);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _taking = false;
+        _reason = 'Could not capture photo. Please try again.';
+      });
+    }
   }
 
   Future<void> _acceptCapturedFile(String path) async {
@@ -1256,14 +1278,26 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
     final ok = await controller.addRequiredPhoto(path: path, pose: widget.pose);
     if (!mounted) return;
     if (ok) {
+      _timer?.cancel();
+      _timer = null;
       Navigator.pop(context);
       return;
     }
     setState(() {
       _taking = false;
+      _autoProbePaused = true;
       _quality = 0.52;
       _reason = controller.helperMessage.value;
     });
+  }
+
+  bool _needsMoreLight(String reason) {
+    final lower = reason.toLowerCase();
+    return lower.contains('no face') ||
+        lower.contains('clear') ||
+        lower.contains('dark') ||
+        lower.contains('blur') ||
+        lower.contains('framed');
   }
 
   double _scoreForReason(String reason) {

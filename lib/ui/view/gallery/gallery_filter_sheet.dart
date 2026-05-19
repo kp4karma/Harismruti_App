@@ -76,7 +76,23 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
   }
 
   List<GalleryFilterGroup> _availableGroups(List<GalleryFilterGroup> groups) {
-    return groups.where((group) => group.options.isNotEmpty).toList();
+    return groups
+        .map(_withAvailableOptions)
+        .where((group) => group.options.isNotEmpty)
+        .toList();
+  }
+
+  GalleryFilterGroup _withAvailableOptions(GalleryFilterGroup group) {
+    final selected = _selectedValues[group.slug] ?? const <String>{};
+    return GalleryFilterGroup(
+      slug: group.slug,
+      title: group.title,
+      options: group.options
+          .where(
+            (option) => option.count > 0 || selected.contains(option.value),
+          )
+          .toList(),
+    );
   }
 
   List<GalleryFilterGroup> _searchMatchedGroups(
