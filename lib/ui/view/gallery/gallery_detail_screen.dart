@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -587,8 +586,6 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   bool _chromeVisible = true;
   bool _isZoomed = false;
   Offset _lastDoubleTapPosition = Offset.zero;
-  Offset? _oneFingerZoomAnchor;
-  double _oneFingerZoomStartScale = 1;
 
   @override
   void initState() {
@@ -828,6 +825,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   }
 
   void _toggleChrome() {
+    if (_isZoomed) return;
     setState(() => _chromeVisible = !_chromeVisible);
   }
 
@@ -835,38 +833,14 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     _lastDoubleTapPosition = details.localPosition;
   }
 
-  void _startOneFingerZoom(LongPressStartDetails details) {
-    _zoomAnimationController.stop();
-    _clearZoomAnimation();
-    _oneFingerZoomAnchor = details.localPosition;
-    _oneFingerZoomStartScale = _transformationController.value
-        .getMaxScaleOnAxis()
-        .clamp(1.0, 5.0);
-    HapticFeedback.selectionClick();
-    if (_chromeVisible) {
-      setState(() => _chromeVisible = false);
-    }
-  }
-
-  void _updateOneFingerZoom(LongPressMoveUpdateDetails details) {
-    final anchor = _oneFingerZoomAnchor;
-    if (anchor == null) return;
-    final factor = math
-        .pow(2, -details.localOffsetFromOrigin.dy / 220)
-        .toDouble();
-    final scale = (_oneFingerZoomStartScale * factor).clamp(1.0, 5.0);
-    _setZoomAt(anchor, scale);
-  }
-
-  void _endOneFingerZoom(LongPressEndDetails details) {
-    _oneFingerZoomAnchor = null;
-    _syncZoomState();
-  }
-
   void _syncZoomState() {
     final isZoomed = _transformationController.value.getMaxScaleOnAxis() > 1.05;
-    if (_isZoomed == isZoomed) return;
-    setState(() => _isZoomed = isZoomed);
+    final chromeVisible = isZoomed ? false : _chromeVisible;
+    if (_isZoomed == isZoomed && _chromeVisible == chromeVisible) return;
+    setState(() {
+      _isZoomed = isZoomed;
+      _chromeVisible = chromeVisible;
+    });
   }
 
   void _clearZoomAnimation() {
@@ -906,7 +880,10 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       if (status != AnimationStatus.completed) return;
       _clearZoomAnimation();
       if (mounted) {
-        setState(() => _isZoomed = isZoomed);
+        setState(() {
+          _isZoomed = isZoomed;
+          _chromeVisible = !isZoomed;
+        });
       }
     }
 
@@ -916,10 +893,8 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     animation.addListener(listener);
     animation.addStatusListener(statusListener);
     setState(() {
-      if (isZoomed) {
-        _isZoomed = true;
-        _chromeVisible = false;
-      }
+      _isZoomed = isZoomed;
+      _chromeVisible = !isZoomed;
     });
     _zoomAnimationController.forward(from: 0);
   }
@@ -931,47 +906,29 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       _zoomAnimationController.stop();
       _transformationController.value = Matrix4.identity();
       _isZoomed = false;
+      _chromeVisible = true;
     }
   }
 
-  void _setZoomAt(Offset position, double zoom) {
-    if (zoom <= 1.02) {
-      _transformationController.value = Matrix4.identity();
-      if (_isZoomed) {
-        setState(() => _isZoomed = false);
-      }
-      return;
-    }
-
+  Matrix4 _zoomMatrixFor(Offset position, double zoom) {
     final viewport = MediaQuery.sizeOf(context);
-    _transformationController.value = Matrix4.identity()
+    return Matrix4.identity()
       ..setEntry(0, 0, zoom)
       ..setEntry(1, 1, zoom)
       ..setEntry(0, 3, (viewport.width / 2) - (position.dx * zoom))
       ..setEntry(1, 3, (viewport.height / 2) - (position.dy * zoom));
-    if (!_isZoomed) {
-      setState(() => _isZoomed = true);
-    }
   }
 
   void _toggleZoom() {
     final currentScale = _transformationController.value.getMaxScaleOnAxis();
     if (currentScale > 1.05) {
-      setState(() {
-        _chromeVisible = true;
-      });
       _resetZoom();
       return;
     }
 
-    const zoom = 2.75;
-    final position = _lastDoubleTapPosition;
-    final viewport = MediaQuery.sizeOf(context);
-    final target = Matrix4.identity()
-      ..setEntry(0, 0, zoom)
-      ..setEntry(1, 1, zoom)
-      ..setEntry(0, 3, (viewport.width / 2) - (position.dx * zoom))
-      ..setEntry(1, 3, (viewport.height / 2) - (position.dy * zoom));
+    HapticFeedback.selectionClick();
+    const zoom = 2.15;
+    final target = _zoomMatrixFor(_lastDoubleTapPosition, zoom);
     _animateZoomTo(target, isZoomed: true);
   }
 
@@ -1119,9 +1076,6 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                 onTap: _toggleChrome,
                 onDoubleTapDown: _rememberDoubleTapPosition,
                 onDoubleTap: _toggleZoom,
-                onLongPressStart: _startOneFingerZoom,
-                onLongPressMoveUpdate: _updateOneFingerZoom,
-                onLongPressEnd: _endOneFingerZoom,
                 onVerticalDragEnd: (details) {
                   if (_isZoomed) return;
                   if ((details.primaryVelocity ?? 0) < -240) {
@@ -1132,11 +1086,16 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                   transformationController: _transformationController,
                   minScale: 1,
                   maxScale: 5,
+                  scaleEnabled: false,
+                  panEnabled: _isZoomed,
                   boundaryMargin: const EdgeInsets.all(96),
                   clipBehavior: Clip.none,
                   onInteractionStart: (_) {
                     _zoomAnimationController.stop();
                     _clearZoomAnimation();
+                    if (_isZoomed && _chromeVisible) {
+                      setState(() => _chromeVisible = false);
+                    }
                   },
                   onInteractionUpdate: (_) => _syncZoomState(),
                   onInteractionEnd: (_) => _syncZoomState(),
