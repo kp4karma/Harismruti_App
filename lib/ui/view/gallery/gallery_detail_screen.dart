@@ -1073,7 +1073,10 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                 onVerticalDragEnd: _isZoomed
                     ? null
                     : (details) {
-                        if ((details.primaryVelocity ?? 0) < -240) {
+                        final velocity = details.primaryVelocity ?? 0;
+                        if (velocity > 360) {
+                          Navigator.pop(context);
+                        } else if (velocity < -240) {
                           _openInfoSheet();
                         }
                       },
@@ -1081,7 +1084,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                   transformationController: _transformationController,
                   minScale: 1,
                   maxScale: 5,
-                  scaleEnabled: false,
+                  scaleEnabled: _isZoomed,
                   panEnabled: _isZoomed,
                   boundaryMargin: const EdgeInsets.all(96),
                   clipBehavior: Clip.none,
