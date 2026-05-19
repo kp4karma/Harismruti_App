@@ -585,6 +585,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   bool _showFavoriteBurst = false;
   bool _chromeVisible = true;
   bool _isZoomed = false;
+  bool _zoomModeActive = false;
   Offset _lastDoubleTapPosition = Offset.zero;
 
   @override
@@ -830,7 +831,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
 
   void _syncZoomState() {
     final isZoomed = _transformationController.value.getMaxScaleOnAxis() > 1.05;
-    if (_isZoomed) {
+    if (_zoomModeActive) {
       if (_chromeVisible) setState(() => _chromeVisible = false);
       return;
     }
@@ -881,6 +882,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       if (mounted) {
         setState(() {
           _isZoomed = isZoomed;
+          _zoomModeActive = isZoomed;
           _chromeVisible = !isZoomed;
         });
       }
@@ -893,6 +895,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     animation.addStatusListener(statusListener);
     setState(() {
       _isZoomed = isZoomed;
+      _zoomModeActive = isZoomed;
       _chromeVisible = !isZoomed;
     });
     _zoomAnimationController.forward(from: 0);
@@ -905,6 +908,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       _zoomAnimationController.stop();
       _transformationController.value = Matrix4.identity();
       _isZoomed = false;
+      _zoomModeActive = false;
       _chromeVisible = true;
     }
   }
@@ -919,7 +923,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   }
 
   void _toggleZoom() {
-    if (_isZoomed) {
+    if (_zoomModeActive) {
       _resetZoom();
       return;
     }
@@ -1049,14 +1053,14 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _isZoomed ? Colors.black : Colors.white,
+      backgroundColor: _zoomModeActive ? Colors.black : Colors.white,
       body: Stack(
         children: [
           PageView.builder(
             controller: _pageController,
             itemCount: widget.photos.length,
             allowImplicitScrolling: true,
-            physics: _isZoomed
+            physics: _zoomModeActive
                 ? const NeverScrollableScrollPhysics()
                 : const PageScrollPhysics(),
             onPageChanged: (value) {
@@ -1073,7 +1077,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                 behavior: HitTestBehavior.opaque,
                 onDoubleTapDown: _rememberDoubleTapPosition,
                 onDoubleTap: _toggleZoom,
-                onVerticalDragEnd: _isZoomed
+                onVerticalDragEnd: _zoomModeActive
                     ? null
                     : (details) {
                         final velocity = details.primaryVelocity ?? 0;
@@ -1087,14 +1091,14 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                   transformationController: _transformationController,
                   minScale: 1,
                   maxScale: 5,
-                  scaleEnabled: _isZoomed,
-                  panEnabled: _isZoomed,
+                  scaleEnabled: _zoomModeActive,
+                  panEnabled: _zoomModeActive,
                   boundaryMargin: const EdgeInsets.all(96),
                   clipBehavior: Clip.none,
                   onInteractionStart: (_) {
                     _zoomAnimationController.stop();
                     _clearZoomAnimation();
-                    if (_isZoomed && _chromeVisible) {
+                    if (_zoomModeActive && _chromeVisible) {
                       setState(() => _chromeVisible = false);
                     }
                   },
