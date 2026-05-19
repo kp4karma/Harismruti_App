@@ -830,6 +830,10 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
 
   void _syncZoomState() {
     final isZoomed = _transformationController.value.getMaxScaleOnAxis() > 1.05;
+    if (_isZoomed) {
+      if (_chromeVisible) setState(() => _chromeVisible = false);
+      return;
+    }
     final chromeVisible = isZoomed ? false : _chromeVisible;
     if (_isZoomed == isZoomed && _chromeVisible == chromeVisible) return;
     setState(() {
@@ -915,8 +919,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   }
 
   void _toggleZoom() {
-    final currentScale = _transformationController.value.getMaxScaleOnAxis();
-    if (currentScale > 1.05) {
+    if (_isZoomed) {
       _resetZoom();
       return;
     }
