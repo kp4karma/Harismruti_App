@@ -23,6 +23,7 @@ class CountryDialCodePicker extends StatelessWidget {
         border: Border.all(color: primaryColor.withAlpha(18)),
       ),
       child: CountryCodePicker(
+        pickerStyle: PickerStyle.bottomSheet,
         onChanged: (country) {
           final dialCode = country.dialCode;
           if (dialCode == null || dialCode.isEmpty) return;
@@ -57,6 +58,7 @@ class CountryDialCodePicker extends StatelessWidget {
             borderSide: BorderSide.none,
           ),
         ),
+        backgroundColor: Colors.transparent,
         dialogBackgroundColor: const Color(0xFFF8F6F3),
         barrierColor: Colors.black.withAlpha(80),
         boxDecoration: BoxDecoration(

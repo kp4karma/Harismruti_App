@@ -824,11 +824,6 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     if (!wasFavorite) _playFavoriteBurst();
   }
 
-  void _toggleChrome() {
-    if (_isZoomed) return;
-    setState(() => _chromeVisible = !_chromeVisible);
-  }
-
   void _rememberDoubleTapPosition(TapDownDetails details) {
     _lastDoubleTapPosition = details.localPosition;
   }
@@ -1073,15 +1068,15 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
               final photo = widget.photos[index];
               return GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: _toggleChrome,
                 onDoubleTapDown: _rememberDoubleTapPosition,
                 onDoubleTap: _toggleZoom,
-                onVerticalDragEnd: (details) {
-                  if (_isZoomed) return;
-                  if ((details.primaryVelocity ?? 0) < -240) {
-                    _openInfoSheet();
-                  }
-                },
+                onVerticalDragEnd: _isZoomed
+                    ? null
+                    : (details) {
+                        if ((details.primaryVelocity ?? 0) < -240) {
+                          _openInfoSheet();
+                        }
+                      },
                 child: InteractiveViewer(
                   transformationController: _transformationController,
                   minScale: 1,
@@ -1616,8 +1611,8 @@ class _ViewerTopBar extends StatelessWidget {
               final place = placeParts.isNotEmpty
                   ? placeParts.join(' - ')
                   : attrs?.country?.trim() ?? '';
-              final displayTitle = place.isNotEmpty ? place : title;
-              final displaySubtitle = _formatTopDateTime(takenAt) ?? position;
+              final displayTitle = place.isNotEmpty ? place : 'Location';
+              final displaySubtitle = _formatTopDateTime(takenAt) ?? '';
 
               return ClipRRect(
                 borderRadius: BorderRadius.circular(28),
