@@ -1327,7 +1327,7 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
   @override
   Widget build(BuildContext context) {
     final score = (_quality * 100).clamp(0, 100).round();
-    final ready = score >= 95;
+    final ready = score >= 90;
     final good = score >= 82;
     final statusColor = ready
         ? const Color(0xFF167A3C)
@@ -1397,17 +1397,25 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _capture,
+                  onPressed: ready && !_taking ? _capture : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: ready ? statusColor : primaryColor,
                     foregroundColor: Colors.white,
+                    disabledBackgroundColor: primaryColor.withAlpha(120),
+                    disabledForegroundColor: Colors.white.withAlpha(210),
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 15),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: Text(ready ? 'Taking Photo...' : 'Open Camera'),
+                  child: Text(
+                    _taking
+                        ? 'Taking Photo...'
+                        : ready
+                        ? 'Capture Photo'
+                        : 'Scanning Face...',
+                  ),
                 ),
               ),
             ],
