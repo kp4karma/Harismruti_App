@@ -1275,7 +1275,11 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
   Future<void> _acceptCapturedFile(String path) async {
     _taking = true;
     final controller = Get.find<MyPhotosController>();
-    final ok = await controller.addRequiredPhoto(path: path, pose: widget.pose);
+    final ok = await controller.addRequiredPhoto(
+      path: path,
+      pose: widget.pose,
+      allowFaceDetectionFallback: true,
+    );
     if (!mounted) return;
     if (ok) {
       _timer?.cancel();
@@ -1467,7 +1471,7 @@ class _AnimatedFaceScanner extends StatelessWidget {
                       cameraReady &&
                           cameraController != null &&
                           cameraController!.value.isInitialized
-                      ? CameraPreview(cameraController!)
+                      ? _SquareCameraPreview(controller: cameraController!)
                       : Icon(
                           CupertinoIcons.camera_viewfinder,
                           color: color.withAlpha(130),
@@ -1502,6 +1506,35 @@ class _AnimatedFaceScanner extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _SquareCameraPreview extends StatelessWidget {
+  final CameraController controller;
+
+  const _SquareCameraPreview({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final previewSize = controller.value.previewSize;
+    if (previewSize == null) return CameraPreview(controller);
+
+    final previewAspectRatio = previewSize.height / previewSize.width;
+    return ClipRect(
+      child: OverflowBox(
+        alignment: Alignment.center,
+        maxWidth: double.infinity,
+        maxHeight: double.infinity,
+        child: FittedBox(
+          fit: BoxFit.cover,
+          child: SizedBox(
+            width: 230,
+            height: 230 / previewAspectRatio,
+            child: CameraPreview(controller),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -227,6 +227,7 @@ class MyPhotosController extends GetxController {
   Future<bool> addRequiredPhoto({
     required String path,
     required MyPhotoPose pose,
+    bool allowFaceDetectionFallback = false,
   }) async {
     final existing = photoForPose(pose);
     if (existing != null && !canEditPhoto(existing)) {
@@ -237,7 +238,15 @@ class MyPhotosController extends GetxController {
     final preparedPath = await _compressImageIfNeeded(path);
     final result = await validatePhoto(preparedPath, pose);
     helperMessage.value = result.message;
-    if (!result.isValid) return false;
+    if (!result.isValid &&
+        !(allowFaceDetectionFallback &&
+            _canUseCameraFallback(result.message))) {
+      return false;
+    }
+    if (!result.isValid) {
+      helperMessage.value =
+          'Selfie captured. It will be verified after upload.';
+    }
 
     photos.removeWhere((photo) => photo.pose == pose);
     photos.insert(
@@ -251,6 +260,13 @@ class MyPhotosController extends GetxController {
     _sortPhotos();
     _savePhotos();
     return true;
+  }
+
+  bool _canUseCameraFallback(String message) {
+    final lower = message.toLowerCase();
+    return lower.contains('face not detected') ||
+        lower.contains('could not read face angle') ||
+        lower.contains('could not check face direction');
   }
 
   Future<int> addOtherPhotos(List<String> paths) async {
