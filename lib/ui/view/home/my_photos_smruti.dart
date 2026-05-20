@@ -1248,30 +1248,6 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
     }
   }
 
-  Future<void> _capture() async {
-    if (_taking || _checking) return;
-    final camera = _cameraController;
-    if (camera == null ||
-        !camera.value.isInitialized ||
-        camera.value.isTakingPicture) {
-      setState(() => _reason = 'Camera is not ready');
-      return;
-    }
-    _taking = true;
-    try {
-      await camera.setFlashMode(FlashMode.off);
-      await _prepareCameraForFace(camera);
-      final file = await camera.takePicture();
-      await _acceptCapturedFile(file.path);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _taking = false;
-        _reason = 'Could not capture photo. Please try again.';
-      });
-    }
-  }
-
   Future<void> _acceptCapturedFile(String path) async {
     _taking = true;
     final controller = Get.find<MyPhotosController>();
@@ -1397,7 +1373,7 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: ready && !_taking ? _capture : null,
+                  onPressed: null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: ready ? statusColor : primaryColor,
                     foregroundColor: Colors.white,
@@ -1413,7 +1389,7 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
                     _taking
                         ? 'Taking Photo...'
                         : ready
-                        ? 'Capture Photo'
+                        ? 'Capturing automatically...'
                         : 'Scanning Face...',
                   ),
                 ),
