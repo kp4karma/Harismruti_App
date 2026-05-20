@@ -373,7 +373,14 @@ class MyPhotosController extends GetxController {
     final image = await _decodeImage(bytes);
     final width = image.width;
     final height = image.height;
+    final brightness = await _estimateBrightness(image);
     image.dispose();
+
+    if (brightness != null && brightness < 34) {
+      return const MyPhotoValidationResult.invalid(
+        'Image is too dark. Please face the light and try again.',
+      );
+    }
 
     if (width < 480 || height < 480) {
       return const MyPhotoValidationResult.invalid(
@@ -494,6 +501,29 @@ class MyPhotosController extends GetxController {
     final codec = await ui.instantiateImageCodec(Uint8List.fromList(bytes));
     final frame = await codec.getNextFrame();
     return frame.image;
+  }
+
+  Future<double?> _estimateBrightness(ui.Image image) async {
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+    if (byteData == null) return null;
+
+    final bytes = byteData.buffer.asUint8List();
+    const targetSamples = 1600;
+    final pixelCount = image.width * image.height;
+    final step = (pixelCount / targetSamples).ceil().clamp(1, pixelCount);
+    var total = 0.0;
+    var samples = 0;
+
+    for (var pixel = 0; pixel < pixelCount; pixel += step) {
+      final offset = pixel * 4;
+      final red = bytes[offset];
+      final green = bytes[offset + 1];
+      final blue = bytes[offset + 2];
+      total += (0.2126 * red) + (0.7152 * green) + (0.0722 * blue);
+      samples++;
+    }
+
+    return samples == 0 ? null : total / samples;
   }
 
   void _loadPhotos() {

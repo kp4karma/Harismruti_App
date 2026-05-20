@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:harismruti/api/api_client.dart';
 import 'package:harismruti/api/api_endpoints.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
+import 'package:harismruti/utils/storage_helper.dart';
 
 class GalleryRepository {
   const GalleryRepository();
@@ -107,14 +110,49 @@ class GalleryRepository {
     required String path,
     required String pose,
   }) async {
+    final phoneNumber = _currentPhoneNumber();
+    final fileName = _serverFileName(path, pose);
+    final uploadPath = phoneNumber.isEmpty ? 'path' : 'path/$phoneNumber';
     final response = await ApiClient.postMedia(
       ApiEndpoints.myImages,
       data: FormData.fromMap({
         'pose': pose,
-        'file': await MultipartFile.fromFile(path),
+        if (phoneNumber.isNotEmpty) ...{
+          'mobile': phoneNumber,
+          'phone_number': phoneNumber,
+          'folder': phoneNumber,
+        },
+        'upload_path': uploadPath,
+        'server_path': uploadPath,
+        'file': await MultipartFile.fromFile(path, filename: fileName),
       }),
     );
     return asJsonMap(response.data);
+  }
+
+  String _serverFileName(String path, String pose) {
+    final name = path.split(RegExp(r'[\\/]')).last;
+    final safePose = pose.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
+    return safePose.isEmpty ? name : '$safePose-$name';
+  }
+
+  String _currentPhoneNumber() {
+    final profileJson = StorageHelper.getValue<String>(
+      key: StorageKeys.userProfile,
+    );
+    if (profileJson == null || profileJson.isEmpty) return '';
+    try {
+      final decoded = jsonDecode(profileJson);
+      if (decoded is Map) {
+        for (final key in ['mobile', 'phone', 'phone_number', 'username']) {
+          final value = decoded[key]?.toString().trim() ?? '';
+          if (value.isNotEmpty && value != 'null') {
+            return value.replaceAll(RegExp(r'[^0-9+]'), '');
+          }
+        }
+      }
+    } catch (_) {}
+    return '';
   }
 
   Future<void> deleteMyImage(int imageId) async {

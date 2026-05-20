@@ -1141,7 +1141,6 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
   bool _checking = false;
   bool _cameraReady = false;
   bool _autoProbePaused = false;
-  int _autoProbeFailures = 0;
   String _reason = 'Place your face inside the frame';
 
   @override
@@ -1228,12 +1227,11 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
 
       final nextScore = _scoreForReason(result.message);
       final needsLight = _needsMoreLight(result.message);
-      _autoProbeFailures++;
       setState(() {
         _quality = nextScore;
-        _autoProbePaused = needsLight || _autoProbeFailures >= 3;
-        _reason = _autoProbePaused
-            ? 'Need better light. Tap Capture when ready.'
+        _autoProbePaused = false;
+        _reason = needsLight
+            ? 'Face the light and hold still while scanning.'
             : result.message;
       });
       unawaited(File(file.path).delete().catchError((_) => File(file.path)));
@@ -1293,11 +1291,10 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
 
   bool _needsMoreLight(String reason) {
     final lower = reason.toLowerCase();
-    return lower.contains('no face') ||
-        lower.contains('clear') ||
-        lower.contains('dark') ||
-        lower.contains('blur') ||
-        lower.contains('framed');
+    return lower.contains('dark') ||
+        lower.contains('light') ||
+        lower.contains('brightness') ||
+        lower.contains('exposure');
   }
 
   double _scoreForReason(String reason) {
