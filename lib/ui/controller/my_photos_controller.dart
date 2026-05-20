@@ -130,6 +130,12 @@ class MyPhotosController extends GetxController {
       performanceMode: FaceDetectorMode.accurate,
     ),
   );
+  final FaceDetector _lenientFaceDetector = FaceDetector(
+    options: FaceDetectorOptions(
+      minFaceSize: 0.03,
+      performanceMode: FaceDetectorMode.fast,
+    ),
+  );
 
   List<MyPhotoPose> get requiredPoses => const [
     MyPhotoPose.front,
@@ -206,6 +212,7 @@ class MyPhotosController extends GetxController {
   @override
   void onClose() {
     _faceDetector.close();
+    _lenientFaceDetector.close();
     super.onClose();
   }
 
@@ -415,9 +422,11 @@ class MyPhotosController extends GetxController {
     required int imageHeight,
   }) async {
     try {
-      final faces = await _faceDetector.processImage(
-        InputImage.fromFilePath(path),
-      );
+      final inputImage = InputImage.fromFilePath(path);
+      var faces = await _faceDetector.processImage(inputImage);
+      if (faces.isEmpty) {
+        faces = await _lenientFaceDetector.processImage(inputImage);
+      }
 
       if (faces.isEmpty) {
         return const MyPhotoValidationResult.invalid(
@@ -452,6 +461,9 @@ class MyPhotosController extends GetxController {
 
       final yAngle = face.headEulerAngleY;
       if (yAngle == null) {
+        if (pose == MyPhotoPose.front || pose == MyPhotoPose.other) {
+          return const MyPhotoValidationResult.valid('Face detected.');
+        }
         return const MyPhotoValidationResult.invalid(
           'Could not read face angle. Please try another clear selfie.',
         );

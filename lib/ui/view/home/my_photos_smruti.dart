@@ -1296,6 +1296,7 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
     await camera.setExposureMode(ExposureMode.auto).catchError((_) {});
     await camera.setFocusPoint(const Offset(0.5, 0.45)).catchError((_) {});
     await camera.setExposurePoint(const Offset(0.5, 0.45)).catchError((_) {});
+    await Future<void>.delayed(const Duration(milliseconds: 220));
   }
 
   bool _needsMoreLight(String reason) {
