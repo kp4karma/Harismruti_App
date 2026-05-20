@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
@@ -10,6 +11,7 @@ import 'package:harismruti/api/repositories/gallery_repository.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/controller/ProfileController.dart';
 import 'package:harismruti/utils/storage_helper.dart';
+import 'package:path_provider/path_provider.dart';
 
 enum MyPhotoPose { front, left, right, other }
 
@@ -111,6 +113,7 @@ class MyPhotosController extends GetxController {
   final GalleryRepository _repository;
 
   static const int maxPhotos = 10;
+  static const int _maxUploadBytes = 8 * 1024 * 1024;
   static const double _frontPoseLimit = 12;
   static const double _sidePoseLimit = 18;
 
@@ -123,7 +126,7 @@ class MyPhotosController extends GetxController {
     options: FaceDetectorOptions(
       enableClassification: true,
       enableLandmarks: true,
-      minFaceSize: 0.18,
+      minFaceSize: 0.08,
       performanceMode: FaceDetectorMode.accurate,
     ),
   );
@@ -224,7 +227,8 @@ class MyPhotosController extends GetxController {
           'This image is locked after upload. Retake is available only if admin rejects it.';
       return false;
     }
-    final result = await validatePhoto(path, pose);
+    final preparedPath = await _compressImageIfNeeded(path);
+    final result = await validatePhoto(preparedPath, pose);
     helperMessage.value = result.message;
     if (!result.isValid) return false;
 
@@ -232,7 +236,7 @@ class MyPhotosController extends GetxController {
     photos.insert(
       0,
       MyPhotoItem(
-        path: path,
+        path: preparedPath,
         pose: pose,
         reviewStatus: MyPhotoReviewStatus.draft,
       ),
@@ -254,15 +258,16 @@ class MyPhotosController extends GetxController {
         helperMessage.value = 'Maximum 10 selfies are allowed.';
         break;
       }
-      if (photos.any((photo) => photo.path == path)) continue;
+      final preparedPath = await _compressImageIfNeeded(path);
+      if (photos.any((photo) => photo.path == preparedPath)) continue;
 
-      final result = await validatePhoto(path, MyPhotoPose.other);
+      final result = await validatePhoto(preparedPath, MyPhotoPose.other);
       helperMessage.value = result.message;
       if (!result.isValid) continue;
 
       photos.add(
         MyPhotoItem(
-          path: path,
+          path: preparedPath,
           pose: MyPhotoPose.other,
           reviewStatus: MyPhotoReviewStatus.draft,
         ),
@@ -320,8 +325,9 @@ class MyPhotosController extends GetxController {
             photo.reviewStatus == MyPhotoReviewStatus.verified) {
           continue;
         }
+        final uploadPath = await _compressImageIfNeeded(photo.path);
         await _repository.uploadMyImage(
-          path: photo.path,
+          path: uploadPath,
           pose: photo.pose.name,
         );
       }
@@ -364,12 +370,6 @@ class MyPhotosController extends GetxController {
     }
 
     final bytes = await file.readAsBytes();
-    if (bytes.lengthInBytes > 8 * 1024 * 1024) {
-      return const MyPhotoValidationResult.invalid(
-        'Image is too large. Please select an image below 8 MB.',
-      );
-    }
-
     final image = await _decodeImage(bytes);
     final width = image.width;
     final height = image.height;
@@ -421,7 +421,7 @@ class MyPhotosController extends GetxController {
 
       if (faces.isEmpty) {
         return const MyPhotoValidationResult.invalid(
-          'No face detected. Please upload a clear selfie.',
+          'Face not detected yet. Move closer, keep your face centered, and hold still.',
         );
       }
       if (faces.length > 1) {
@@ -501,6 +501,47 @@ class MyPhotosController extends GetxController {
     final codec = await ui.instantiateImageCodec(Uint8List.fromList(bytes));
     final frame = await codec.getNextFrame();
     return frame.image;
+  }
+
+  Future<String> _compressImageIfNeeded(String path) async {
+    final source = File(path);
+    if (!source.existsSync()) return path;
+    if (source.lengthSync() <= _maxUploadBytes) return path;
+
+    final tempDir = await getTemporaryDirectory();
+    final stamp = DateTime.now().microsecondsSinceEpoch;
+
+    for (final quality in const [82, 72, 62, 52, 42]) {
+      final targetPath =
+          '${tempDir.path}${Platform.pathSeparator}harismruti-$stamp-$quality.jpg';
+      final compressed = await FlutterImageCompress.compressAndGetFile(
+        path,
+        targetPath,
+        quality: quality,
+        minWidth: 1600,
+        minHeight: 1600,
+        format: CompressFormat.jpeg,
+      );
+      if (compressed == null) continue;
+
+      final compressedFile = File(compressed.path);
+      if (!compressedFile.existsSync()) continue;
+      if (compressedFile.lengthSync() <= _maxUploadBytes) {
+        return compressedFile.path;
+      }
+    }
+
+    final fallbackPath =
+        '${tempDir.path}${Platform.pathSeparator}harismruti-$stamp-small.jpg';
+    final fallback = await FlutterImageCompress.compressAndGetFile(
+      path,
+      fallbackPath,
+      quality: 32,
+      minWidth: 1000,
+      minHeight: 1000,
+      format: CompressFormat.jpeg,
+    );
+    return fallback?.path ?? path;
   }
 
   Future<double?> _estimateBrightness(ui.Image image) async {

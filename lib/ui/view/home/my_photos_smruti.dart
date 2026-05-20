@@ -1170,11 +1170,12 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
       );
       final controller = CameraController(
         camera,
-        ResolutionPreset.medium,
+        ResolutionPreset.high,
         enableAudio: false,
       );
       await controller.initialize();
       await controller.setFlashMode(FlashMode.off).catchError((_) {});
+      await _prepareCameraForFace(controller);
       if (!mounted) {
         await controller.dispose();
         return;
@@ -1259,6 +1260,7 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
     _taking = true;
     try {
       await camera.setFlashMode(FlashMode.off);
+      await _prepareCameraForFace(camera);
       final file = await camera.takePicture();
       await _acceptCapturedFile(file.path);
     } catch (_) {
@@ -1289,6 +1291,13 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
     });
   }
 
+  Future<void> _prepareCameraForFace(CameraController camera) async {
+    await camera.setFocusMode(FocusMode.auto).catchError((_) {});
+    await camera.setExposureMode(ExposureMode.auto).catchError((_) {});
+    await camera.setFocusPoint(const Offset(0.5, 0.45)).catchError((_) {});
+    await camera.setExposurePoint(const Offset(0.5, 0.45)).catchError((_) {});
+  }
+
   bool _needsMoreLight(String reason) {
     final lower = reason.toLowerCase();
     return lower.contains('dark') ||
@@ -1299,7 +1308,9 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
 
   double _scoreForReason(String reason) {
     final lower = reason.toLowerCase();
-    if (lower.contains('no face') || lower.contains('center')) return 0.28;
+    if (lower.contains('face not detected') || lower.contains('center')) {
+      return 0.42;
+    }
     if (lower.contains('multiple')) return 0.32;
     if (lower.contains('far') || lower.contains('closer')) return 0.48;
     if (lower.contains('left') || lower.contains('right')) return 0.62;
