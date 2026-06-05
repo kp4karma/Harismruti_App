@@ -1174,8 +1174,6 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                         final velocity = details.primaryVelocity ?? 0;
                         if (velocity > 360) {
                           Navigator.pop(context);
-                        } else if (velocity < -240) {
-                          _openInfoSheet();
                         }
                       },
                 child: InteractiveViewer(
