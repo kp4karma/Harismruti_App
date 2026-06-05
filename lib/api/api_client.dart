@@ -15,6 +15,9 @@ import 'package:package_info_plus/package_info_plus.dart';
 class ApiClient {
   static Dio? _client;
   static final ApiClient _instance = ApiClient._internal();
+  static final Map<String, _CachedGetResponse> _getCache = {};
+  static final Map<String, Future<Response<dynamic>>> _pendingGets = {};
+  static const Duration _defaultGetCacheDuration = Duration(minutes: 15);
   factory ApiClient() => _instance;
   static String currentAppVersion = '';
   ApiClient._internal();
@@ -32,8 +35,8 @@ class ApiClient {
       _client = Dio(
         BaseOptions(
           baseUrl: ApiEndpoints.mainDomain,
-          connectTimeout: const Duration(seconds: 15),
-          receiveTimeout: const Duration(seconds: 15),
+          connectTimeout: const Duration(seconds: 20),
+          receiveTimeout: const Duration(seconds: 60),
           headers: {'Content-Type': 'application/json'},
         ),
       );
@@ -327,22 +330,99 @@ DATA: $responseData
     String path, {
     Map<String, dynamic>? queryParams,
     Map<String, dynamic>? customHeaders,
+    Duration cacheDuration = _defaultGetCacheDuration,
+    bool forceRefresh = false,
   }) async {
+    final params = addExtraParameters(queryParams ?? {});
+    final cacheKey = _getCacheKey(path, params);
+    final cached = _getCache[cacheKey];
+    if (!forceRefresh &&
+        cached != null &&
+        DateTime.now().difference(cached.savedAt) < cacheDuration) {
+      return cached.response;
+    }
+
+    if (!forceRefresh) {
+      final pending = _pendingGets[cacheKey];
+      if (pending != null) return pending;
+    }
+
+    final request = _performGetWithRetry(
+      path,
+      queryParams: params,
+      customHeaders: customHeaders,
+    );
+    _pendingGets[cacheKey] = request;
     try {
-      Response response = await _client!.get(
-        path,
-        queryParameters: addExtraParameters(queryParams ?? {}),
-        options: Options(headers: customHeaders),
+      final response = await request;
+      _getCache[cacheKey] = _CachedGetResponse(
+        response: response,
+        savedAt: DateTime.now(),
       );
       return response;
     } on DioException catch (e) {
+      if (cached != null) return cached.response;
       if (kDebugMode) {
         print("Messsssss ${e.error}");
         print("Messsssss ${e.response}");
       }
 
       throw _handleError(e);
+    } finally {
+      _pendingGets.remove(cacheKey);
     }
+  }
+
+  static Future<Response<dynamic>> _performGet(
+    String path, {
+    required Map<String, dynamic> queryParams,
+    Map<String, dynamic>? customHeaders,
+  }) {
+    return _client!.get(
+      path,
+      queryParameters: queryParams,
+      options: Options(headers: customHeaders),
+    );
+  }
+
+  static Future<Response<dynamic>> _performGetWithRetry(
+    String path, {
+    required Map<String, dynamic> queryParams,
+    Map<String, dynamic>? customHeaders,
+  }) async {
+    try {
+      return await _performGet(
+        path,
+        queryParams: queryParams,
+        customHeaders: customHeaders,
+      );
+    } on DioException catch (error) {
+      final shouldRetry =
+          error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.receiveTimeout ||
+          error.type == DioExceptionType.connectionError ||
+          const {502, 503, 504}.contains(error.response?.statusCode);
+      if (!shouldRetry) rethrow;
+      await Future<void>.delayed(const Duration(milliseconds: 700));
+      return _performGet(
+        path,
+        queryParams: queryParams,
+        customHeaders: customHeaders,
+      );
+    }
+  }
+
+  static String _getCacheKey(String path, Map<String, dynamic> queryParams) {
+    final keys = queryParams.keys.toList()..sort();
+    final query = keys
+        .map((key) => '$key=${jsonEncode(queryParams[key])}')
+        .join('&');
+    return '${_mobileUserKey()}|$path|$query';
+  }
+
+  static void clearGetCache() {
+    _getCache.clear();
+    _pendingGets.clear();
   }
 
   static Future<Response<dynamic>> post(
@@ -352,6 +432,7 @@ DATA: $responseData
     Map<String, dynamic>? customHeaders,
   }) async {
     try {
+      clearGetCache();
       Response response = await _client!.post(
         path,
         data: addExtraParameters(data ?? {}),
@@ -371,6 +452,7 @@ DATA: $responseData
     required FormData data,
   }) async {
     try {
+      clearGetCache();
       final processedData = addExtraParametersFromData(data);
       Response response = await _client!.post(
         path,
@@ -393,6 +475,7 @@ DATA: $responseData
     Map<String, dynamic>? customHeaders,
   }) async {
     try {
+      clearGetCache();
       if (kDebugMode) {
         print(addExtraParameters(data ?? {}));
       }
@@ -414,6 +497,7 @@ DATA: $responseData
     Map<String, dynamic>? customHeaders,
   }) async {
     try {
+      clearGetCache();
       Response response = await _client!.delete(
         path,
         data: addExtraParameters(data ?? {}),
@@ -530,4 +614,11 @@ DATA: $responseData
         return 'Fuchsia';
     }
   }
+}
+
+class _CachedGetResponse {
+  final Response<dynamic> response;
+  final DateTime savedAt;
+
+  const _CachedGetResponse({required this.response, required this.savedAt});
 }

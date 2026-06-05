@@ -43,6 +43,20 @@ class UserPhotoCollection {
   Map<String, dynamic> toJson() => {'name': name, 'photo_ids': photoIds};
 }
 
+class _GalleryTabSnapshot {
+  final GalleryHomeBundle bundle;
+  final DateTime loadedAt;
+  final int recentPage;
+  final bool hasMoreRecentPhotos;
+
+  const _GalleryTabSnapshot({
+    required this.bundle,
+    required this.loadedAt,
+    required this.recentPage,
+    required this.hasMoreRecentPhotos,
+  });
+}
+
 class GalleryController extends GetxController {
   GalleryController({GalleryRepository? repository})
     : _repository = repository ?? const GalleryRepository();
@@ -56,6 +70,7 @@ class GalleryController extends GetxController {
   final RxString errorMessage = ''.obs;
   final RxBool isRecentPageLoading = false.obs;
   final RxBool hasMoreRecentPhotos = true.obs;
+  final Rx<GallerySwami> selectedSwami = GallerySwami.prabodh.obs;
 
   final RxList<GalleryPhoto> recentPhotos = <GalleryPhoto>[].obs;
   final RxList<GalleryCard> collections = <GalleryCard>[].obs;
@@ -78,6 +93,8 @@ class GalleryController extends GetxController {
   DateTime? _lastLoadedAt;
   Future<void>? _inFlightLoad;
   int _recentPage = 1;
+  final Map<GallerySwami, _GalleryTabSnapshot> _tabSnapshots = {};
+  final Map<GallerySwami, List<GalleryFilterGroup>> _filterSnapshots = {};
 
   Map<String, String> get imageHeaders => _repository.imageHeaders;
   bool get hasAnyData =>
@@ -94,6 +111,7 @@ class GalleryController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    _restoreSnapshots();
     loadMyLibrary();
     loadHome();
   }
@@ -105,6 +123,7 @@ class GalleryController extends GetxController {
   List<GalleryPhoto> get favoritePhotos => favoritePhotoIds
       .map((id) => savedPhotos[id])
       .whereType<GalleryPhoto>()
+      .where(isPhotoInSelectedSwami)
       .toList();
 
   List<String> tagsForPhoto(int photoId) => userTags[photoId] ?? const [];
@@ -156,10 +175,50 @@ class GalleryController extends GetxController {
     return collection.photoIds
         .map((id) => savedPhotos[id])
         .whereType<GalleryPhoto>()
+        .where(isPhotoInSelectedSwami)
         .toList();
   }
 
+  bool isPhotoInSelectedSwami(GalleryPhoto photo) {
+    final date = photo.takenAt;
+    if (date == null) return false;
+    final calendarDate = DateTime(date.year, date.month, date.day);
+    final cutoff = DateTime(2022, 4, 21);
+    return selectedSwami.value == GallerySwami.hariprasad
+        ? calendarDate.isBefore(cutoff)
+        : !calendarDate.isBefore(cutoff);
+  }
+
+  Future<void> selectSwami(int index) async {
+    final next = index == 1 ? GallerySwami.hariprasad : GallerySwami.prabodh;
+    if (selectedSwami.value == next) return;
+
+    selectedSwami.value = next;
+    GalleryRepository.activeSwami = next;
+
+    final snapshot = _tabSnapshots[next];
+    if (snapshot != null) {
+      _applySnapshot(snapshot);
+    } else {
+      _lastLoadedAt = null;
+      _recentPage = 1;
+      hasMoreRecentPhotos.value = true;
+      _clearGallerySections();
+    }
+    filters.assignAll(_filterSnapshots[next] ?? const []);
+
+    final pendingLoad = _inFlightLoad;
+    if (pendingLoad != null) await pendingLoad;
+    if (selectedSwami.value != next) return;
+
+    await Future.wait([
+      loadMyLibrary(),
+      loadHome(force: snapshot == null || _isSnapshotStale(snapshot)),
+    ]);
+  }
+
   Future<void> loadMyLibrary() async {
+    final requestedSwami = selectedSwami.value;
     if (!StorageHelper.isLogin()) {
       favoritePhotoIds.clear();
       userTags.clear();
@@ -169,6 +228,7 @@ class GalleryController extends GetxController {
     }
     try {
       final data = await _repository.getMyLibrary();
+      if (selectedSwami.value != requestedSwami) return;
       final favoriteIds =
           (data['favorite_photo_ids'] is List
                   ? data['favorite_photo_ids'] as List
@@ -216,6 +276,7 @@ class GalleryController extends GetxController {
       userCollections.assignAll(collections);
       savedPhotos.refresh();
     } catch (_) {
+      if (selectedSwami.value != requestedSwami) return;
       favoritePhotoIds.clear();
       userTags.clear();
       userTagNames.clear();
@@ -492,9 +553,14 @@ class GalleryController extends GetxController {
 
     if (_inFlightLoad != null) return _inFlightLoad!;
 
-    _inFlightLoad = _loadHomeInternal(force: force).whenComplete(() {
-      _inFlightLoad = null;
-    });
+    final requestedSwami = selectedSwami.value;
+    _inFlightLoad =
+        _loadHomeInternal(
+          force: force,
+          requestedSwami: requestedSwami,
+        ).whenComplete(() {
+          _inFlightLoad = null;
+        });
 
     return _inFlightLoad!;
   }
@@ -515,7 +581,11 @@ class GalleryController extends GetxController {
     if (!force && selected.isEmpty && filters.isNotEmpty) return;
     areFiltersLoading.value = true;
     try {
-      filters.assignAll(await _repository.getFilters(selected: selected));
+      final loadedFilters = await _repository.getFilters(selected: selected);
+      filters.assignAll(loadedFilters);
+      if (selected.isEmpty) {
+        _filterSnapshots[selectedSwami.value] = loadedFilters;
+      }
     } finally {
       areFiltersLoading.value = false;
     }
@@ -598,6 +668,7 @@ class GalleryController extends GetxController {
       }
       _recentPage = nextPage;
       hasMoreRecentPhotos.value = photos.length >= _recentPerPage;
+      _saveCurrentSnapshot();
     } catch (_) {
       hasMoreRecentPhotos.value = true;
     } finally {
@@ -628,31 +699,140 @@ class GalleryController extends GetxController {
     );
   }
 
-  Future<void> _loadHomeInternal({required bool force}) async {
+  Future<void> _loadHomeInternal({
+    required bool force,
+    required GallerySwami requestedSwami,
+  }) async {
     if (!hasAnyData) {
       isLoading.value = true;
     }
     errorMessage.value = '';
 
     try {
-      final bundle = await _repository.getHomeBundle(samples: 8);
-      recentPhotos.assignAll(bundle.recent);
+      final bundle = await _repository.getHomeBundle(
+        samples: 4,
+        forceRefresh: force,
+      );
+      if (selectedSwami.value != requestedSwami) return;
+      _applyBundle(bundle);
       _recentPage = 1;
       hasMoreRecentPhotos.value = bundle.recent.length >= _recentPerPage;
-      collections.assignAll(bundle.collections);
-      smrutiWith.assignAll(bundle.smrutiWith);
-      smrutiOf.assignAll(bundle.smrutiOf);
-      locations.assignAll(bundle.locations);
-      albums.assignAll(bundle.albums);
-      subjects.assignAll(bundle.subjects);
-      people.assignAll(bundle.people);
-      wallpapers.assignAll(bundle.wallpapers);
       _lastLoadedAt = DateTime.now();
+      _saveCurrentSnapshot();
     } catch (error) {
+      if (selectedSwami.value != requestedSwami) return;
       errorMessage.value = error.toString().replaceFirst('Exception: ', '');
     } finally {
       isLoading.value = false;
     }
+  }
+
+  void _clearGallerySections() {
+    recentPhotos.clear();
+    collections.clear();
+    smrutiWith.clear();
+    smrutiOf.clear();
+    locations.clear();
+    albums.clear();
+    subjects.clear();
+    people.clear();
+    wallpapers.clear();
+  }
+
+  bool _isSnapshotStale(_GalleryTabSnapshot snapshot) {
+    return DateTime.now().difference(snapshot.loadedAt) >=
+        const Duration(hours: 1);
+  }
+
+  void _applySnapshot(_GalleryTabSnapshot snapshot) {
+    _applyBundle(snapshot.bundle);
+    _lastLoadedAt = snapshot.loadedAt;
+    _recentPage = snapshot.recentPage;
+    hasMoreRecentPhotos.value = snapshot.hasMoreRecentPhotos;
+  }
+
+  void _applyBundle(GalleryHomeBundle bundle) {
+    recentPhotos.assignAll(bundle.recent);
+    collections.assignAll(bundle.collections);
+    smrutiWith.assignAll(bundle.smrutiWith);
+    smrutiOf.assignAll(bundle.smrutiOf);
+    locations.assignAll(bundle.locations);
+    albums.assignAll(bundle.albums);
+    subjects.assignAll(bundle.subjects);
+    people.assignAll(bundle.people);
+    wallpapers.assignAll(bundle.wallpapers);
+  }
+
+  void _saveCurrentSnapshot() {
+    final loadedAt = _lastLoadedAt ?? DateTime.now();
+    _tabSnapshots[selectedSwami.value] = _GalleryTabSnapshot(
+      bundle: GalleryHomeBundle(
+        recent: recentPhotos.toList(),
+        collections: collections.toList(),
+        smrutiWith: smrutiWith.toList(),
+        smrutiOf: smrutiOf.toList(),
+        locations: locations.toList(),
+        albums: albums.toList(),
+        subjects: subjects.toList(),
+        people: people.toList(),
+        wallpapers: wallpapers.toList(),
+      ),
+      loadedAt: loadedAt,
+      recentPage: _recentPage,
+      hasMoreRecentPhotos: hasMoreRecentPhotos.value,
+    );
+    _persistSnapshots();
+  }
+
+  void _restoreSnapshots() {
+    final raw = StorageHelper.getValue<dynamic>(
+      key: StorageKeys.galleryPhotoSnapshots,
+    );
+    if (raw is! Map) return;
+
+    for (final swami in GallerySwami.values) {
+      final entry = raw[swami.apiValue];
+      if (entry is! Map) continue;
+      final loadedAt = DateTime.tryParse(entry['loaded_at']?.toString() ?? '');
+      final bundleRaw = entry['bundle'];
+      if (loadedAt == null || bundleRaw is! Map) continue;
+      final bundle = GalleryHomeBundle.fromJson(bundleRaw);
+      if (!_bundleHasData(bundle)) continue;
+      _tabSnapshots[swami] = _GalleryTabSnapshot(
+        bundle: bundle,
+        loadedAt: loadedAt,
+        recentPage: 1,
+        hasMoreRecentPhotos: bundle.recent.length >= _recentPerPage,
+      );
+    }
+
+    final current = _tabSnapshots[selectedSwami.value];
+    if (current != null) _applySnapshot(current);
+  }
+
+  void _persistSnapshots() {
+    StorageHelper.setValue(
+      key: StorageKeys.galleryPhotoSnapshots,
+      value: {
+        for (final entry in _tabSnapshots.entries)
+          entry.key.apiValue: {
+            'loaded_at': entry.value.loadedAt.toIso8601String(),
+            'bundle': entry.value.bundle.toJson(),
+          },
+      },
+    );
+  }
+
+  bool _bundleHasData(GalleryHomeBundle bundle) {
+    return bundle.recent.isNotEmpty ||
+        bundle.collections.isNotEmpty ||
+        bundle.smrutiWith.isNotEmpty ||
+        bundle.smrutiOf.isNotEmpty ||
+        bundle.locations.isNotEmpty ||
+        bundle.albums.isNotEmpty ||
+        bundle.subjects.isNotEmpty ||
+        bundle.people.isNotEmpty ||
+        bundle.wallpapers.isNotEmpty;
   }
 
   void _rememberPhoto(GalleryPhoto photo) {

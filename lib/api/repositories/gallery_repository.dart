@@ -7,22 +7,37 @@ import 'package:harismruti/api/api_endpoints.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 
+enum GallerySwami { prabodh, hariprasad }
+
+extension GallerySwamiApiValue on GallerySwami {
+  String get apiValue => switch (this) {
+    GallerySwami.prabodh => 'prabodh',
+    GallerySwami.hariprasad => 'hariprasad',
+  };
+}
+
 class GalleryRepository {
   const GalleryRepository();
 
   static const String _latestSort = 'latest';
   static const String _descendingOrder = 'desc';
+  static GallerySwami activeSwami = GallerySwami.prabodh;
 
   Map<String, String> get imageHeaders {
     if (ApiEndpoints.mobileApiKey.isEmpty) return const {};
     return {'X-API-Key': ApiEndpoints.mobileApiKey};
   }
 
-  Future<GalleryHomeBundle> getHomeBundle({int samples = 4}) async {
+  Future<GalleryHomeBundle> getHomeBundle({
+    int samples = 4,
+    bool forceRefresh = false,
+  }) async {
     try {
       final response = await ApiClient.get(
         ApiEndpoints.home,
         queryParams: _latestQueryParams({'samples': samples}),
+        cacheDuration: const Duration(hours: 1),
+        forceRefresh: forceRefresh,
       );
       final bundle = GalleryHomeBundle.fromJson(response.data);
       return await _fillMissingHomeSections(
@@ -69,7 +84,10 @@ class GalleryRepository {
   }
 
   Future<Map<String, dynamic>> getMyLibrary() async {
-    final response = await ApiClient.get(ApiEndpoints.myLibrary);
+    final response = await ApiClient.get(
+      ApiEndpoints.myLibrary,
+      queryParams: _scopedQueryParams(),
+    );
     return asJsonMap(response.data);
   }
 
@@ -207,6 +225,7 @@ class GalleryRepository {
         'offset': offset,
         'sort': sort,
         'order': _descendingOrder,
+        'swami': activeSwami.apiValue,
       },
     );
     return _sortCardsNewestFirst(
@@ -330,7 +349,14 @@ class GalleryRepository {
       ...params,
       'sort': params['sort'] ?? _latestSort,
       'order': params['order'] ?? _descendingOrder,
+      'swami': activeSwami.apiValue,
     };
+  }
+
+  Map<String, dynamic> _scopedQueryParams([
+    Map<String, dynamic> params = const {},
+  ]) {
+    return {...params, 'swami': activeSwami.apiValue};
   }
 
   GalleryHomeBundle _sortHomeBundleNewestFirst(GalleryHomeBundle bundle) {
@@ -406,8 +432,7 @@ class GalleryRepository {
         bundle.people.isEmpty ||
         bundle.locations.isEmpty ||
         bundle.albums.isEmpty ||
-        bundle.subjects.isEmpty ||
-        bundle.wallpapers.isEmpty;
+        bundle.subjects.isEmpty;
 
     if (!shouldFetch) return bundle;
 

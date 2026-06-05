@@ -344,6 +344,21 @@ class GalleryCard {
       .map((photo) => photo.thumbnailUrl)
       .where((url) => url.isNotEmpty)
       .toList();
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'subtitle': subtitle,
+      'type': type,
+      'value': value,
+      if (count != null) 'count': count,
+      if (locationCount != null) 'location_count': locationCount,
+      if (tagCount != null) 'tag_count': tagCount,
+      if (faceId != null) 'face_id': faceId,
+      'photos': photos.map((photo) => photo.toJson()).toList(),
+    };
+  }
 }
 
 class GalleryPage<T> {
@@ -648,6 +663,20 @@ class GalleryHomeBundle {
       people: cardsFor(const ['people', 'persons'], 'person'),
       wallpapers: cardsFor(const ['wallpapers', 'wallpaper'], 'wallpaper'),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'recent': recent.map((photo) => photo.toJson()).toList(),
+      'collections': collections.map((card) => card.toJson()).toList(),
+      'smruti_with': smrutiWith.map((card) => card.toJson()).toList(),
+      'smruti_of': smrutiOf.map((card) => card.toJson()).toList(),
+      'locations': locations.map((card) => card.toJson()).toList(),
+      'albums': albums.map((card) => card.toJson()).toList(),
+      'subjects': subjects.map((card) => card.toJson()).toList(),
+      'people': people.map((card) => card.toJson()).toList(),
+      'wallpapers': wallpapers.map((card) => card.toJson()).toList(),
+    };
   }
 
   GalleryHomeBundle mergeFallback({

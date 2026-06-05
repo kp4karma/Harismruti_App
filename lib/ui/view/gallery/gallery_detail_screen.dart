@@ -893,17 +893,44 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     _lastDoubleTapPosition = details.localPosition;
   }
 
-  void _syncZoomState() {
+  void _handleZoomInteractionStart(ScaleStartDetails details) {
+    _zoomAnimationController.stop();
+    _clearZoomAnimation();
+
+    if (details.pointerCount < 2 && !_isZoomed) return;
+    if (_zoomModeActive && !_chromeVisible) return;
+
+    setState(() {
+      _zoomModeActive = true;
+      _chromeVisible = false;
+    });
+  }
+
+  void _handleZoomInteractionUpdate(ScaleUpdateDetails details) {
     final isZoomed = _transformationController.value.getMaxScaleOnAxis() > 1.05;
-    if (_zoomModeActive) {
-      if (_chromeVisible) setState(() => _chromeVisible = false);
+    if (!isZoomed || (_isZoomed && _zoomModeActive && !_chromeVisible)) {
       return;
     }
-    final chromeVisible = isZoomed ? false : _chromeVisible;
-    if (_isZoomed == isZoomed && _chromeVisible == chromeVisible) return;
+
     setState(() {
-      _isZoomed = isZoomed;
-      _chromeVisible = chromeVisible;
+      _isZoomed = true;
+      _zoomModeActive = true;
+      _chromeVisible = false;
+    });
+  }
+
+  void _handleZoomInteractionEnd(ScaleEndDetails details) {
+    final isZoomed = _transformationController.value.getMaxScaleOnAxis() > 1.05;
+    if (!isZoomed) {
+      _resetZoom();
+      return;
+    }
+
+    if (_isZoomed && _zoomModeActive && !_chromeVisible) return;
+    setState(() {
+      _isZoomed = true;
+      _zoomModeActive = true;
+      _chromeVisible = false;
     });
   }
 
@@ -1155,19 +1182,13 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                   transformationController: _transformationController,
                   minScale: 1,
                   maxScale: 5,
-                  scaleEnabled: _zoomModeActive,
+                  scaleEnabled: true,
                   panEnabled: _zoomModeActive,
                   boundaryMargin: const EdgeInsets.all(96),
                   clipBehavior: Clip.none,
-                  onInteractionStart: (_) {
-                    _zoomAnimationController.stop();
-                    _clearZoomAnimation();
-                    if (_zoomModeActive && _chromeVisible) {
-                      setState(() => _chromeVisible = false);
-                    }
-                  },
-                  onInteractionUpdate: (_) => _syncZoomState(),
-                  onInteractionEnd: (_) => _syncZoomState(),
+                  onInteractionStart: _handleZoomInteractionStart,
+                  onInteractionUpdate: _handleZoomInteractionUpdate,
+                  onInteractionEnd: _handleZoomInteractionEnd,
                   child: Center(
                     child: Hero(
                       tag: 'photo-${photo.id}',

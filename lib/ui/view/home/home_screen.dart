@@ -113,7 +113,9 @@ class _HomeScreenState extends State<HomeScreen>
                 child: sectionController.showBottomBar.value
                     ? SwamiTabBar(
                         tabs: ["P.P.Prabodh Swamiji", "P.P.Hariprasad Swamiji"],
-                        onTabSelected: (index) {},
+                        initialIndex:
+                            galleryController.selectedSwami.value.index,
+                        onTabSelected: galleryController.selectSwami,
                         onSearchTap: () => showGalleryFilterSheet(context),
                       )
                     : const SizedBox.shrink(),
