@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
-import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart' as get_x;
@@ -28,7 +27,7 @@ class ApiClient {
 
   static Future<void> init() async {
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
-    currentAppVersion = Platform.isAndroid ? "1" : packageInfo.buildNumber;
+    currentAppVersion = _isAndroid ? "1" : packageInfo.buildNumber;
     if (_client == null) {
       _client = Dio(
         BaseOptions(
@@ -53,7 +52,7 @@ class ApiClient {
               print("$shouldSkipAuth API CLIENT TOKEN :: $token");
             }
 
-            final osType = Platform.isAndroid ? 'Android' : 'iOS';
+            final osType = _osType;
             if (ApiEndpoints.mobileApiKey.isNotEmpty) {
               options.headers['X-API-Key'] = ApiEndpoints.mobileApiKey;
             }
@@ -509,5 +508,26 @@ DATA: $responseData
       }
     }
     return true;
+  }
+
+  static bool get _isAndroid =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  static String get _osType {
+    if (kIsWeb) return 'Web';
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return 'Android';
+      case TargetPlatform.iOS:
+        return 'iOS';
+      case TargetPlatform.macOS:
+        return 'macOS';
+      case TargetPlatform.windows:
+        return 'Windows';
+      case TargetPlatform.linux:
+        return 'Linux';
+      case TargetPlatform.fuchsia:
+        return 'Fuchsia';
+    }
   }
 }

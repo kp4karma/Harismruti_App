@@ -506,6 +506,7 @@ class _MosaicTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final controller = Get.find<GalleryController>();
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -541,9 +542,72 @@ class _MosaicTile extends StatelessWidget {
                   ),
                 ),
               ),
+              Positioned(
+                left: 8,
+                right: 8,
+                bottom: 8,
+                child: Obx(() {
+                  final tags = _combinedTags(
+                    photo.tags,
+                    controller.tagsForPhoto(photo.id),
+                  );
+                  if (tags.isEmpty) return const SizedBox.shrink();
+                  return _PhotoTagStrip(tags: tags.take(3).toList());
+                }),
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  List<String> _combinedTags(List<String> baseTags, List<String> userTags) {
+    final tags = <String, String>{};
+    for (final tag in [...baseTags, ...userTags]) {
+      final clean = tag.trim();
+      if (clean.isEmpty) continue;
+      tags.putIfAbsent(clean.toLowerCase(), () => clean);
+    }
+    return tags.values.toList();
+  }
+}
+
+class _PhotoTagStrip extends StatelessWidget {
+  final List<String> tags;
+
+  const _PhotoTagStrip({required this.tags});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      type: MaterialType.transparency,
+      child: Wrap(
+        spacing: 5,
+        runSpacing: 5,
+        children: [
+          for (final tag in tags)
+            Container(
+              constraints: const BoxConstraints(maxWidth: 108),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha(224),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: Colors.white.withAlpha(180)),
+              ),
+              child: Text(
+                tag,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: primaryColor,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -2026,7 +2090,10 @@ class _PhotoInfoBottomSheet extends StatelessWidget {
                       ),
                       const SizedBox(height: 10),
                       Obx(() {
-                        final userTags = _controller.tagsForPhoto(photo.id);
+                        final userTags = _mergedPhotoTags(
+                          photo.tags,
+                          _controller.tagsForPhoto(photo.id),
+                        );
                         if (userTags.isEmpty) return const SizedBox.shrink();
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12),
@@ -2037,16 +2104,26 @@ class _PhotoInfoBottomSheet extends StatelessWidget {
                               for (final tag in userTags)
                                 Chip(
                                   label: Text(tag),
-                                  deleteIcon: const Icon(
-                                    CupertinoIcons.xmark_circle_fill,
-                                    size: 18,
-                                  ),
-                                  onDeleted: () {
-                                    _controller.removeTagFromPhoto(
-                                      photo.id,
-                                      tag,
-                                    );
-                                  },
+                                  deleteIcon:
+                                      _controller
+                                          .tagsForPhoto(photo.id)
+                                          .contains(tag)
+                                      ? const Icon(
+                                          CupertinoIcons.xmark_circle_fill,
+                                          size: 18,
+                                        )
+                                      : null,
+                                  onDeleted:
+                                      _controller
+                                          .tagsForPhoto(photo.id)
+                                          .contains(tag)
+                                      ? () {
+                                          _controller.removeTagFromPhoto(
+                                            photo.id,
+                                            tag,
+                                          );
+                                        }
+                                      : null,
                                   backgroundColor: primaryColor.withAlpha(24),
                                   labelStyle: TextStyle(
                                     color: primaryColor,
@@ -2126,6 +2203,16 @@ class _PhotoInfoBottomSheet extends StatelessWidget {
       'Dec',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+
+  List<String> _mergedPhotoTags(List<String> baseTags, List<String> userTags) {
+    final tags = <String, String>{};
+    for (final tag in [...baseTags, ...userTags]) {
+      final clean = tag.trim();
+      if (clean.isEmpty) continue;
+      tags.putIfAbsent(clean.toLowerCase(), () => clean);
+    }
+    return tags.values.toList();
   }
 }
 

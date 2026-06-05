@@ -30,6 +30,41 @@ double? _readDouble(Map<String, dynamic> json, List<String> keys) {
   return null;
 }
 
+List<String> _readTags(Map<String, dynamic> json) {
+  final tags = <String>[];
+
+  void add(dynamic value) {
+    if (value == null) return;
+    if (value is Map) {
+      add(value['name'] ?? value['tag'] ?? value['label'] ?? value['value']);
+      return;
+    }
+    final text = value.toString().trim();
+    if (text.isNotEmpty && text != 'null') tags.add(text);
+  }
+
+  for (final key in const ['tags', 'tag', 'labels', 'keywords']) {
+    final value = json[key];
+    if (value is List) {
+      for (final item in value) {
+        add(item);
+      }
+    } else if (value is String) {
+      for (final item in value.split(',')) {
+        add(item);
+      }
+    } else {
+      add(value);
+    }
+  }
+
+  final unique = <String, String>{};
+  for (final tag in tags) {
+    unique.putIfAbsent(tag.toLowerCase(), () => tag);
+  }
+  return unique.values.toList();
+}
+
 int _photoSortValue(GalleryPhoto photo) {
   return photo.takenAt?.millisecondsSinceEpoch ?? photo.id;
 }
@@ -74,6 +109,7 @@ class GalleryPhoto {
   final String? fileSizeLabel;
   final double? latitude;
   final double? longitude;
+  final List<String> tags;
 
   const GalleryPhoto({
     required this.id,
@@ -88,6 +124,7 @@ class GalleryPhoto {
     this.fileSizeLabel,
     this.latitude,
     this.longitude,
+    this.tags = const [],
   });
 
   factory GalleryPhoto.fromJson(dynamic raw) {
@@ -157,6 +194,7 @@ class GalleryPhoto {
         'gps_longitude',
         'gpsLongitude',
       ]),
+      tags: _readTags(json),
     );
   }
 
@@ -174,6 +212,7 @@ class GalleryPhoto {
       if (fileSizeLabel != null) 'file_size_label': fileSizeLabel,
       if (latitude != null) 'latitude': latitude,
       if (longitude != null) 'longitude': longitude,
+      if (tags.isNotEmpty) 'tags': tags,
     };
   }
 

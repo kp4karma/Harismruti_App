@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 enum Environment { debug, profile, production }
 
 class ApiEndpoints {
@@ -19,6 +21,7 @@ class ApiEndpoints {
   );
 
   static String get mainDomain {
+    if (kIsWeb) return _defaultLiveDomain;
     if (_apiBaseUrl.isNotEmpty) return _apiBaseUrl;
     return currentEnvironment == Environment.production
         ? _defaultLiveDomain
@@ -70,4 +73,3 @@ class ApiEndpoints {
       "$mainDomain/photos/$photoId/thumbnail";
   static String photoFull(int photoId) => "$mainDomain/photos/$photoId/full";
 }
-
