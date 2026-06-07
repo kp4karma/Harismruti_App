@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:harismruti/api/api_endpoints.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:harismruti/api/repositories/gallery_repository.dart';
@@ -47,7 +48,12 @@ class MyPhotoItem {
     return MyPhotoItem(
       id: json['id'] is int ? json['id'] as int : int.tryParse('${json['id']}'),
       path: json['path']?.toString() ?? '',
-      remoteUrl: json['remote_url']?.toString() ?? json['url']?.toString(),
+      remoteUrl: _normalizeRemoteImageUrl(
+        json['public_url']?.toString() ??
+            json['remote_url']?.toString() ??
+            json['url']?.toString() ??
+            json['authenticated_url']?.toString(),
+      ),
       pose: MyPhotoPose.values.firstWhere(
         (pose) => pose.name == json['pose'],
         orElse: () => MyPhotoPose.other,
@@ -67,11 +73,14 @@ class MyPhotoItem {
     return MyPhotoItem(
       id: json['id'] is int ? json['id'] as int : int.tryParse('${json['id']}'),
       path: '',
-      remoteUrl:
-          json['url']?.toString() ??
-          json['remote_url']?.toString() ??
-          json['image_url']?.toString() ??
-          json['thumbnail_url']?.toString(),
+      remoteUrl: _normalizeRemoteImageUrl(
+        json['public_url']?.toString() ??
+            json['url']?.toString() ??
+            json['authenticated_url']?.toString() ??
+            json['remote_url']?.toString() ??
+            json['image_url']?.toString() ??
+            json['thumbnail_url']?.toString(),
+      ),
       pose: MyPhotoPose.values.firstWhere(
         (pose) => pose.name == json['pose'],
         orElse: () => MyPhotoPose.other,
@@ -93,6 +102,29 @@ class MyPhotoItem {
 
   bool get hasLocalFile => path.isNotEmpty && File(path).existsSync();
   bool get hasRemoteImage => remoteUrl != null && remoteUrl!.isNotEmpty;
+}
+
+String? _normalizeRemoteImageUrl(String? rawUrl) {
+  final value = rawUrl?.trim() ?? '';
+  if (value.isEmpty || value == 'null') return null;
+
+  final uri = Uri.tryParse(value);
+  if (uri != null && uri.hasScheme && uri.host.isNotEmpty) {
+    return uri.toString();
+  }
+
+  final apiBase = Uri.parse(ApiEndpoints.mainDomain);
+  if (value.startsWith('/')) {
+    final relativeUri = Uri.parse(value);
+    return apiBase
+        .replace(
+          path: relativeUri.path,
+          query: relativeUri.query.isEmpty ? null : relativeUri.query,
+        )
+        .toString();
+  }
+  return '${ApiEndpoints.mainDomain.replaceFirst(RegExp(r'/+$'), '')}/'
+      '${value.replaceFirst(RegExp(r'^/+'), '')}';
 }
 
 class MyPhotoValidationResult {
