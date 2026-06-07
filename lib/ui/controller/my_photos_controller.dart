@@ -183,19 +183,19 @@ class MyPhotosController extends GetxController {
   bool get canSubmitRequiredPhotos =>
       requiredPoses.every((pose) => photoForPose(pose) != null);
 
+  bool get hasUnsavedChanges => photos.any(
+    (photo) =>
+        photo.reviewStatus == MyPhotoReviewStatus.draft ||
+        photo.reviewStatus == MyPhotoReviewStatus.rejected,
+  );
+
   bool get canSubmitTrainingSet =>
-      canSubmitRequiredPhotos && !reviewLocked && !hasRejectedPhotos;
+      canSubmitRequiredPhotos && !reviewLocked && hasUnsavedChanges;
 
   bool get hasRejectedPhotos =>
       photos.any((photo) => photo.reviewStatus == MyPhotoReviewStatus.rejected);
 
-  bool get reviewLocked =>
-      photos.any(
-        (photo) =>
-            photo.reviewStatus == MyPhotoReviewStatus.pending ||
-            photo.reviewStatus == MyPhotoReviewStatus.verified,
-      ) &&
-      !hasRejectedPhotos;
+  bool get reviewLocked => isVerified;
 
   MyPhotoReviewStatus get overallReviewStatus {
     if (photos.isEmpty) return MyPhotoReviewStatus.draft;
@@ -222,9 +222,7 @@ class MyPhotosController extends GetxController {
   bool get isPendingReview =>
       overallReviewStatus == MyPhotoReviewStatus.pending;
 
-  bool get canEditUploads =>
-      !reviewLocked ||
-      photos.any((photo) => photo.reviewStatus == MyPhotoReviewStatus.rejected);
+  bool get canEditUploads => !isVerified;
 
   double get trainingProgress {
     final requiredDone = requiredPoses
@@ -263,8 +261,7 @@ class MyPhotosController extends GetxController {
   }) async {
     final existing = photoForPose(pose);
     if (existing != null && !canEditPhoto(existing)) {
-      helperMessage.value =
-          'This image is locked after upload. Retake is available only if admin rejects it.';
+      helperMessage.value = 'Verified photos cannot be changed.';
       return false;
     }
     final preparedPath = await _compressImageIfNeeded(path);
@@ -303,8 +300,7 @@ class MyPhotosController extends GetxController {
 
   Future<int> addOtherPhotos(List<String> paths) async {
     if (!canEditUploads) {
-      helperMessage.value =
-          'Uploaded images are locked. You can add or retake only after admin rejection.';
+      helperMessage.value = 'Verified photos cannot be changed.';
       return 0;
     }
     int accepted = 0;
@@ -335,8 +331,7 @@ class MyPhotosController extends GetxController {
 
   Future<void> removePhoto(MyPhotoItem item) async {
     if (!canEditPhoto(item)) {
-      helperMessage.value =
-          'Uploaded images are locked. Remove is available only after admin rejection.';
+      helperMessage.value = 'Verified photos cannot be removed.';
       return;
     }
     photos.remove(item);
@@ -349,13 +344,7 @@ class MyPhotosController extends GetxController {
   }
 
   bool canEditPhoto(MyPhotoItem item) {
-    return item.reviewStatus == MyPhotoReviewStatus.draft ||
-        item.reviewStatus == MyPhotoReviewStatus.rejected ||
-        !photos.any(
-          (photo) =>
-              photo.reviewStatus == MyPhotoReviewStatus.pending ||
-              photo.reviewStatus == MyPhotoReviewStatus.verified,
-        );
+    return !isVerified && item.reviewStatus != MyPhotoReviewStatus.verified;
   }
 
   bool isPoseLocked(MyPhotoPose pose) {
@@ -370,7 +359,7 @@ class MyPhotosController extends GetxController {
       return;
     }
     if (reviewLocked) {
-      helperMessage.value = 'Photos are already uploaded for admin review.';
+      helperMessage.value = 'Verified photos cannot be changed.';
       return;
     }
     isUploading.value = true;

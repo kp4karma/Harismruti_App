@@ -138,7 +138,7 @@ class _MyPhoneGuideScreenState extends State<MyPhoneGuideScreen> {
         controller.overallReviewStatus == MyPhotoReviewStatus.rejected;
     _photosWorker = ever<List<MyPhotoItem>>(controller.photos, (_) {
       if (!mounted || !_showEditor) return;
-      if (controller.isPendingReview || controller.isVerified) {
+      if (controller.isVerified) {
         setState(() => _showEditor = false);
       }
     });
@@ -187,17 +187,16 @@ class _MyPhoneGuideScreenState extends State<MyPhoneGuideScreen> {
                     if (controller.photos.isNotEmpty) ...[
                       _ReviewStatePanel(controller: controller),
                       const SizedBox(height: 12),
-                      _UploadedPhotosCard(controller: controller),
-                      const SizedBox(height: 12),
                     ],
-                    _EditorToggleButton(
-                      controller: controller,
-                      isOpen: _showEditor,
-                      onPressed: () {
-                        setState(() => _showEditor = !_showEditor);
-                      },
-                    ),
-                    if (_showEditor) ...[
+                    if (!controller.isVerified)
+                      _EditorToggleButton(
+                        controller: controller,
+                        isOpen: _showEditor,
+                        onPressed: () {
+                          setState(() => _showEditor = !_showEditor);
+                        },
+                      ),
+                    if (_showEditor && !controller.isVerified) ...[
                       const SizedBox(height: 12),
                       _RequiredCaptureGrid(controller: controller),
                       const SizedBox(height: 12),
@@ -207,13 +206,15 @@ class _MyPhoneGuideScreenState extends State<MyPhoneGuideScreen> {
                       const SizedBox(height: 8),
                       _MessageBox(message: controller.helperMessage.value),
                     ],
-                    if (_showEditor) ...[
+                    if (_showEditor && !controller.isVerified) ...[
                       const SizedBox(height: 12),
                       _SubmitCard(
                         controller: controller,
                         onSubmitted: () {
                           if (!mounted) return;
-                          setState(() => _showEditor = false);
+                          setState(
+                            () => _showEditor = controller.isPendingReview,
+                          );
                         },
                       ),
                     ],
@@ -247,8 +248,8 @@ class _EditorToggleButton extends StatelessWidget {
         ? 'Close Photo Form'
         : switch (controller.overallReviewStatus) {
             MyPhotoReviewStatus.rejected => 'Edit & Resubmit Photos',
-            MyPhotoReviewStatus.pending => 'View Submitted Photos',
-            MyPhotoReviewStatus.verified => 'View Submitted Photos',
+            MyPhotoReviewStatus.pending => 'Add / Edit Photos',
+            MyPhotoReviewStatus.verified => 'Verified',
             MyPhotoReviewStatus.draft =>
               controller.photos.isEmpty ? 'Add Photos' : 'Add / Edit Photos',
           };
@@ -272,81 +273,6 @@ class _EditorToggleButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _UploadedPhotosCard extends StatelessWidget {
-  final MyPhotosController controller;
-
-  const _UploadedPhotosCard({required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    final photos = controller.photos;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Uploaded Photos',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-                ),
-              ),
-              _StatusPill(
-                label: '${photos.length}',
-                color: controller.overallReviewStatus.color,
-                background: controller.overallReviewStatus.color.withAlpha(16),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          GridView.builder(
-            shrinkWrap: true,
-            primary: false,
-            padding: EdgeInsets.zero,
-            itemCount: photos.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-              childAspectRatio: 0.82,
-            ),
-            itemBuilder: (context, index) {
-              final item = photos[index];
-              return Column(
-                children: [
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
-                      child: SizedBox.expand(child: _MyPhotoImage(item: item)),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.pose.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
       ),
     );
   }
@@ -975,7 +901,10 @@ class _SubmitCard extends StatelessWidget {
         controller.canSubmitTrainingSet && !controller.isUploading.value;
     final label = switch (controller.overallReviewStatus) {
       MyPhotoReviewStatus.verified => 'Verified',
-      MyPhotoReviewStatus.pending => 'Pending Admin Approval',
+      MyPhotoReviewStatus.pending =>
+        controller.hasUnsavedChanges
+            ? 'Update & Submit for Approval'
+            : 'Pending Admin Approval',
       MyPhotoReviewStatus.rejected => 'Submit for Approval',
       MyPhotoReviewStatus.draft => 'Submit for Approval',
     };
@@ -1128,7 +1057,7 @@ class _ReviewStatePanel extends StatelessWidget {
       MyPhotoReviewStatus.verified =>
         'Verified. We are fetching your matched smruti photos from the server.',
       MyPhotoReviewStatus.pending =>
-        'Your live selfies are submitted. Editing is locked until admin review finishes.',
+        'Your photos are waiting for admin review. You can still add, delete or update them.',
       MyPhotoReviewStatus.rejected =>
         'Rejected photos are visible above. Retake or remove them, then submit again.',
       MyPhotoReviewStatus.draft =>
