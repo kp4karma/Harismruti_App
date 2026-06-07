@@ -116,10 +116,39 @@ class MyPhotosSmruti extends StatelessWidget {
   }
 }
 
-class MyPhoneGuideScreen extends StatelessWidget {
+class MyPhoneGuideScreen extends StatefulWidget {
   const MyPhoneGuideScreen({super.key});
 
+  @override
+  State<MyPhoneGuideScreen> createState() => _MyPhoneGuideScreenState();
+}
+
+class _MyPhoneGuideScreenState extends State<MyPhoneGuideScreen> {
   MyPhotosController get controller => Get.find<MyPhotosController>();
+
+  bool _showEditor = false;
+  Worker? _photosWorker;
+
+  @override
+  void initState() {
+    super.initState();
+    _showEditor =
+        controller.photos.isEmpty ||
+        controller.overallReviewStatus == MyPhotoReviewStatus.draft ||
+        controller.overallReviewStatus == MyPhotoReviewStatus.rejected;
+    _photosWorker = ever<List<MyPhotoItem>>(controller.photos, (_) {
+      if (!mounted || !_showEditor) return;
+      if (controller.isPendingReview || controller.isVerified) {
+        setState(() => _showEditor = false);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _photosWorker?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -155,15 +184,39 @@ class MyPhoneGuideScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _RequiredCaptureGrid(controller: controller),
-                    const SizedBox(height: 12),
-                    _GalleryUploadCard(controller: controller),
+                    if (controller.photos.isNotEmpty) ...[
+                      _ReviewStatePanel(controller: controller),
+                      const SizedBox(height: 12),
+                      _UploadedPhotosCard(controller: controller),
+                      const SizedBox(height: 12),
+                    ],
+                    _EditorToggleButton(
+                      controller: controller,
+                      isOpen: _showEditor,
+                      onPressed: () {
+                        setState(() => _showEditor = !_showEditor);
+                      },
+                    ),
+                    if (_showEditor) ...[
+                      const SizedBox(height: 12),
+                      _RequiredCaptureGrid(controller: controller),
+                      const SizedBox(height: 12),
+                      _GalleryUploadCard(controller: controller),
+                    ],
                     if (controller.helperMessage.value.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       _MessageBox(message: controller.helperMessage.value),
                     ],
-                    const SizedBox(height: 12),
-                    _SubmitCard(controller: controller),
+                    if (_showEditor) ...[
+                      const SizedBox(height: 12),
+                      _SubmitCard(
+                        controller: controller,
+                        onSubmitted: () {
+                          if (!mounted) return;
+                          setState(() => _showEditor = false);
+                        },
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     _MatchedPhotosSection(controller: controller),
                   ],
@@ -173,6 +226,128 @@ class MyPhoneGuideScreen extends StatelessWidget {
           ],
         );
       }),
+    );
+  }
+}
+
+class _EditorToggleButton extends StatelessWidget {
+  final MyPhotosController controller;
+  final bool isOpen;
+  final VoidCallback onPressed;
+
+  const _EditorToggleButton({
+    required this.controller,
+    required this.isOpen,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final label = isOpen
+        ? 'Close Photo Form'
+        : switch (controller.overallReviewStatus) {
+            MyPhotoReviewStatus.rejected => 'Edit & Resubmit Photos',
+            MyPhotoReviewStatus.pending => 'View Submitted Photos',
+            MyPhotoReviewStatus.verified => 'View Submitted Photos',
+            MyPhotoReviewStatus.draft =>
+              controller.photos.isEmpty ? 'Add Photos' : 'Add / Edit Photos',
+          };
+
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(
+          isOpen
+              ? CupertinoIcons.chevron_up
+              : CupertinoIcons.photo_on_rectangle,
+        ),
+        label: Text(label),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primaryColor,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(vertical: 15),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UploadedPhotosCard extends StatelessWidget {
+  final MyPhotosController controller;
+
+  const _UploadedPhotosCard({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final photos = controller.photos;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Uploaded Photos',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                ),
+              ),
+              _StatusPill(
+                label: '${photos.length}',
+                color: controller.overallReviewStatus.color,
+                background: controller.overallReviewStatus.color.withAlpha(16),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          GridView.builder(
+            shrinkWrap: true,
+            primary: false,
+            padding: EdgeInsets.zero,
+            itemCount: photos.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              childAspectRatio: 0.82,
+            ),
+            itemBuilder: (context, index) {
+              final item = photos[index];
+              return Column(
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: SizedBox.expand(child: _MyPhotoImage(item: item)),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    item.pose.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }
@@ -790,8 +965,9 @@ class _EmptyGallerySlot extends StatelessWidget {
 
 class _SubmitCard extends StatelessWidget {
   final MyPhotosController controller;
+  final VoidCallback? onSubmitted;
 
-  const _SubmitCard({required this.controller});
+  const _SubmitCard({required this.controller, this.onSubmitted});
 
   @override
   Widget build(BuildContext context) {
@@ -807,7 +983,12 @@ class _SubmitCard extends StatelessWidget {
       width: double.infinity,
       child: ElevatedButton.icon(
         onPressed: canSubmit
-            ? controller.submitForReview
+            ? () async {
+                await controller.submitForReview();
+                if (controller.isPendingReview) {
+                  onSubmitted?.call();
+                }
+              }
             : controller.isVerified
             ? controller.fetchServerMatches
             : null,
@@ -879,14 +1060,14 @@ class _MatchedPhotosSection extends StatelessWidget {
       return const SizedBox.shrink();
     }
     if (!controller.isVerified) {
-      return _ReviewStatePanel(controller: controller);
+      return const SizedBox.shrink();
     }
     final photos = controller.matchedPhotos;
     if (controller.isFetchingMatches.value && photos.isEmpty) {
       return const _ServerFetchPanel();
     }
     if (photos.isEmpty) {
-      return _ReviewStatePanel(controller: controller);
+      return const SizedBox.shrink();
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
