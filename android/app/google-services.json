@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "295342396839",
+    "project_id": "hari-smruti",
+    "storage_bucket": "hari-smruti.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:295342396839:android:d64e3778106d62330d5282",
+        "android_client_info": {
+          "package_name": "org.hp.harismruti"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBy6VqE2TNmMf_7a-UrKiISOHZpfwEQhD0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -29,16 +29,19 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: '---',
-    appId: '---',
-    messagingSenderId: '---',
-    projectId: '---',
+    apiKey: 'AIzaSyBy6VqE2TNmMf_7a-UrKiISOHZpfwEQhD0',
+    appId: '1:295342396839:android:d64e3778106d62330d5282',
+    messagingSenderId: '295342396839',
+    projectId: 'hari-smruti',
+    storageBucket: 'hari-smruti.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: '---',
-    appId: '---',
-    messagingSenderId: '---',
-    projectId: '---',
+    apiKey: 'AIzaSyDKjoKWgL88S8ahvwQd2QA6bPSU6pGija8',
+    appId: '1:295342396839:ios:cf1f9ba8f91ab6bd0d5282',
+    messagingSenderId: '295342396839',
+    projectId: 'hari-smruti',
+    storageBucket: 'hari-smruti.firebasestorage.app',
+    iosBundleId: 'org.hp.harismrutihp',
   );
 }

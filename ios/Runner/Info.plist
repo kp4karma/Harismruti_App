@@ -34,6 +34,11 @@
 	<string>Hari Smruti uses the camera to capture face training photos for My Smruti.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Hari Smruti uses your photo library to select training photos for My Smruti.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

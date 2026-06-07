@@ -17,16 +17,17 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 @pragma('vm:entry-point')
 class NotificationService {
   static const List<String> topics = [
-    'all',
     'recent',
     'smruti_with',
     'darshan_of',
     'location',
-    'album',
-    'subject',
+    'smruti_category',
+    'smruti_of',
     'year',
-    'with_doctor',
-    'app_updates',
+    'my_smruti',
+    'my_diary',
+    'my_favorite',
+    'my_collection',
   ];
 
   static final FlutterLocalNotificationsPlugin _plugin =
@@ -157,9 +158,13 @@ class NotificationService {
       'smruti_with',
       'darshan_of',
       'location',
-      'album',
-      'subject',
+      'smruti_category',
+      'smruti_of',
       'year',
+      'my_smruti',
+      'my_diary',
+      'my_favorite',
+      'my_collection',
     };
     if (supportedHomeSections.contains(screen)) {
       Get.offAllNamed(
