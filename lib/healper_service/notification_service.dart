@@ -1,63 +1,63 @@
-// notification_service.dart
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-
+import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
+import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/firebase_options.dart';
 
-/// Single navigator key so any isolate can push routes.
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 @pragma('vm:entry-point')
 class NotificationService {
+  static const List<String> topics = [
+    'all',
+    'recent',
+    'smruti_with',
+    'darshan_of',
+    'location',
+    'album',
+    'subject',
+    'year',
+    'with_doctor',
+    'app_updates',
+  ];
+
   static final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
   static AndroidNotificationChannel? _channel;
   static bool _initialised = false;
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // 1. Background / terminated handler
-  // ─────────────────────────────────────────────────────────────────────────
   @pragma('vm:entry-point')
   static Future<void> firebaseBackgroundHandler(RemoteMessage message) async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
     await setupFlutterNotifications();
-    // _showNotification(message); // show local banner
-    _navigateFromData(message.data); // cold-start navigation
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // 2. One-off initialisation (permissions + channel)
-  // ─────────────────────────────────────────────────────────────────────────
   static Future<void> setupFlutterNotifications() async {
     if (_initialised) return;
 
-    // Ask the user (iOS) / register (Android)
     await FirebaseMessaging.instance.requestPermission(
       alert: true,
       sound: true,
       badge: true,
     );
-
-    // Auto-init FCM and subscribe to a topic
     await FirebaseMessaging.instance.setAutoInitEnabled(true);
-    await FirebaseMessaging.instance.subscribeToTopic('all1');
+    await Future.wait(topics.map(FirebaseMessaging.instance.subscribeToTopic));
 
-    // Print token once (handy for Postman tests)
     final token = Platform.isAndroid
         ? await FirebaseMessaging.instance.getToken()
         : await FirebaseMessaging.instance.getAPNSToken();
-    debugPrint('🪪  FCM token: $token');
+    debugPrint('FCM token: $token');
 
-    // High-importance channel (Android 8+)
     _channel = const AndroidNotificationChannel(
       'high_importance_channel',
       'High Importance Notifications',
@@ -70,7 +70,6 @@ class NotificationService {
         >()
         ?.createNotificationChannel(_channel!);
 
-    // iOS: show notifications even when app is foreground
     await FirebaseMessaging.instance
         .setForegroundNotificationPresentationOptions(
           alert: true,
@@ -81,88 +80,110 @@ class NotificationService {
     _initialised = true;
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // 3. Attach foreground listener
-  // ─────────────────────────────────────────────────────────────────────────
-  static void attachForegroundListener() {
+  static Future<void> attachForegroundListener() async {
     const initSettings = InitializationSettings(
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
       iOS: DarwinInitializationSettings(),
     );
 
-    _plugin.initialize(
+    await _plugin.initialize(
       initSettings,
-      // Fired when user taps the local notification banner
-      onDidReceiveNotificationResponse: (NotificationResponse resp) {
-        if (resp.payload?.isNotEmpty ?? false) {
-          final data = jsonDecode(resp.payload!) as Map<String, dynamic>;
-          _navigateFromData(data);
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        final payload = response.payload;
+        if (payload != null && payload.isNotEmpty) {
+          _navigateFromData(jsonDecode(payload) as Map<String, dynamic>);
         }
       },
     );
 
-    // FCM -> foreground -> show our own local notification
     FirebaseMessaging.onMessage.listen(_showNotification);
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // 4. Show local notification
-  // ─────────────────────────────────────────────────────────────────────────
-  static void _showNotification(RemoteMessage message) {
-    final n = message.notification;
-    final android = n?.android;
-    if (n == null || android == null || kIsWeb) return;
+  static Future<void> _showNotification(RemoteMessage message) async {
+    final notification = message.notification;
+    if (notification == null || kIsWeb || _channel == null) return;
 
-    _plugin.show(
-      n.hashCode, // id
-      n.title, // title
-      n.body, // body
+    final imageUrl =
+        message.data['image_url']?.toString() ??
+        notification.android?.imageUrl ??
+        notification.apple?.imageUrl;
+    ByteArrayAndroidBitmap? bigPicture;
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      try {
+        final response = await http.get(Uri.parse(imageUrl));
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          bigPicture = ByteArrayAndroidBitmap(response.bodyBytes);
+        }
+      } catch (error) {
+        debugPrint('Could not load notification image: $error');
+      }
+    }
+
+    await _plugin.show(
+      notification.hashCode,
+      notification.title,
+      notification.body,
       NotificationDetails(
         android: AndroidNotificationDetails(
           _channel!.id,
           _channel!.name,
           channelDescription: _channel!.description,
           icon: '@mipmap/ic_launcher',
+          styleInformation: bigPicture == null
+              ? null
+              : BigPictureStyleInformation(
+                  bigPicture,
+                  contentTitle: notification.title,
+                  summaryText: notification.body,
+                ),
         ),
         iOS: const DarwinNotificationDetails(),
       ),
-      payload: jsonEncode(message.data), // 🔑 pass data so tap can navigate
+      payload: jsonEncode(message.data),
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // 5. Centralised navigation helper
-  // ─────────────────────────────────────────────────────────────────────────
-  @pragma('vm:entry-point')
   static void _navigateFromData(Map<String, dynamic> data) {
-    switch (data['screen'].toString()) {
-      case 'Add New Screen':
-        break;
-      default:
-        log('🔔 Unknown screen key: ${data['screen']}');
+    if (Get.key.currentContext == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _navigateFromData(data);
+      });
+      return;
     }
+    final screen = data['screen']?.toString() ?? 'home';
+    const supportedHomeSections = {
+      'home',
+      'recent',
+      'smruti_with',
+      'darshan_of',
+      'location',
+      'album',
+      'subject',
+      'year',
+    };
+    if (supportedHomeSections.contains(screen)) {
+      Get.offAllNamed(
+        AppRoutes.home,
+        arguments: {
+          'notification_screen': screen,
+          'photo_id': data['photo_id']?.toString(),
+        },
+      );
+      return;
+    }
+    log('Unknown notification screen key: $screen');
   }
 
-  // Wrapper so existing FCM handlers call the new helper
-  static void _navigateFromMessage(RemoteMessage m) =>
-      _navigateFromData(m.data);
+  static void _navigateFromMessage(RemoteMessage message) {
+    _navigateFromData(message.data);
+  }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // 6. Listen for taps from background / terminated state
-  // ─────────────────────────────────────────────────────────────────────────
   static void listenForInitialAndOpenedApp() {
-    // Called when app is launched by tapping a notification
-    FirebaseMessaging.instance.getInitialMessage().then((RemoteMessage? msg) {
-      if (msg != null) {
-        log("🚀 App launched by notification: ${msg.data}");
-        _navigateFromMessage(msg); // 🔁 Navigate
+    FirebaseMessaging.instance.getInitialMessage().then((message) {
+      if (message != null) {
+        _navigateFromMessage(message);
       }
     });
-
-    // Called when app is resumed from background by tapping a notification
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage msg) {
-      log("🔁 App resumed by notification: ${msg.data}");
-      _navigateFromMessage(msg); // 🔁 Navigate
-    });
+    FirebaseMessaging.onMessageOpenedApp.listen(_navigateFromMessage);
   }
 }

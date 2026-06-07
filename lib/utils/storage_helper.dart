@@ -9,6 +9,7 @@ class StorageKeys {
   static const String deviceId = 'deviceId';
   static const String userProfile = 'userProfile';
   static const String smrutiSectionConfig = 'smrutiSectionConfig';
+  static const String appSectionVisibility = 'appSectionVisibility';
   static const String myPhotos = 'myPhotos';
   static const String myDiaryEntries = 'myDiaryEntries';
   static const String myPhotosSubmitted = 'myPhotosSubmitted';

@@ -41,6 +41,7 @@ class ApiEndpoints {
   static String get register => "/auth/register";
   static String get refresh => "/auth/refresh";
   static String get appVersionCheck => "/app-version/check";
+  static String get appSections => "/app-sections";
   static String get myLibrary => "/me/library";
   static String get myFavorites => "/me/favorites";
   static String get myTags => "/me/tags";

@@ -45,7 +45,7 @@ Future<void> bootstrap() async {
   );
 
   await NotificationService.setupFlutterNotifications();
-  NotificationService.attachForegroundListener();
+  await NotificationService.attachForegroundListener();
   NotificationService.listenForInitialAndOpenedApp();
 }
 

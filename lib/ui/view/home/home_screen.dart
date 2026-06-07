@@ -68,11 +68,7 @@ class _HomeScreenState extends State<HomeScreen>
     return Obx(() {
       final sortedVisibleSections =
           sectionController.sections
-              .where(
-                (section) =>
-                    section['is_show'] == true &&
-                    _hasVisibleSectionContent(section),
-              )
+              .where((section) => section['is_show'] == true)
               .toList()
             ..sort((a, b) => a['order_index'].compareTo(b['order_index']));
       final displaySections = sortedVisibleSections
@@ -122,7 +118,7 @@ class _HomeScreenState extends State<HomeScreen>
               ),
               body: RefreshIndicator(
                 color: primaryColor,
-                onRefresh: galleryController.refreshHome,
+                onRefresh: _refreshHome,
                 child: SingleChildScrollView(
                   controller: _scrollController,
                   physics: const AlwaysScrollableScrollPhysics(
@@ -163,18 +159,11 @@ class _HomeScreenState extends State<HomeScreen>
     });
   }
 
-  bool _hasVisibleSectionContent(Map<String, dynamic> section) {
-    switch (section['title']) {
-      case SmrutiSectionKeys.myFavorite:
-      case 'My Favot':
-      case 'My Favorites':
-        return galleryController.favoritePhotoIds.isNotEmpty;
-      case SmrutiSectionKeys.myCollection:
-      case 'My Collectino':
-        return galleryController.userCollections.isNotEmpty;
-      default:
-        return true;
-    }
+  Future<void> _refreshHome() async {
+    await Future.wait([
+      galleryController.refreshHome(),
+      sectionController.refreshGlobalVisibility(),
+    ]);
   }
 
   void _openSectionDetails(String title) {

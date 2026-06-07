@@ -11,11 +11,17 @@ import 'package:harismruti/ui/view/home/recent_smruti.dart';
 import 'package:harismruti/ui/view/home/smruti_of.dart';
 import 'package:harismruti/ui/view/home/smruti_with.dart';
 import 'package:harismruti/ui/view/home/subject_smruti.dart';
+import 'package:harismruti/api/repositories/app_section_repository.dart';
 import 'package:harismruti/utils/app_string.dart';
 import 'package:harismruti/utils/size_config.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 
 class SmrutiSectionController extends GetxController {
+  SmrutiSectionController({AppSectionRepository? appSectionRepository})
+    : _appSectionRepository =
+          appSectionRepository ?? const AppSectionRepository();
+
+  final AppSectionRepository _appSectionRepository;
   RxList<Map<String, dynamic>> sections = <Map<String, dynamic>>[].obs;
   final RxInt visibleCount = 3.obs;
   final RxBool showBottomBar = true.obs;
@@ -25,6 +31,7 @@ class SmrutiSectionController extends GetxController {
   void onInit() {
     super.onInit();
     loadSections();
+    refreshGlobalVisibility();
   }
 
   void increaseVisibleCount([int step = 3]) {
@@ -69,6 +76,7 @@ class SmrutiSectionController extends GetxController {
   }
 
   void loadSections() {
+    final cachedGlobalVisibility = _loadCachedGlobalVisibility();
     final stored = StorageHelper.loadSections()
         .where((e) => !_isRemovedHomeSection(e['title']))
         .toList();
@@ -81,7 +89,16 @@ class SmrutiSectionController extends GetxController {
 
       sections.assignAll([
         ...stored.map((e) {
-          return {...e, "widget": _getWidgetByTitle(e['title'])};
+          final title = e['title'].toString();
+          final localVisibility = e['user_is_show'] ?? e['is_show'] ?? true;
+          return {
+            ...e,
+            'user_is_show': localVisibility,
+            'is_show':
+                cachedGlobalVisibility[_sectionKeyForTitle(title)] ??
+                localVisibility,
+            "widget": _getWidgetByTitle(title),
+          };
         }),
         ...missingDefaults.map(
           (e) => {
@@ -91,13 +108,18 @@ class SmrutiSectionController extends GetxController {
         ),
       ]);
       saveSectionsToStorage();
+      _applyGlobalVisibility(cachedGlobalVisibility);
     } else {
       sections.assignAll(_defaultSections());
+      _applyGlobalVisibility(cachedGlobalVisibility);
     }
   }
 
   void updateSectionVisibility(int index, bool value) {
-    sections[index]['is_show'] = value;
+    sections[index]['user_is_show'] = value;
+    final sectionKey = _sectionKeyForTitle(sections[index]['title'].toString());
+    final globalVisibility = _loadCachedGlobalVisibility();
+    sections[index]['is_show'] = globalVisibility[sectionKey] ?? value;
     saveSectionsToStorage();
     sections.refresh();
   }
@@ -152,7 +174,8 @@ class SmrutiSectionController extends GetxController {
 
   void resetToDefaultOrder() {
     final visibilityByTitle = {
-      for (final section in sections) section['title']: section['is_show'],
+      for (final section in sections)
+        section['title']: section['user_is_show'] ?? section['is_show'] ?? true,
     };
     final defaults = _defaultSections().where(
       (section) => !_isRemovedHomeSection(section['title']),
@@ -163,6 +186,7 @@ class SmrutiSectionController extends GetxController {
         final title = section['title'];
         return {
           ...section,
+          'user_is_show': visibilityByTitle[title] ?? section['is_show'],
           'is_show': visibilityByTitle[title] ?? section['is_show'],
           'widget': _getWidgetByTitle(title),
         };
@@ -170,6 +194,7 @@ class SmrutiSectionController extends GetxController {
     );
     resetVisibleCount();
     saveSectionsToStorage();
+    _applyGlobalVisibility(_loadCachedGlobalVisibility());
   }
 
   void reorderSections(int oldIndex, int newIndex) {
@@ -191,7 +216,8 @@ class SmrutiSectionController extends GetxController {
           (e) => {
             "title": e['title'],
             "order_index": e['order_index'],
-            "is_show": e['is_show'],
+            "is_show": e['user_is_show'] ?? e['is_show'],
+            "user_is_show": e['user_is_show'] ?? e['is_show'],
           },
         )
         .toList();
@@ -304,6 +330,63 @@ class SmrutiSectionController extends GetxController {
       "widget": const MyCollectionSmruti(),
     },
   ];
+
+  Future<void> refreshGlobalVisibility() async {
+    try {
+      final remoteSections = await _appSectionRepository.getSections();
+      final visibility = {
+        for (final section in remoteSections)
+          section.sectionKey: section.enabled,
+      };
+      StorageHelper.setValue(
+        key: StorageKeys.appSectionVisibility,
+        value: visibility,
+      );
+      _applyGlobalVisibility(visibility);
+    } catch (_) {
+      _applyGlobalVisibility(_loadCachedGlobalVisibility());
+    }
+  }
+
+  Map<String, bool> _loadCachedGlobalVisibility() {
+    final raw = StorageHelper.getValue<Map>(
+      key: StorageKeys.appSectionVisibility,
+    );
+    if (raw == null) return {};
+    return raw.map((key, value) => MapEntry(key.toString(), value == true));
+  }
+
+  void _applyGlobalVisibility(Map<String, bool> visibility) {
+    if (visibility.isEmpty) return;
+    for (final section in sections) {
+      final sectionKey = _sectionKeyForTitle(section['title'].toString());
+      final globalValue = visibility[sectionKey];
+      if (globalValue != null) {
+        section['is_show'] = globalValue;
+      }
+    }
+    resetVisibleCount();
+    sections.refresh();
+  }
+
+  String _sectionKeyForTitle(String title) {
+    return switch (title) {
+      SmrutiSectionKeys.recent => 'recent',
+      SmrutiSectionKeys.withSmruti => 'smruti_with',
+      SmrutiSectionKeys.ofDarshan => 'darshan_of',
+      SmrutiSectionKeys.location => 'location',
+      SmrutiSectionKeys.album => 'smruti_category',
+      SmrutiSectionKeys.ofSmruti => 'smruti_of',
+      SmrutiSectionKeys.yearCollection => 'year',
+      SmrutiSectionKeys.myPhotos || 'My Phone' || 'My Photos' => 'my_smruti',
+      SmrutiSectionKeys.myDiary || 'My Diray' => 'my_diary',
+      SmrutiSectionKeys.myFavorite ||
+      'My Favot' ||
+      'My Favorites' => 'my_favorite',
+      SmrutiSectionKeys.myCollection || 'My Collectino' => 'my_collection',
+      _ => '',
+    };
+  }
 
   bool _isHiddenFromPreferences(dynamic title) => false;
 
