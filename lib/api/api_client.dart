@@ -30,7 +30,7 @@ class ApiClient {
 
   static Future<void> init() async {
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
-    currentAppVersion = _isAndroid ? "1" : packageInfo.buildNumber;
+    currentAppVersion = packageInfo.version;
     if (_client == null) {
       _client = Dio(
         BaseOptions(
@@ -593,9 +593,6 @@ DATA: $responseData
     }
     return true;
   }
-
-  static bool get _isAndroid =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   static String get _osType {
     if (kIsWeb) return 'Web';

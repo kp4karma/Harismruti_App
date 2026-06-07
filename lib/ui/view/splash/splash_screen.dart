@@ -3,12 +3,17 @@ import 'dart:ui';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:harismruti/api/models/app_version_info.dart';
+import 'package:harismruti/api/repositories/app_version_repository.dart';
+import 'package:harismruti/api/api_client.dart';
 import 'package:harismruti/helper/navigation_helper.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_images.dart';
 import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/widget/background/animated_words_background.dart';
 import 'package:harismruti/widget/internet_status_widget.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -32,6 +37,9 @@ class SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _checkInternetAndNavigate() async {
+    final splashDelay = Future<void>.delayed(
+      const Duration(milliseconds: 2200),
+    );
     final connectivity = await Connectivity().checkConnectivity();
     final hasInternet =
         connectivity.contains(ConnectivityResult.wifi) ||
@@ -42,12 +50,140 @@ class SplashScreenState extends State<SplashScreen>
       Future.delayed(const Duration(milliseconds: 500), () {
         InternetStatusWidget.showNoInternetDialog();
       });
+    } else {
+      try {
+        final versionInfo = await const AppVersionRepository()
+            .checkCurrentVersion();
+        if (versionInfo?.updateRequired == true) {
+          await splashDelay;
+          if (!mounted) return;
+          await _showRequiredUpdateSheet(versionInfo!);
+          return;
+        }
+      } catch (error) {
+        if (kDebugMode) {
+          debugPrint('App version check failed: $error');
+        }
+      }
     }
 
-    await Future.delayed(const Duration(milliseconds: 2200));
+    await splashDelay;
     if (!mounted) return;
 
     NavigationHelper.navigateAndRemoveAll(AppRoutes.home);
+  }
+
+  Future<void> _showRequiredUpdateSheet(AppVersionInfo versionInfo) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return PopScope(
+          canPop: false,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 44,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD7D0CC),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: primaryColor.withAlpha(20),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.system_update_alt_rounded,
+                    color: primaryColor,
+                    size: 36,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'New Version Available',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF241A17),
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  versionInfo.message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFF6E625D),
+                    fontSize: 15,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Installed ${ApiClient.currentAppVersion}  •  '
+                  'Latest ${versionInfo.maxVersion}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFF9A8E88),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: FilledButton(
+                    onPressed: () => _openStore(versionInfo.storeUrl),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text(
+                      'Upgrade Now',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openStore(String storeUrl) async {
+    final uri = Uri.tryParse(storeUrl);
+    if (uri == null ||
+        !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open the app store.')),
+      );
+    }
   }
 
   @override
