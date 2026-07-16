@@ -169,7 +169,11 @@ class GalleryRepository {
           }
         }
       }
-    } catch (_) {}
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint('Failed to parse stored profile for upload: $error');
+      }
+    }
     return '';
   }
 

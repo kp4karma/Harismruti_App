@@ -663,6 +663,12 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       vsync: this,
       duration: const Duration(milliseconds: 260),
     );
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _precacheAround(_index);
       _centerThumbnail(_index, animated: false);
@@ -671,6 +677,10 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
 
   @override
   void dispose() {
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
     _pageController.dispose();
     _thumbnailScrollController.dispose();
     _clearZoomAnimation();

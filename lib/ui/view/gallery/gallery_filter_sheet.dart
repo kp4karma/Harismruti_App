@@ -229,7 +229,27 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                     _controller.filtersWithUserTags,
                   );
                   if (availableGroups.isEmpty) {
-                    return const _FilterSheetLoading();
+                    if (_controller.areFiltersLoading.value) {
+                      return const _FilterSheetLoading();
+                    }
+                    if (_controller.filtersError.value.isNotEmpty) {
+                      return _FilterSheetError(
+                        message: _controller.filtersError.value,
+                        onRetry: () => _controller.loadFilters(
+                          selected: _selectedForApi,
+                          force: true,
+                        ),
+                      );
+                    }
+                    return Center(
+                      child: Text(
+                        'No filters available',
+                        style: TextStyle(
+                          color: primaryColor.withAlpha(170),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    );
                   }
                   _pruneUnavailableSelections(availableGroups);
                   final groups = _searchMatchedGroups(availableGroups);
@@ -558,6 +578,46 @@ class _FilterSheetLoading extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _FilterSheetError extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _FilterSheetError({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              CupertinoIcons.exclamationmark_triangle,
+              color: primaryColor.withAlpha(170),
+              size: 32,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: primaryColor.withAlpha(170),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextButton(
+              onPressed: onRetry,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

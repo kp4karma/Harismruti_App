@@ -83,6 +83,7 @@ class GalleryController extends GetxController {
   final RxList<GalleryCard> wallpapers = <GalleryCard>[].obs;
   final RxList<GalleryFilterGroup> filters = <GalleryFilterGroup>[].obs;
   final RxBool areFiltersLoading = false.obs;
+  final RxString filtersError = ''.obs;
   final RxSet<int> favoritePhotoIds = <int>{}.obs;
   final RxMap<int, GalleryPhoto> savedPhotos = <int, GalleryPhoto>{}.obs;
   final RxMap<int, List<String>> userTags = <int, List<String>>{}.obs;
@@ -111,9 +112,24 @@ class GalleryController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    _restorePersistedSwami();
     _restoreSnapshots();
     loadMyLibrary();
     loadHome();
+  }
+
+  void _restorePersistedSwami() {
+    final stored = StorageHelper.getValue<String>(
+      key: StorageKeys.selectedSwami,
+    );
+    if (stored == null) return;
+    for (final swami in GallerySwami.values) {
+      if (swami.apiValue == stored) {
+        selectedSwami.value = swami;
+        GalleryRepository.activeSwami = swami;
+        return;
+      }
+    }
   }
 
   bool isFavorite(int photoId) => favoritePhotoIds.contains(photoId);
@@ -195,6 +211,7 @@ class GalleryController extends GetxController {
 
     selectedSwami.value = next;
     GalleryRepository.activeSwami = next;
+    StorageHelper.setValue(key: StorageKeys.selectedSwami, value: next.apiValue);
 
     final snapshot = _tabSnapshots[next];
     if (snapshot != null) {
@@ -580,12 +597,15 @@ class GalleryController extends GetxController {
   }) async {
     if (!force && selected.isEmpty && filters.isNotEmpty) return;
     areFiltersLoading.value = true;
+    filtersError.value = '';
     try {
       final loadedFilters = await _repository.getFilters(selected: selected);
       filters.assignAll(loadedFilters);
       if (selected.isEmpty) {
         _filterSnapshots[selectedSwami.value] = loadedFilters;
       }
+    } catch (error) {
+      filtersError.value = error.toString().replaceFirst('Exception: ', '');
     } finally {
       areFiltersLoading.value = false;
     }

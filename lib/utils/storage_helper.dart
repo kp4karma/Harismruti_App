@@ -19,6 +19,7 @@ class StorageKeys {
   static const String userCollections = 'userCollections';
   static const String authCarouselImages = 'authCarouselImages';
   static const String reorderTutorialSeen = 'reorderTutorialSeenV2';
+  static const String selectedSwami = 'selectedSwami';
 }
 
 class StorageHelper {

@@ -364,28 +364,32 @@ class MyPhotosController extends GetxController {
     }
     isUploading.value = true;
     try {
-      for (final photo in photos) {
-        if (photo.reviewStatus == MyPhotoReviewStatus.pending ||
-            photo.reviewStatus == MyPhotoReviewStatus.verified) {
-          continue;
-        }
+      final toUpload = photos
+          .where(
+            (photo) =>
+                photo.reviewStatus != MyPhotoReviewStatus.pending &&
+                photo.reviewStatus != MyPhotoReviewStatus.verified,
+          )
+          .toList();
+      for (final photo in toUpload) {
         final uploadPath = await _compressImageIfNeeded(photo.path);
         await _repository.uploadMyImage(
           path: uploadPath,
           pose: photo.pose.name,
         );
-      }
-      photos.assignAll([
-        for (final photo in photos)
-          MyPhotoItem(
+        final index = photos.indexOf(photo);
+        if (index != -1) {
+          photos[index] = MyPhotoItem(
             id: photo.id,
             path: photo.path,
             pose: photo.pose,
             reviewStatus: MyPhotoReviewStatus.pending,
             remoteUrl: photo.remoteUrl,
             note: photo.note,
-          ),
-      ]);
+          );
+          _savePhotos();
+        }
+      }
       _sortPhotos();
       final front = photoForPose(MyPhotoPose.front);
       if (front != null && Get.isRegistered<ProfileController>()) {
@@ -593,6 +597,20 @@ class MyPhotosController extends GetxController {
     return fallback?.path ?? path;
   }
 
+  Future<void> _deleteStaleTempFiles(List<String> paths) async {
+    if (paths.isEmpty) return;
+    try {
+      final tempDir = await getTemporaryDirectory();
+      for (final path in paths) {
+        if (!path.startsWith(tempDir.path)) continue;
+        final file = File(path);
+        if (file.existsSync()) {
+          await file.delete().catchError((_) => file);
+        }
+      }
+    } catch (_) {}
+  }
+
   Future<double?> _estimateBrightness(ui.Image image) async {
     final byteData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
     if (byteData == null) return null;
@@ -650,11 +668,16 @@ class MyPhotosController extends GetxController {
               .toList();
       matchedPhotos.assignAll(matched);
       if (remote.isNotEmpty) {
+        final stalePaths = photos
+            .where((photo) => photo.hasLocalFile)
+            .map((photo) => photo.path)
+            .toList();
         photos
           ..clear()
           ..addAll(remote);
         _sortPhotos();
         _savePhotos();
+        await _deleteStaleTempFiles(stalePaths);
       }
       if (remote.any(
         (photo) => photo.reviewStatus == MyPhotoReviewStatus.verified,
