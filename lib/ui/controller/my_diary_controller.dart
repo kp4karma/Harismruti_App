@@ -36,7 +36,7 @@ class DiaryEntry {
 
   Map<String, dynamic> toJson() => {
     'id': id,
-    'date': date.toIso8601String(),
+    'date': MyDiaryController.dateKeyFor(date),
     'title': title,
     'note': note,
     'tags': tags,
@@ -115,10 +115,32 @@ class DiaryEntry {
   }
 
   static DateTime? _readDate(Map<String, dynamic> json) {
-    return DateTime.tryParse(
-          json['date']?.toString() ?? json['created_at']?.toString() ?? '',
-        ) ??
-        DateTime.tryParse(json['updated_at']?.toString() ?? '');
+    final rawDate = json['date']?.toString();
+    final parsedDate = _parseLocalDate(rawDate);
+    if (parsedDate != null) return parsedDate;
+    return _parseLocalDate(json['created_at']?.toString()) ??
+        _parseLocalDate(json['updated_at']?.toString());
+  }
+
+  // Parses a date that may come back either as a bare "YYYY-MM-DD" (unambiguous,
+  // use as-is) or as a full timestamp with a UTC/offset marker (must convert to
+  // local time first, otherwise the calendar date can shift by a day).
+  static DateTime? _parseLocalDate(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    if (!raw.contains('T') && !raw.contains(' ')) {
+      final parts = raw.split('-');
+      if (parts.length == 3) {
+        final year = int.tryParse(parts[0]);
+        final month = int.tryParse(parts[1]);
+        final day = int.tryParse(parts[2]);
+        if (year != null && month != null && day != null) {
+          return DateTime(year, month, day);
+        }
+      }
+    }
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return null;
+    return parsed.isUtc ? parsed.toLocal() : parsed;
   }
 
   static double? _readDouble(dynamic value) {

@@ -85,6 +85,7 @@ List<dynamic> _readList(dynamic source, List<String> keys) {
     for (final key in keys) {
       final value = source[key];
       if (value is List) return value;
+      if (value is Map && value['items'] is List) return value['items'];
     }
   }
   return const [];
@@ -156,7 +157,14 @@ class GalleryPhoto {
       title: _readString(json, const ['title', 'name', 'caption']),
       subtitle: _readString(json, const ['subtitle', 'taken_at', 'date']),
       takenAt: DateTime.tryParse(
-        _readString(json, const ['taken_at', 'created_at', 'date']) ?? '',
+        _readString(json, const [
+              'taken_at',
+              'inferred_date',
+              'event_date',
+              'created_at',
+              'date',
+            ]) ??
+            '',
       ),
       width: _readInt(json, const ['width', 'image_width', 'imageWidth', 'w']),
       height: _readInt(json, const [

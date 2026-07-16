@@ -215,7 +215,7 @@ class GalleryRepository {
     int samples = 4,
     int limit = 60,
     int offset = 0,
-    String sort = _latestSort,
+    String sort = 'count',
   }) async {
     final response = await ApiClient.get(
       ApiEndpoints.people,

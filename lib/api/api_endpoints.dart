@@ -6,7 +6,7 @@ class ApiEndpoints {
   static Environment currentEnvironment = Environment.debug;
 
   static const String _defaultLiveDomain =
-      "https://hpsmruti.suhrad.digital/api/v1/mobile";
+      "http://103.177.181.215:9000/api/v1/mobile";
   // static const String _defaultLiveDomain =
   // //     "http://192.168.31.71:8000/api/v1/mobile";
   // "http://10.0.2.2:8000/api/v1/mobile";

@@ -44,9 +44,15 @@ Future<void> bootstrap() async {
     NotificationService.firebaseBackgroundHandler,
   );
 
-  await NotificationService.setupFlutterNotifications();
-  await NotificationService.attachForegroundListener();
-  NotificationService.listenForInitialAndOpenedApp();
+  try {
+    await NotificationService.setupFlutterNotifications();
+    await NotificationService.attachForegroundListener();
+    NotificationService.listenForInitialAndOpenedApp();
+  } catch (e) {
+    if (kDebugMode) {
+      debugPrint('Notification bootstrap failed, continuing without it: $e');
+    }
+  }
 }
 
 void _configureLoadingUI() {
