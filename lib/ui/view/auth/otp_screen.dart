@@ -45,33 +45,29 @@ class _OTPScreenState extends State<OTPScreen> {
     return Scaffold(
       appBar: AppBar(
         scrolledUnderElevation: 0,
-        leadingWidth: SizeConfig.widthMultiplier! * 16,
+        leadingWidth: 56,
+        centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: GestureDetector(
-          onTap: () {
-            Navigator.pop(context);
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Padding(
-                    padding: EdgeInsets.all(6.0),
-                    child: Icon(
-                      CupertinoIcons.left_chevron,
-                      color: Color(0xFF322318),
-                      size: 18,
-                    ),
-                  ),
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
+          child: GestureDetector(
+            onTap: () {
+              Navigator.pop(context);
+            },
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: const Padding(
+                padding: EdgeInsets.all(6.0),
+                child: Icon(
+                  CupertinoIcons.left_chevron,
+                  color: Color(0xFF322318),
+                  size: 18,
                 ),
-              ],
+              ),
             ),
           ),
         ),

@@ -20,6 +20,8 @@ class StorageKeys {
   static const String authCarouselImages = 'authCarouselImages';
   static const String reorderTutorialSeen = 'reorderTutorialSeenV2';
   static const String selectedSwami = 'selectedSwami';
+  static const String lastMobileNumber = 'lastMobileNumber';
+  static const String lastMobileCountryCode = 'lastMobileCountryCode';
 }
 
 class StorageHelper {
@@ -46,9 +48,22 @@ class StorageHelper {
       key: StorageKeys.reorderTutorialSeen,
       defaultValue: false,
     );
+    final lastMobileNumber = getValue<String>(key: StorageKeys.lastMobileNumber);
+    final lastMobileCountryCode = getValue<String>(
+      key: StorageKeys.lastMobileCountryCode,
+    );
     _box.erase();
     if (reorderTutorialSeen == true) {
       setValue(key: StorageKeys.reorderTutorialSeen, value: true);
+    }
+    if (lastMobileNumber != null && lastMobileNumber.isNotEmpty) {
+      setValue(key: StorageKeys.lastMobileNumber, value: lastMobileNumber);
+    }
+    if (lastMobileCountryCode != null && lastMobileCountryCode.isNotEmpty) {
+      setValue(
+        key: StorageKeys.lastMobileCountryCode,
+        value: lastMobileCountryCode,
+      );
     }
   }
 
