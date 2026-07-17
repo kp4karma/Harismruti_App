@@ -169,14 +169,7 @@ class MyPhotosController extends GetxController {
     ),
   );
 
-  List<MyPhotoPose> get requiredPoses => const [
-    MyPhotoPose.front,
-    MyPhotoPose.left,
-    MyPhotoPose.right,
-  ];
-
-  List<MyPhotoItem> get otherPhotos =>
-      photos.where((photo) => photo.pose == MyPhotoPose.other).toList();
+  List<MyPhotoPose> get requiredPoses => const [MyPhotoPose.front];
 
   int get remainingSlots => maxPhotos - photos.length;
 
@@ -223,14 +216,6 @@ class MyPhotosController extends GetxController {
       overallReviewStatus == MyPhotoReviewStatus.pending;
 
   bool get canEditUploads => !isVerified;
-
-  double get trainingProgress {
-    final requiredDone = requiredPoses
-        .where((pose) => photoForPose(pose) != null)
-        .length;
-    final galleryDone = otherPhotos.length.clamp(0, 4);
-    return ((requiredDone + galleryDone) / 7).clamp(0, 1).toDouble();
-  }
 
   @override
   void onInit() {
@@ -298,37 +283,6 @@ class MyPhotosController extends GetxController {
         lower.contains('could not check face direction');
   }
 
-  Future<int> addOtherPhotos(List<String> paths) async {
-    if (!canEditUploads) {
-      helperMessage.value = 'Verified photos cannot be changed.';
-      return 0;
-    }
-    int accepted = 0;
-    for (final path in paths) {
-      if (photos.length >= maxPhotos) {
-        helperMessage.value = 'Maximum 10 selfies are allowed.';
-        break;
-      }
-      final preparedPath = await _compressImageIfNeeded(path);
-      if (photos.any((photo) => photo.path == preparedPath)) continue;
-
-      final result = await validatePhoto(preparedPath, MyPhotoPose.other);
-      helperMessage.value = result.message;
-      if (!result.isValid) continue;
-
-      photos.add(
-        MyPhotoItem(
-          path: preparedPath,
-          pose: MyPhotoPose.other,
-          reviewStatus: MyPhotoReviewStatus.draft,
-        ),
-      );
-      accepted++;
-    }
-    _savePhotos();
-    return accepted;
-  }
-
   Future<void> removePhoto(MyPhotoItem item) async {
     if (!canEditPhoto(item)) {
       helperMessage.value = 'Verified photos cannot be removed.';
@@ -354,8 +308,7 @@ class MyPhotosController extends GetxController {
 
   Future<void> submitForReview() async {
     if (!canSubmitRequiredPhotos) {
-      helperMessage.value =
-          'Front, left and right face selfies are compulsory.';
+      helperMessage.value = 'Front face selfie is compulsory.';
       return;
     }
     if (reviewLocked) {

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
@@ -9,7 +8,6 @@ import 'package:camera/camera.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/helper/auth_redirect_helper.dart';
-import 'package:harismruti/helper/image_service.dart';
 import 'package:harismruti/ui/controller/my_photos_controller.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/storage_helper.dart';
@@ -32,7 +30,9 @@ class MyPhotosSmruti extends StatelessWidget {
               MyPhotoReviewStatus.verified => 'Verified',
               MyPhotoReviewStatus.pending => 'Verification pending',
               MyPhotoReviewStatus.rejected => 'Rejected - upload again',
-              MyPhotoReviewStatus.draft => '$requiredDone/3 face views ready',
+              MyPhotoReviewStatus.draft => requiredDone > 0
+                  ? 'Selfie ready to submit'
+                  : 'Add your selfie',
             };
 
       return GestureDetector(
@@ -198,9 +198,7 @@ class _MyPhoneGuideScreenState extends State<MyPhoneGuideScreen> {
                       ),
                     if (_showEditor && !controller.isVerified) ...[
                       const SizedBox(height: 12),
-                      _RequiredCaptureGrid(controller: controller),
-                      const SizedBox(height: 12),
-                      _GalleryUploadCard(controller: controller),
+                      _FrontSelfieCard(controller: controller),
                     ],
                     if (controller.helperMessage.value.isNotEmpty) ...[
                       const SizedBox(height: 8),
@@ -409,75 +407,145 @@ class _GuideStep {
 }
 
 */
-class _RequiredCaptureGrid extends StatelessWidget {
+class _FrontSelfieCard extends StatelessWidget {
   final MyPhotosController controller;
 
-  const _RequiredCaptureGrid({required this.controller});
+  const _FrontSelfieCard({required this.controller});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(22),
+    const pose = MyPhotoPose.front;
+    final item = controller.photoForPose(pose);
+    final locked = controller.isPoseLocked(pose);
+    final hasPhoto = item != null;
+    final statusColor = hasPhoto && locked
+        ? item.reviewStatus.color
+        : hasPhoto
+        ? const Color(0xFF167A3C)
+        : primaryColor;
+    final statusLabel = hasPhoto && locked
+        ? item.reviewStatus.label
+        : hasPhoto
+        ? 'Ready'
+        : 'Required';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(12),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
           ),
-          child: Column(
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Container(
-                    height: 34,
-                    width: 34,
-                    decoration: BoxDecoration(
-                      color: primaryColor.withAlpha(18),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      CupertinoIcons.camera_viewfinder,
-                      color: primaryColor,
-                      size: 19,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Text(
-                      'Required Live Selfie',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  _StatusPill(
-                    label:
-                        '${controller.requiredPoses.where((pose) => controller.photoForPose(pose) != null).length}/3',
-                    color: primaryColor,
-                    background: primaryColor.withAlpha(14),
+              Container(
+                height: 34,
+                width: 34,
+                decoration: BoxDecoration(
+                  color: primaryColor.withAlpha(18),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  CupertinoIcons.camera_viewfinder,
+                  color: primaryColor,
+                  size: 19,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Required Live Selfie',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                ),
+              ),
+              _StatusPill(
+                label: statusLabel,
+                color: statusColor,
+                background: statusColor.withAlpha(14),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          GestureDetector(
+            onTap: () => _openCapture(context),
+            child: Container(
+              height: 190,
+              width: 190,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(38),
+                border: Border.all(
+                  color: hasPhoto
+                      ? statusColor.withAlpha(160)
+                      : primaryColor.withAlpha(70),
+                  width: 3,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: primaryColor.withAlpha(hasPhoto ? 26 : 14),
+                    blurRadius: 26,
+                    offset: const Offset(0, 12),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              for (final pose in controller.requiredPoses) ...[
-                _CapturePoseRow(
-                  pose: pose,
-                  item: controller.photoForPose(pose),
-                  locked: controller.isPoseLocked(pose),
-                  onTap: () => _openCapture(context, pose),
-                ),
-                if (pose != MyPhotoPose.right) const SizedBox(height: 8),
-              ],
-            ],
+              child: hasPhoto
+                  ? _MyPhotoImage(item: item)
+                  : _FaceFramePlaceholder(pose: pose),
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 16),
+          Text(
+            pose.instruction,
+            style: TextStyle(
+              color: Colors.black.withAlpha(130),
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 18),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _openCapture(context),
+              icon: Icon(
+                hasPhoto
+                    ? CupertinoIcons.arrow_2_circlepath
+                    : CupertinoIcons.camera_fill,
+                size: 17,
+              ),
+              label: Text(
+                hasPhoto && locked
+                    ? item.reviewStatus.label
+                    : hasPhoto
+                    ? 'Retake Selfie'
+                    : 'Capture Selfie',
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: primaryColor,
+                side: BorderSide(color: primaryColor.withAlpha(90)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  void _openCapture(BuildContext context, MyPhotoPose pose) {
+  void _openCapture(BuildContext context) {
+    const pose = MyPhotoPose.front;
     if (controller.isPoseLocked(pose)) {
       controller.helperMessage.value =
           'This photo is locked. Retake is available only if admin rejects it.';
@@ -485,100 +553,7 @@ class _RequiredCaptureGrid extends StatelessWidget {
     }
     Navigator.push(
       context,
-      CupertinoPageRoute(builder: (_) => MyPhoneCaptureScreen(pose: pose)),
-    );
-  }
-}
-
-class _CapturePoseRow extends StatelessWidget {
-  final MyPhotoPose pose;
-  final MyPhotoItem? item;
-  final bool locked;
-  final VoidCallback onTap;
-
-  const _CapturePoseRow({
-    required this.pose,
-    required this.item,
-    required this.locked,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final statusLabel = item == null
-        ? 'Capture'
-        : locked
-        ? item!.reviewStatus.label
-        : 'Retake';
-    final statusColor = item == null || !locked
-        ? primaryColor
-        : item!.reviewStatus.color;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 78,
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8F6F3),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 76,
-              child: item == null
-                  ? _FaceFramePlaceholder(pose: pose)
-                  : _MyPhotoImage(item: item!),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${pose.label} face',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    pose.instruction,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.black.withAlpha(130),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(right: 10),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-                decoration: BoxDecoration(
-                  color: statusColor.withAlpha(16),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  statusLabel,
-                  style: TextStyle(
-                    color: statusColor,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+      CupertinoPageRoute(builder: (_) => const MyPhoneCaptureScreen(pose: pose)),
     );
   }
 }
@@ -720,134 +695,6 @@ class _CornerPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-class _GalleryUploadCard extends StatelessWidget {
-  final MyPhotosController controller;
-
-  const _GalleryUploadCard({required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    final otherPhotos = controller.otherPhotos;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Gallery Photos',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-                ),
-              ),
-              TextButton.icon(
-                onPressed:
-                    controller.canEditUploads && controller.remainingSlots > 0
-                    ? () => _pickOtherPhotos(context)
-                    : null,
-                icon: const Icon(CupertinoIcons.add, size: 16),
-                label: const Text('Add'),
-                style: TextButton.styleFrom(foregroundColor: primaryColor),
-              ),
-            ],
-          ),
-          Text(
-            '${otherPhotos.length} selected. Add gallery photos if you want.',
-            style: TextStyle(
-              color: Colors.black.withAlpha(130),
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 70,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              itemCount: math.max(4, otherPhotos.length),
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                if (index < otherPhotos.length) {
-                  return _SmallPhotoTile(item: otherPhotos[index]);
-                }
-                return _EmptyGallerySlot(
-                  onTap: () => _pickOtherPhotos(context),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _pickOtherPhotos(BuildContext context) async {
-    if (!controller.canEditUploads) {
-      controller.helperMessage.value =
-          'Uploaded photos are locked unless admin rejects them.';
-      return;
-    }
-    final paths = await ImagePickerHelper.pickGalleryImages(
-      allowMultiple: true,
-      enableCrop: false,
-    );
-    final allowed = paths.take(controller.remainingSlots).toList();
-    await controller.addOtherPhotos(allowed);
-  }
-}
-
-class _SmallPhotoTile extends StatelessWidget {
-  final MyPhotoItem item;
-
-  const _SmallPhotoTile({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    final controller = Get.find<MyPhotosController>();
-    return GestureDetector(
-      onTap: () => _showPhotoActions(context, item),
-      child: SizedBox(
-        width: 70,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: _MyPhotoImage(item: item),
-            ),
-            if (controller.canEditPhoto(item))
-              Positioned(
-                right: 5,
-                top: 5,
-                child: GestureDetector(
-                  onTap: () => controller.removePhoto(item),
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withAlpha(115),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      CupertinoIcons.xmark,
-                      color: Colors.white,
-                      size: 12,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _MyPhotoImage extends StatelessWidget {
   final MyPhotoItem item;
 
@@ -864,27 +711,6 @@ class _MyPhotoImage extends StatelessWidget {
     return Container(
       color: primaryColor.withAlpha(14),
       child: Icon(CupertinoIcons.photo, color: primaryColor),
-    );
-  }
-}
-
-class _EmptyGallerySlot extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _EmptyGallerySlot({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 70,
-        decoration: BoxDecoration(
-          color: primaryColor.withAlpha(14),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Icon(CupertinoIcons.photo, color: primaryColor),
-      ),
     );
   }
 }
@@ -1061,7 +887,7 @@ class _ReviewStatePanel extends StatelessWidget {
       MyPhotoReviewStatus.rejected =>
         'Rejected photos are visible above. Retake or remove them, then submit again.',
       MyPhotoReviewStatus.draft =>
-        'Complete Front, Left and Right live selfies, then submit for approval.',
+        'Complete your front face live selfie, then submit for approval.',
     };
     final color = status.color;
     return Container(
@@ -1158,76 +984,6 @@ class _MatchedPhotoTile extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-void _showPhotoActions(BuildContext context, MyPhotoItem item) {
-  showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: Colors.transparent,
-    builder: (context) => ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: Container(
-          color: Colors.white.withAlpha(235),
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _ActionRow(
-                icon: CupertinoIcons.hand_thumbsup,
-                label: 'Like',
-                onTap: () => Navigator.pop(context),
-              ),
-              _ActionRow(
-                icon: CupertinoIcons.share,
-                label: 'Share',
-                onTap: () => Navigator.pop(context),
-              ),
-              _ActionRow(
-                icon: CupertinoIcons.arrow_down_to_line,
-                label: 'Download',
-                onTap: () => Navigator.pop(context),
-              ),
-              _ActionRow(
-                icon: CupertinoIcons.exclamationmark_bubble,
-                label: 'Report irrelevant',
-                color: const Color(0xFFC62828),
-                onTap: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-class _ActionRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color? color;
-  final VoidCallback onTap;
-
-  const _ActionRow({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final resolved = color ?? primaryColor;
-    return ListTile(
-      leading: Icon(icon, color: resolved),
-      title: Text(
-        label,
-        style: TextStyle(color: color, fontWeight: FontWeight.w800),
-      ),
-      onTap: onTap,
     );
   }
 }
