@@ -1,12 +1,13 @@
+import 'dart:io';
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_string.dart';
-import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/widget/appbar/detail_appbar.dart';
 import 'package:harismruti/widget/background/custom_background.dart';
-import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 
 class SmrutiSectionSettingsScreen extends StatefulWidget {
   const SmrutiSectionSettingsScreen({super.key});
@@ -20,83 +21,6 @@ class _SmrutiSectionSettingsScreenState
     extends State<SmrutiSectionSettingsScreen> {
   final SmrutiSectionController controller =
       Get.find<SmrutiSectionController>();
-  final GlobalKey _firstDragHandleKey = GlobalKey();
-  TutorialCoachMark? _tutorialCoachMark;
-  bool _tutorialShown = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _tutorialShown =
-        StorageHelper.getValue<bool>(
-          key: StorageKeys.reorderTutorialSeen,
-          defaultValue: false,
-        ) ??
-        false;
-  }
-
-  void _showReorderTutorial() {
-    if (_tutorialShown || _firstDragHandleKey.currentContext == null) return;
-
-    _tutorialShown = true;
-    final screenSize = MediaQuery.sizeOf(context);
-    final safeTop = MediaQuery.paddingOf(context).top;
-    final tutorialCoachMark = TutorialCoachMark(
-      targets: [
-        TargetFocus(
-          identify: 'reorder-home-section',
-          keyTarget: _firstDragHandleKey,
-          shape: ShapeLightFocus.RRect,
-          radius: 16,
-          paddingFocus: 6,
-          contents: [
-            TargetContent(
-              align: ContentAlign.custom,
-              customPosition: CustomTargetContentPosition(
-                top: safeTop + (screenSize.height * 0.22),
-                left: 16,
-                right: 16,
-              ),
-              child: _ReorderCoachContent(onGotIt: _finishTutorial),
-            ),
-          ],
-        ),
-      ],
-      colorShadow: Colors.black,
-      opacityShadow: 0.72,
-      hideSkip: true,
-      textStyleSkip: const TextStyle(
-        color: Colors.white,
-        fontWeight: FontWeight.w800,
-      ),
-      pulseEnable: true,
-      onClickTarget: (_) => _finishTutorial(),
-      onClickOverlay: (_) => _finishTutorial(),
-      onFinish: _markTutorialSeen,
-      onSkip: () {
-        _markTutorialSeen();
-        return true;
-      },
-    );
-    _tutorialCoachMark = tutorialCoachMark;
-    tutorialCoachMark.show(context: context);
-  }
-
-  void _finishTutorial() {
-    _markTutorialSeen();
-    _tutorialCoachMark?.finish();
-  }
-
-  void _markTutorialSeen() {
-    _tutorialShown = true;
-    StorageHelper.setValue(key: StorageKeys.reorderTutorialSeen, value: true);
-  }
-
-  @override
-  void dispose() {
-    _tutorialCoachMark?.finish();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -108,13 +32,12 @@ class _SmrutiSectionSettingsScreenState
         ),
         body: Obx(() {
           final sections = controller.customizableSections();
-          if (sections.isNotEmpty) {
-            WidgetsBinding.instance.addPostFrameCallback(
-              (_) => mounted ? _showReorderTutorial() : null,
-            );
-          }
           return Column(
             children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: _ReorderSectionHeader(),
+              ),
               Expanded(
                 child: ReorderableListView.builder(
                   padding: const EdgeInsets.symmetric(
@@ -147,7 +70,6 @@ class _SmrutiSectionSettingsScreenState
                       isShown: isShown,
                       icon: _iconForSection(title),
                       index: index,
-                      dragHandleKey: index == 0 ? _firstDragHandleKey : null,
                       onTap: () => controller.updateSectionVisibilityByTitle(
                         title,
                         !isShown,
@@ -218,77 +140,79 @@ class _SmrutiSectionSettingsScreenState
   }
 }
 
-class _ReorderCoachContent extends StatelessWidget {
-  final VoidCallback onGotIt;
+/// Section title with a tap-triggered help popover explaining drag-to-reorder,
+/// replacing the old auto-shown coach-mark dialog.
+class _ReorderSectionHeader extends StatefulWidget {
+  const _ReorderSectionHeader();
 
-  const _ReorderCoachContent({required this.onGotIt});
+  @override
+  State<_ReorderSectionHeader> createState() => _ReorderSectionHeaderState();
+}
+
+class _ReorderSectionHeaderState extends State<_ReorderSectionHeader> {
+  final LayerLink _layerLink = LayerLink();
+  OverlayEntry? _popoverEntry;
+
+  @override
+  void dispose() {
+    _removePopover();
+    super.dispose();
+  }
+
+  void _togglePopover() {
+    if (_popoverEntry != null) {
+      _removePopover();
+      return;
+    }
+    final overlay = Overlay.of(context);
+    final entry = OverlayEntry(
+      builder: (context) => _ReorderHelpPopover(
+        layerLink: _layerLink,
+        onDismiss: _removePopover,
+      ),
+    );
+    _popoverEntry = entry;
+    overlay.insert(entry);
+  }
+
+  void _removePopover() {
+    _popoverEntry?.remove();
+    _popoverEntry = null;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: MediaQuery.sizeOf(context).width - 32,
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(45),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Icon(Icons.drag_handle_rounded, color: primaryColor),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'Reorder sections',
-                  style: TextStyle(
-                    color: Color(0xFF322318),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 17,
-                  ),
-                ),
+          Icon(Icons.drag_handle_rounded, color: primaryColor, size: 20),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              'Drag to reorder',
+              style: TextStyle(
+                color: Color(0xFF322318),
+                fontWeight: FontWeight.w900,
+                fontSize: 16,
               ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Hold this handle and drag up or down to change the Home screen order.',
-            style: TextStyle(
-              color: Colors.black.withAlpha(170),
-              fontWeight: FontWeight.w700,
-              height: 1.35,
             ),
           ),
-          const SizedBox(height: 14),
-          Align(
-            alignment: Alignment.centerRight,
-            child: GestureDetector(
-              onTap: onGotIt,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: primaryColor,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: const Text(
-                  'Got it',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
+          GestureDetector(
+            onTap: _togglePopover,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: primaryColor.withAlpha(16),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Platform.isIOS
+                    ? CupertinoIcons.info
+                    : Icons.help_outline_rounded,
+                color: primaryColor,
+                size: 18,
               ),
             ),
           ),
@@ -298,12 +222,103 @@ class _ReorderCoachContent extends StatelessWidget {
   }
 }
 
+class _ReorderHelpPopover extends StatelessWidget {
+  final LayerLink layerLink;
+  final VoidCallback onDismiss;
+
+  const _ReorderHelpPopover({
+    required this.layerLink,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        // Full-screen barrier: tapping anywhere outside the popover dismisses it,
+        // without blocking the list once the popover itself is closed.
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onDismiss,
+            child: const SizedBox.shrink(),
+          ),
+        ),
+        CompositedTransformFollower(
+          link: layerLink,
+          showWhenUnlinked: false,
+          targetAnchor: Alignment.bottomRight,
+          followerAnchor: Alignment.topRight,
+          offset: const Offset(0, 10),
+          child: Align(
+            alignment: Alignment.topRight,
+            child: GestureDetector(
+              // Absorb taps on the card itself so they don't fall through to the barrier.
+              onTap: () {},
+              child: Container(
+                width: 260,
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(45),
+                      blurRadius: 22,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.drag_handle_rounded,
+                          color: primaryColor,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 6),
+                        const Expanded(
+                          child: Text(
+                            'Reorder sections',
+                            style: TextStyle(
+                              color: Color(0xFF322318),
+                              fontWeight: FontWeight.w900,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Hold the handle and drag up or down to change the Home screen order.',
+                      style: TextStyle(
+                        color: Colors.black.withAlpha(170),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _PreferenceOptionTile extends StatelessWidget {
   final String title;
   final bool isShown;
   final IconData icon;
   final int index;
-  final GlobalKey? dragHandleKey;
   final VoidCallback onTap;
   final ValueChanged<bool> onChanged;
 
@@ -313,7 +328,6 @@ class _PreferenceOptionTile extends StatelessWidget {
     required this.isShown,
     required this.icon,
     required this.index,
-    this.dragHandleKey,
     required this.onTap,
     required this.onChanged,
   });
@@ -383,7 +397,6 @@ class _PreferenceOptionTile extends StatelessWidget {
                 ReorderableDragStartListener(
                   index: index,
                   child: SizedBox(
-                    key: dragHandleKey,
                     width: 44,
                     height: 44,
                     child: Center(
