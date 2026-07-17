@@ -5,8 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
-import 'package:harismruti/ui/view/home/home_section_detail_screen.dart';
-import 'package:harismruti/utils/app_string.dart';
+import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
 
@@ -131,12 +130,15 @@ class _AutoSwapRecentStackState extends State<_AutoSwapRecentStack> {
     });
   }
 
-  void _openDetail(BuildContext context, GalleryPhoto photo) {
+  void _openDetail(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            const HomeSectionDetailScreen(title: SmrutiSectionKeys.recent),
+        builder: (_) => GalleryFullscreenViewer(
+          photos: widget.photos,
+          initialIndex: _frontIndex,
+          title: 'Recent Smruti',
+        ),
       ),
     );
   }
@@ -179,7 +181,7 @@ class _AutoSwapRecentStackState extends State<_AutoSwapRecentStack> {
       child: _RecentPhotoCard(
         photo: photo,
         headers: widget.headers,
-        onTap: depth == 0 ? () => _openDetail(context, photo) : null,
+        onTap: depth == 0 ? () => _openDetail(context) : null,
       ),
     );
   }
