@@ -1023,6 +1023,13 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       ..setEntry(1, 3, (viewport.height / 2) - (position.dy * zoom));
   }
 
+  void _toggleChrome() {
+    if (_zoomModeActive) return;
+    setState(() {
+      _chromeVisible = !_chromeVisible;
+    });
+  }
+
   void _toggleZoom() {
     if (_zoomModeActive) {
       _resetZoom();
@@ -1176,6 +1183,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
               final photo = widget.photos[index];
               return GestureDetector(
                 behavior: HitTestBehavior.opaque,
+                onTap: _toggleChrome,
                 onDoubleTapDown: _rememberDoubleTapPosition,
                 onDoubleTap: _toggleZoom,
                 onVerticalDragEnd: _zoomModeActive
