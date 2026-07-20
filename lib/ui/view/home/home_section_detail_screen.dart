@@ -661,6 +661,8 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
           photos: photos,
           initialIndex: initialIndex,
           title: widget.title,
+          isRecentFeed:
+              widget.title == SmrutiSectionKeys.recent && _query.isEmpty,
         ),
       ),
     );

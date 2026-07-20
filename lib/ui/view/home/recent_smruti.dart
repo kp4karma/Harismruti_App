@@ -131,13 +131,22 @@ class _AutoSwapRecentStackState extends State<_AutoSwapRecentStack> {
   }
 
   void _openDetail(BuildContext context) {
+    final galleryController = Get.find<GalleryController>();
+    final tappedPhoto = widget.photos[_frontIndex];
+    final rawIndex = galleryController.recentPhotos.indexWhere(
+      (photo) => tappedPhoto.id > 0
+          ? photo.id == tappedPhoto.id
+          : photo.thumbnailUrl == tappedPhoto.thumbnailUrl,
+    );
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => GalleryFullscreenViewer(
-          photos: widget.photos,
-          initialIndex: _frontIndex,
+          photos: galleryController.recentPhotos.toList(growable: false),
+          initialIndex: rawIndex >= 0 ? rawIndex : 0,
           title: 'Recent Smruti',
+          isRecentFeed: true,
         ),
       ),
     );

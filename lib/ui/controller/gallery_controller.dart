@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/api/repositories/gallery_repository.dart';
@@ -658,14 +659,19 @@ class GalleryController extends GetxController {
   Future<void> loadMoreRecentPhotos() async {
     if (isRecentPageLoading.value || !hasMoreRecentPhotos.value) return;
     isRecentPageLoading.value = true;
+    final nextPage = _recentPage + 1;
     try {
-      final nextPage = _recentPage + 1;
       final photos = await _repository.getRecent(
         page: nextPage,
         perPage: _recentPerPage,
       );
+      debugPrint(
+        'loadMoreRecentPhotos: page=$nextPage perPage=$_recentPerPage '
+        'returned=${photos.length} totalLoaded=${recentPhotos.length + photos.length}',
+      );
       if (photos.isEmpty) {
         hasMoreRecentPhotos.value = false;
+        debugPrint('loadMoreRecentPhotos: page=$nextPage empty, no more pages');
         return;
       }
 
@@ -688,8 +694,13 @@ class GalleryController extends GetxController {
       }
       _recentPage = nextPage;
       hasMoreRecentPhotos.value = photos.length >= _recentPerPage;
+      debugPrint(
+        'loadMoreRecentPhotos: now on page=$_recentPage '
+        'displayedTotal=${recentPhotos.length} hasMore=${hasMoreRecentPhotos.value}',
+      );
       _saveCurrentSnapshot();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('loadMoreRecentPhotos: request failed for page=$nextPage, $e');
       hasMoreRecentPhotos.value = true;
     } finally {
       isRecentPageLoading.value = false;

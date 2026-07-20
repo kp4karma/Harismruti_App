@@ -618,6 +618,7 @@ class GalleryFullscreenViewer extends StatefulWidget {
   final int initialIndex;
   final String title;
   final bool showRecentPhotoMetadata;
+  final bool isRecentFeed;
 
   const GalleryFullscreenViewer({
     super.key,
@@ -625,6 +626,7 @@ class GalleryFullscreenViewer extends StatefulWidget {
     required this.initialIndex,
     required this.title,
     this.showRecentPhotoMetadata = false,
+    this.isRecentFeed = false,
   });
 
   @override
@@ -669,10 +671,19 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
+    if (widget.isRecentFeed) {
+      _thumbnailScrollController.addListener(_onThumbnailScroll);
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _precacheAround(_index);
       _centerThumbnail(_index, animated: false);
     });
+  }
+
+  void _onThumbnailScroll() {
+    if (!_thumbnailScrollController.hasClients) return;
+    if (_thumbnailScrollController.position.extentAfter > 200) return;
+    _maybeLoadMoreRecent(_photosList.length - 1);
   }
 
   @override
@@ -682,6 +693,9 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       DeviceOrientation.portraitDown,
     ]);
     _pageController.dispose();
+    if (widget.isRecentFeed) {
+      _thumbnailScrollController.removeListener(_onThumbnailScroll);
+    }
     _thumbnailScrollController.dispose();
     _clearZoomAnimation();
     _zoomAnimationController.dispose();
@@ -689,7 +703,22 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     super.dispose();
   }
 
-  GalleryPhoto get _photo => widget.photos[_index];
+  List<GalleryPhoto> get _photosList =>
+      widget.isRecentFeed ? _controller.recentPhotos : widget.photos;
+
+  GalleryPhoto get _photo => _photosList[_index];
+
+  void _maybeLoadMoreRecent(int viewedIndex) {
+    if (!widget.isRecentFeed) return;
+    if (viewedIndex < _photosList.length - 6) return;
+    if (_controller.isRecentPageLoading.value) return;
+    if (!_controller.hasMoreRecentPhotos.value) return;
+    debugPrint(
+      'GalleryFullscreenViewer: requesting more recent photos '
+      '(viewedIndex=$viewedIndex, loaded=${_photosList.length})',
+    );
+    _controller.loadMoreRecentPhotos();
+  }
 
   Future<GalleryPhotoAttributes> _attributesFor(int photoId) {
     return _attributesCache.putIfAbsent(
@@ -802,8 +831,8 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   void _precacheAround(int centerIndex) {
     if (!mounted) return;
     for (final index in [centerIndex - 1, centerIndex, centerIndex + 1]) {
-      if (index < 0 || index >= widget.photos.length) continue;
-      final photo = widget.photos[index];
+      if (index < 0 || index >= _photosList.length) continue;
+      final photo = _photosList[index];
       precacheImage(
         CachedNetworkImageProvider(
           photo.fullUrl,
@@ -1158,15 +1187,22 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
         : 'Recent Smruti';
   }
 
+  // Obx requires an observable read inside its builder; static (non-recent)
+  // galleries have no Rx source, so only wrap reactively for the recent feed.
+  Widget _reactive(Widget Function() builder) {
+    return widget.isRecentFeed ? Obx(builder) : builder();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _zoomModeActive ? Colors.black : Colors.white,
       body: Stack(
         children: [
-          PageView.builder(
+          _reactive(
+            () => PageView.builder(
             controller: _pageController,
-            itemCount: widget.photos.length,
+            itemCount: _photosList.length,
             allowImplicitScrolling: true,
             physics: _zoomModeActive
                 ? const NeverScrollableScrollPhysics()
@@ -1178,9 +1214,10 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
               });
               _precacheAround(value);
               _centerThumbnail(value);
+              _maybeLoadMoreRecent(value);
             },
             itemBuilder: (context, index) {
-              final photo = widget.photos[index];
+              final photo = _photosList[index];
               return GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: _toggleChrome,
@@ -1219,6 +1256,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                 ),
               );
             },
+            ),
           ),
           SafeArea(
             child: AnimatedSlide(
@@ -1232,14 +1270,16 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                   ignoring: !_chromeVisible,
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(18, 8, 18, 0),
-                    child: _ViewerTopBar(
-                      title: widget.showRecentPhotoMetadata
-                          ? _formatRecentViewerTitle(_photo)
-                          : widget.title,
-                      position: '${_index + 1} of ${widget.photos.length}',
-                      takenAt: _photo.takenAt,
-                      attributesFuture: _attributesFor(_photo.id),
-                      onBack: () => Navigator.pop(context),
+                    child: _reactive(
+                      () => _ViewerTopBar(
+                        title: widget.showRecentPhotoMetadata
+                            ? _formatRecentViewerTitle(_photo)
+                            : widget.title,
+                        position: '${_index + 1} of ${_photosList.length}',
+                        takenAt: _photo.takenAt,
+                        attributesFuture: _attributesFor(_photo.id),
+                        onBack: () => Navigator.pop(context),
+                      ),
                     ),
                   ),
                 ),
@@ -1284,18 +1324,22 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _ViewerThumbStrip(
-                        photos: widget.photos,
-                        selectedIndex: _index,
-                        controller: _thumbnailScrollController,
-                        headers: _controller.imageHeaders,
-                        onTap: (index) {
-                          _pageController.animateToPage(
-                            index,
-                            duration: const Duration(milliseconds: 260),
-                            curve: Curves.easeOutCubic,
-                          );
-                        },
+                      _reactive(
+                        () => _ViewerThumbStrip(
+                          photos: _photosList,
+                          selectedIndex: _index,
+                          isLoadingMore: widget.isRecentFeed &&
+                              _controller.isRecentPageLoading.value,
+                          controller: _thumbnailScrollController,
+                          headers: _controller.imageHeaders,
+                          onTap: (index) {
+                            _pageController.animateToPage(
+                              index,
+                              duration: const Duration(milliseconds: 260),
+                              curve: Curves.easeOutCubic,
+                            );
+                          },
+                        ),
                       ),
                       const SizedBox(height: 13),
                       _ViewerActions(
@@ -1831,6 +1875,7 @@ class _ViewerThumbStrip extends StatelessWidget {
   final ScrollController controller;
   final Map<String, String>? headers;
   final ValueChanged<int> onTap;
+  final bool isLoadingMore;
 
   const _ViewerThumbStrip({
     required this.photos,
@@ -1838,10 +1883,12 @@ class _ViewerThumbStrip extends StatelessWidget {
     required this.controller,
     required this.headers,
     required this.onTap,
+    this.isLoadingMore = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final itemCount = photos.length + (isLoadingMore ? 1 : 0);
     return SizedBox(
       height: 34,
       child: ListView.separated(
@@ -1849,9 +1896,25 @@ class _ViewerThumbStrip extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 28),
-        itemCount: photos.length,
+        itemCount: itemCount,
         separatorBuilder: (_, __) => const SizedBox(width: 5),
         itemBuilder: (context, index) {
+          if (index >= photos.length) {
+            return const SizedBox(
+              width: 24,
+              height: 24,
+              child: Center(
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            );
+          }
           final isSelected = index == selectedIndex;
           return GestureDetector(
             onTap: () => onTap(index),

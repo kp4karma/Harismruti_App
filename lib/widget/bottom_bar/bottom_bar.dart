@@ -28,8 +28,6 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
 
   final double itemPadding = 4;
   final double itemWidth = 200;
-  static const double _actionsEndPadding = 168;
-  static const double _plainEndPadding = 16;
 
   @override
   void initState() {
@@ -159,11 +157,6 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
                                     ),
                                   );
                                 }),
-                                SizedBox(
-                                  width: showActions
-                                      ? _actionsEndPadding
-                                      : _plainEndPadding,
-                                ),
                               ],
                             ),
                           ),
