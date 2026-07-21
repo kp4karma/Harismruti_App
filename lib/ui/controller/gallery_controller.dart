@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
@@ -801,14 +803,18 @@ class GalleryController extends GetxController {
 
   void _applyBundle(GalleryHomeBundle bundle) {
     recentPhotos.assignAll(bundle.recent);
-    collections.assignAll(bundle.collections);
-    smrutiWith.assignAll(bundle.smrutiWith);
-    smrutiOf.assignAll(bundle.smrutiOf);
-    locations.assignAll(bundle.locations);
-    albums.assignAll(bundle.albums);
-    subjects.assignAll(bundle.subjects);
-    people.assignAll(bundle.people);
-    wallpapers.assignAll(bundle.wallpapers);
+    collections.assignAll(_shuffled(bundle.collections));
+    smrutiWith.assignAll(_shuffled(bundle.smrutiWith));
+    smrutiOf.assignAll(_shuffled(bundle.smrutiOf));
+    locations.assignAll(_shuffled(bundle.locations));
+    albums.assignAll(_shuffled(bundle.albums));
+    subjects.assignAll(_shuffled(bundle.subjects));
+    people.assignAll(_shuffled(bundle.people));
+    wallpapers.assignAll(_shuffled(bundle.wallpapers));
+  }
+
+  List<T> _shuffled<T>(List<T> items) {
+    return items.toList()..shuffle(Random());
   }
 
   void _saveCurrentSnapshot() {
