@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/ui/view/gallery/gallery_location_screen.dart';
+import 'package:harismruti/ui/view/gallery/gallery_timeline_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
 
@@ -517,46 +518,16 @@ class _CollectionPreviewImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final image = NetworkImageWithLoader(
-      imageUrl: photo.thumbnailUrl,
-      title: photo.title ?? 'Smruti',
-      headers: headers,
-      fit: fit,
-    );
-
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (fit == BoxFit.contain) ...[
-            ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-              child: Transform.scale(
-                scale: 1.24,
-                child: NetworkImageWithLoader(
-                  imageUrl: photo.thumbnailUrl,
-                  title: photo.title ?? 'Smruti',
-                  headers: headers,
-                ),
-              ),
-            ),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.white.withAlpha(124),
-                    secondaryColor.withAlpha(28),
-                    primaryColor.withAlpha(32),
-                  ],
-                ),
-              ),
-            ),
-          ],
-          image,
-        ],
+      child: ColoredBox(
+        color: const Color(0xFFF2E9E4),
+        child: NetworkImageWithLoader(
+          imageUrl: photo.thumbnailUrl,
+          title: photo.title ?? 'Smruti',
+          headers: headers,
+          fit: fit,
+        ),
       ),
     );
   }
@@ -948,6 +919,15 @@ class _GlassMetaText extends StatelessWidget {
 }
 
 void _openDetail(BuildContext context, GalleryCard card) {
+  if (card.type == 'collection') {
+    final year = int.tryParse(card.value) ?? card.id;
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => GalleryTimelineScreen(year: year)),
+    );
+    return;
+  }
+
   if (card.type == 'location') {
     Navigator.push(
       context,

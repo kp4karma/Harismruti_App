@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
@@ -582,7 +581,7 @@ class _CollectionCollageCard extends StatelessWidget {
               right: 4,
               top: 0,
               bottom: 18,
-              child: _FolderPhotoStack(
+              child: _CollectionPhotoRow(
                 photos: visiblePhotos,
                 headers: headers,
                 seed: title.hashCode,
@@ -726,12 +725,12 @@ class _ImageGlowBehindTitle extends StatelessWidget {
   }
 }
 
-class _FolderPhotoStack extends StatelessWidget {
+class _CollectionPhotoRow extends StatelessWidget {
   final List<GalleryPhoto> photos;
   final Map<String, String>? headers;
   final int seed;
 
-  const _FolderPhotoStack({
+  const _CollectionPhotoRow({
     required this.photos,
     required this.headers,
     required this.seed,
@@ -740,57 +739,28 @@ class _FolderPhotoStack extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (photos.isEmpty) {
-      return const GalleryShimmerBox(borderRadius: 0);
+      return const GalleryShimmerBox(borderRadius: 18);
     }
-    final repeated = List<GalleryPhoto>.generate(8, (index) {
+    final tileCount = photos.length >= 4 ? 4 : photos.length;
+    final ordered = List<GalleryPhoto>.generate(tileCount, (index) {
       final offset = seed.abs() % photos.length;
       return photos[(index + offset) % photos.length];
     });
-    final random = math.Random(seed);
-    final specs = _folderSpecs(random);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final height = constraints.maxHeight;
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            for (var index = 0; index < specs.length; index++)
-              Positioned(
-                left: specs[index].left * width,
-                top: specs[index].top * height,
-                width: specs[index].width * width,
-                height: specs[index].height * height,
-                child: Transform.rotate(
-                  angle: specs[index].angle,
-                  child: _CollageStackImage(
-                    photo: repeated[index],
-                    headers: headers,
-                    radius: specs[index].radius,
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
+    return Row(
+      children: [
+        for (var i = 0; i < ordered.length; i++) ...[
+          Expanded(
+            child: _CollectionPhotoTile(
+              photo: ordered[i],
+              headers: headers,
+              radius: 18,
+            ),
+          ),
+          if (i != ordered.length - 1) const SizedBox(width: 7),
+        ],
+      ],
     );
-  }
-
-  List<_StackSpec> _folderSpecs(math.Random random) {
-    double jitter(double value, double amount) =>
-        value + (random.nextDouble() - 0.5) * amount;
-
-    return [
-      _StackSpec(jitter(0.00, 0.03), jitter(0.00, 0.03), 0.38, 0.47, -0.03, 18),
-      _StackSpec(jitter(0.35, 0.03), jitter(0.02, 0.03), 0.24, 0.34, 0.02, 12),
-      _StackSpec(jitter(0.58, 0.03), jitter(0.00, 0.03), 0.37, 0.48, 0.03, 18),
-      _StackSpec(jitter(0.05, 0.03), jitter(0.44, 0.03), 0.25, 0.28, 0.02, 14),
-      _StackSpec(jitter(0.31, 0.03), jitter(0.34, 0.03), 0.28, 0.38, -0.02, 14),
-      _StackSpec(jitter(0.60, 0.03), jitter(0.47, 0.03), 0.30, 0.30, 0.01, 14),
-      _StackSpec(jitter(0.14, 0.03), jitter(0.70, 0.02), 0.26, 0.24, -0.01, 12),
-      _StackSpec(jitter(0.44, 0.03), jitter(0.72, 0.02), 0.24, 0.22, 0.02, 12),
-    ];
   }
 }
 
@@ -847,12 +817,12 @@ class _SummaryItem {
   const _SummaryItem(this.icon, this.label);
 }
 
-class _CollageStackImage extends StatelessWidget {
+class _CollectionPhotoTile extends StatelessWidget {
   final GalleryPhoto photo;
   final Map<String, String>? headers;
   final double radius;
 
-  const _CollageStackImage({
+  const _CollectionPhotoTile({
     required this.photo,
     required this.headers,
     required this.radius,
@@ -860,34 +830,19 @@ class _CollageStackImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(radius)),
-      child: NetworkImageWithLoader(
-        imageUrl: photo.thumbnailUrl,
-        title: photo.title ?? 'Smruti',
-        headers: headers,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: ColoredBox(
+        color: const Color(0xFFF2E9E4),
+        child: NetworkImageWithLoader(
+          imageUrl: photo.thumbnailUrl,
+          title: photo.title ?? 'Smruti',
+          headers: headers,
+          fit: BoxFit.contain,
+        ),
       ),
     );
   }
-}
-
-class _StackSpec {
-  final double left;
-  final double top;
-  final double width;
-  final double height;
-  final double angle;
-  final double radius;
-
-  const _StackSpec(
-    this.left,
-    this.top,
-    this.width,
-    this.height,
-    this.angle,
-    this.radius,
-  );
 }
 
 class _TimelinePhotoSection extends StatelessWidget {
