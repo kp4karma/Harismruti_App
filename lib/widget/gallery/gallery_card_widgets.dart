@@ -399,7 +399,8 @@ class _HomeCollectionBentoCollage extends StatelessWidget {
       );
     }
     final preferredPhotos = _landscapePhotosFirst(photos);
-    final orderedPhotos = List<GalleryPhoto>.generate(5, (index) {
+    final tileCount = preferredPhotos.length >= 4 ? 4 : preferredPhotos.length;
+    final orderedPhotos = List<GalleryPhoto>.generate(tileCount, (index) {
       final offset = seed.abs() % preferredPhotos.length;
       return preferredPhotos[(index + offset) % preferredPhotos.length];
     });
@@ -430,69 +431,16 @@ class _HomeCollectionBentoCollage extends StatelessWidget {
         borderRadius: BorderRadius.circular(19),
         child: Row(
           children: [
-            Expanded(
-              flex: 7,
-              child: Column(
-                children: [
-                  Expanded(
-                    flex: 7,
-                    child: _CollectionBentoTile(
-                      photo: orderedPhotos[0],
-                      headers: headers,
-                      radius: 18,
-                    ),
-                  ),
-                  const SizedBox(height: 7),
-                  Expanded(
-                    flex: 4,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _CollectionBentoTile(
-                            photo: orderedPhotos[2],
-                            headers: headers,
-                            radius: 14,
-                          ),
-                        ),
-                        const SizedBox(width: 7),
-                        Expanded(
-                          child: _CollectionBentoTile(
-                            photo: orderedPhotos[3],
-                            headers: headers,
-                            radius: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+            for (var i = 0; i < orderedPhotos.length; i++) ...[
+              Expanded(
+                child: _CollectionBentoTile(
+                  photo: orderedPhotos[i],
+                  headers: headers,
+                  radius: 16,
+                ),
               ),
-            ),
-            const SizedBox(width: 7),
-            Expanded(
-              flex: 4,
-              child: Column(
-                children: [
-                  Expanded(
-                    flex: 5,
-                    child: _CollectionBentoTile(
-                      photo: orderedPhotos[1],
-                      headers: headers,
-                      radius: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 7),
-                  Expanded(
-                    flex: 6,
-                    child: _CollectionBentoTile(
-                      photo: orderedPhotos[4],
-                      headers: headers,
-                      radius: 16,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+              if (i != orderedPhotos.length - 1) const SizedBox(width: 7),
+            ],
           ],
         ),
       ),
