@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/ui/view/gallery/gallery_location_screen.dart';
-import 'package:harismruti/ui/view/gallery/gallery_timeline_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
 
@@ -1001,14 +1000,6 @@ class _GlassMetaText extends StatelessWidget {
 }
 
 void _openDetail(BuildContext context, GalleryCard card) {
-  if (card.type == 'collection') {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const GalleryTimelineScreen()),
-    );
-    return;
-  }
-
   if (card.type == 'location') {
     Navigator.push(
       context,

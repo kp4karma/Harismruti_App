@@ -10,7 +10,6 @@ import 'package:harismruti/ui/controller/my_photos_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/ui/view/gallery/gallery_filter_sheet.dart';
 import 'package:harismruti/ui/view/gallery/gallery_location_screen.dart';
-import 'package:harismruti/ui/view/gallery/gallery_timeline_screen.dart';
 import 'package:harismruti/ui/view/home/my_diary_smruti.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_string.dart';
@@ -602,14 +601,6 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
   }
 
   void _openCard(GalleryCard card) {
-    if (card.type == 'collection') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const GalleryTimelineScreen()),
-      );
-      return;
-    }
-
     if (card.type == 'location') {
       Navigator.push(
         context,

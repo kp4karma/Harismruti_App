@@ -6,6 +6,7 @@ import 'package:flutter_pin_code_fields/flutter_pin_code_fields.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/ui/controller/auth_controller.dart';
 import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/utils/email_mask_helper.dart';
 import 'package:harismruti/utils/size_config.dart';
 import 'package:harismruti/widget/buttons/custom_button.dart';
 import 'package:harismruti/widget/carousel/auth_recent_carousel.dart';
@@ -105,23 +106,37 @@ class _OTPScreenState extends State<OTPScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const SizedBox(height: 24),
-                            const Text(
-                              "We have sent a one time verification\ncode to your number.",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 16),
-                            ),
+                            Obx(() {
+                              final isEmail =
+                                  _authController.lastValidationMethod.value ==
+                                      'email' &&
+                                  _authController.lastEmail.value.isNotEmpty;
+                              return Text(
+                                isEmail
+                                    ? "We have sent a one time verification\ncode to your email."
+                                    : "We have sent a one time verification\ncode to your number.",
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 16),
+                              );
+                            }),
                             const SizedBox(height: 16),
-                            Obx(
-                              () => Text(
-                                _authController.lastMobile.value,
+                            Obx(() {
+                              final isEmail =
+                                  _authController.lastValidationMethod.value ==
+                                      'email' &&
+                                  _authController.lastEmail.value.isNotEmpty;
+                              return Text(
+                                isEmail
+                                    ? maskEmail(_authController.lastEmail.value)
+                                    : _authController.lastMobile.value,
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                   color: primaryColor,
                                 ),
-                              ),
-                            ),
+                              );
+                            }),
                             SizedBox(height: SizeConfig.heightMultiplier! * 4),
                             AutofillGroup(
                               child: PinCodeFields(

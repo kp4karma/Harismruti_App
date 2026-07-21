@@ -18,6 +18,7 @@ class AuthController extends GetxController {
 
   final RxBool isLoading = false.obs;
   final RxString lastMobile = ''.obs;
+  final RxString lastEmail = ''.obs;
   final RxString lastValidationMethod = 'email'.obs;
 
   Future<bool> login({
@@ -40,6 +41,7 @@ class AuthController extends GetxController {
         return false;
       }
       lastMobile.value = formattedMobile;
+      lastEmail.value = _extractEmail(response.data);
       lastValidationMethod.value = validationMethod;
       _showServerMessage(response.data, fallback: 'OTP sent successfully');
       return true;
@@ -181,6 +183,14 @@ class AuthController extends GetxController {
 
   bool _isSuccessfulResponse(dynamic responseData) {
     return responseData is Map && responseData['success'] == true;
+  }
+
+  String _extractEmail(dynamic responseData) {
+    final message = responseData is Map ? responseData['message'] : null;
+    if (message is Map && message['email'] != null) {
+      return message['email'].toString().trim();
+    }
+    return '';
   }
 
   String _serverMessage(dynamic responseData, {required String fallback}) {
