@@ -307,10 +307,7 @@ class _CrazyLogoCelebrationState extends State<_CrazyLogoCelebration>
                   ),
                 );
               }),
-              Transform.rotate(
-                angle: math.sin(_controller.value * math.pi * 2) * 0.025,
-                child: const _SplashLogoCard(),
-              ),
+              const _SplashLogoCard(),
             ],
           );
         },
@@ -358,43 +355,31 @@ class _SplashLogoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(38),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-        child: Container(
-          width: 238,
-          padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
-          decoration: BoxDecoration(
-            color: Colors.white.withAlpha(208),
-            borderRadius: BorderRadius.circular(38),
-            border: Border.all(color: Colors.white.withAlpha(235)),
-            boxShadow: [
-              BoxShadow(
-                color: primaryColor.withAlpha(30),
-                blurRadius: 34,
-                offset: const Offset(0, 18),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Image.asset(AppImages.appLogo, width: 104, height: 104),
-              const SizedBox(height: 18),
-              const Text(
-                "HariPrabodham Smruti",
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Color(0xFF241A17),
-                  fontSize: 22,
-                  height: 1.08,
-                  fontWeight: FontWeight.w800,
+    return SizedBox(
+      width: 238,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset(AppImages.appLogo, width: 120, height: 120),
+          const SizedBox(height: 16),
+          const Text(
+            "HariPrabodham Smruti",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xFF241A17),
+              fontSize: 22,
+              height: 1.08,
+              fontWeight: FontWeight.w800,
+              shadows: [
+                Shadow(
+                  color: Color(0x33000000),
+                  blurRadius: 6,
+                  offset: Offset(0, 2),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

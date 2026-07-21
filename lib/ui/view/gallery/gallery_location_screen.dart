@@ -333,10 +333,10 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
                 ),
               ),
               Positioned(
-                left: 12,
-                right: 12,
-                bottom: 14,
-                child: _LocationPlacesPanel(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: _LocationSheet(
                   controller: _searchController,
                   cities: cities,
                   activeCard: _activeCard,
@@ -671,14 +671,14 @@ class _LocationTopPanel extends StatelessWidget {
   }
 }
 
-class _LocationPlacesPanel extends StatelessWidget {
+class _LocationSheet extends StatefulWidget {
   final TextEditingController controller;
   final List<GalleryCard> cities;
   final GalleryCard activeCard;
   final ScrollController cityScrollController;
   final ValueChanged<GalleryCard> onCityTap;
 
-  const _LocationPlacesPanel({
+  const _LocationSheet({
     required this.controller,
     required this.cities,
     required this.activeCard,
@@ -687,69 +687,346 @@ class _LocationPlacesPanel extends StatelessWidget {
   });
 
   @override
+  State<_LocationSheet> createState() => _LocationSheetState();
+}
+
+class _LocationSheetState extends State<_LocationSheet>
+    with SingleTickerProviderStateMixin {
+  static const double _collapsedHeight = 210;
+  static const double _expandedFraction = 0.82;
+  static const double _flingVelocity = 260;
+
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+      value: 0,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  double _expandedHeight(BuildContext context) =>
+      MediaQuery.of(context).size.height * _expandedFraction;
+
+  void _onHandleDragUpdate(DragUpdateDetails details, double range) {
+    if (range <= 0) return;
+    _controller.value = (_controller.value - details.delta.dy / range).clamp(
+      0.0,
+      1.0,
+    );
+  }
+
+  void _onHandleDragEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    if (velocity < -_flingVelocity) {
+      _controller.animateTo(1, curve: Curves.easeOutCubic);
+      return;
+    }
+    if (velocity > _flingVelocity) {
+      _controller.animateTo(0, curve: Curves.easeOutCubic);
+      return;
+    }
+    final target = _controller.value >= 0.5 ? 1.0 : 0.0;
+    _controller.animateTo(target, curve: Curves.easeOutCubic);
+  }
+
+  void _toggle() {
+    final target = _controller.value >= 0.5 ? 0.0 : 1.0;
+    _controller.animateTo(target, curve: Curves.easeOutCubic);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-          decoration: BoxDecoration(
-            color: Colors.white.withAlpha(188),
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: Colors.white.withAlpha(220)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withAlpha(42),
-                blurRadius: 34,
-                offset: const Offset(0, 18),
-              ),
-            ],
+    final expandedHeight = _expandedHeight(context);
+    final range = expandedHeight - _collapsedHeight;
+
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final t = _controller.value;
+        final height = _collapsedHeight + range * t;
+        final horizontalMargin = lerpDouble(12, 0, t)!;
+        final bottomMargin = lerpDouble(14, 0, t)!;
+        final radius = lerpDouble(28, 24, t)!;
+
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            horizontalMargin,
+            0,
+            horizontalMargin,
+            bottomMargin,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 42,
-                height: 4,
+          child: ClipRRect(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(radius)),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
+              child: Container(
+                height: height,
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
                 decoration: BoxDecoration(
-                  color: Colors.black.withAlpha(35),
-                  borderRadius: BorderRadius.circular(99),
+                  color: Colors.white.withAlpha(188),
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(radius),
+                  ),
+                  border: Border.all(color: Colors.white.withAlpha(220)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(42),
+                      blurRadius: 34,
+                      offset: const Offset(0, 18),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 12),
-              _CitySearchField(controller: controller),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 106,
-                child: cities.isEmpty
-                    ? Center(
-                        child: Text(
-                          'No place found',
-                          style: TextStyle(
-                            color: Colors.black.withAlpha(130),
-                            fontWeight: FontWeight.w700,
+                child: Column(
+                  children: [
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _toggle,
+                      onVerticalDragUpdate: (details) =>
+                          _onHandleDragUpdate(details, range),
+                      onVerticalDragEnd: _onHandleDragEnd,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        child: Container(
+                          width: 42,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withAlpha(35),
+                            borderRadius: BorderRadius.circular(99),
                           ),
                         ),
-                      )
-                    : ListView.separated(
-                        controller: cityScrollController,
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: cities.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 10),
-                        itemBuilder: (context, index) {
-                          final city = cities[index];
-                          final selected =
-                              city.id == activeCard.id &&
-                              city.value == activeCard.value;
-                          return _CityPhotoChip(
-                            card: city,
-                            selected: selected,
-                            onTap: () => onCityTap(city),
-                          );
-                        },
                       ),
+                    ),
+                    _CitySearchField(controller: widget.controller),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          Opacity(
+                            opacity: (1 - t * 1.6).clamp(0.0, 1.0),
+                            child: IgnorePointer(
+                              ignoring: t > 0.35,
+                              child: _CityChipRow(
+                                cities: widget.cities,
+                                activeCard: widget.activeCard,
+                                cityScrollController:
+                                    widget.cityScrollController,
+                                onCityTap: widget.onCityTap,
+                              ),
+                            ),
+                          ),
+                          Opacity(
+                            opacity: ((t - 0.35) / 0.65).clamp(0.0, 1.0),
+                            child: IgnorePointer(
+                              ignoring: t < 0.35,
+                              child: _CityListView(
+                                cities: widget.cities,
+                                activeCard: widget.activeCard,
+                                onCityTap: (city) {
+                                  widget.onCityTap(city);
+                                  _controller.animateTo(
+                                    0,
+                                    curve: Curves.easeOutCubic,
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: lerpDouble(14, 10, t)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _CityChipRow extends StatelessWidget {
+  final List<GalleryCard> cities;
+  final GalleryCard activeCard;
+  final ScrollController cityScrollController;
+  final ValueChanged<GalleryCard> onCityTap;
+
+  const _CityChipRow({
+    required this.cities,
+    required this.activeCard,
+    required this.cityScrollController,
+    required this.onCityTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (cities.isEmpty) {
+      return Center(
+        child: Text(
+          'No place found',
+          style: TextStyle(
+            color: Colors.black.withAlpha(130),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+    }
+    return ListView.separated(
+      controller: cityScrollController,
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      itemCount: cities.length,
+      separatorBuilder: (_, __) => const SizedBox(width: 10),
+      itemBuilder: (context, index) {
+        final city = cities[index];
+        final selected =
+            city.id == activeCard.id && city.value == activeCard.value;
+        return _CityPhotoChip(
+          card: city,
+          selected: selected,
+          onTap: () => onCityTap(city),
+        );
+      },
+    );
+  }
+}
+
+class _CityListView extends StatelessWidget {
+  final List<GalleryCard> cities;
+  final GalleryCard activeCard;
+  final ValueChanged<GalleryCard> onCityTap;
+
+  const _CityListView({
+    required this.cities,
+    required this.activeCard,
+    required this.onCityTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (cities.isEmpty) {
+      return Center(
+        child: Text(
+          'No place found',
+          style: TextStyle(
+            color: Colors.black.withAlpha(130),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+    }
+    return ListView.separated(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.only(bottom: 4),
+      itemCount: cities.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final city = cities[index];
+        final selected =
+            city.id == activeCard.id && city.value == activeCard.value;
+        return _CityListTile(
+          card: city,
+          selected: selected,
+          onTap: () => onCityTap(city),
+        );
+      },
+    );
+  }
+}
+
+class _CityListTile extends StatelessWidget {
+  final GalleryCard card;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _CityListTile({
+    required this.card,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? primaryColor.withAlpha(24) : Colors.white.withAlpha(150),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected ? primaryColor.withAlpha(140) : Colors.white.withAlpha(190),
+            ),
+          ),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: 52,
+                  height: 52,
+                  child: card.coverUrl.isEmpty
+                      ? ColoredBox(
+                          color: const Color(0xFFF2E9E4),
+                          child: Icon(
+                            CupertinoIcons.photo,
+                            color: primaryColor,
+                          ),
+                        )
+                      : NetworkImageWithLoader(
+                          imageUrl: card.coverUrl,
+                          title: card.title,
+                          headers: Get.find<GalleryController>().imageHeaders,
+                        ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      card.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${card.count ?? card.photos.length} Photos',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: primaryColor,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                CupertinoIcons.chevron_right,
+                size: 18,
+                color: Colors.black.withAlpha(90),
               ),
             ],
           ),
