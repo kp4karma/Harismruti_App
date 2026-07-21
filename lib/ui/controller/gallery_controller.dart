@@ -612,19 +612,28 @@ class GalleryController extends GetxController {
     }
   }
 
-  Future<List<GalleryPhoto>> loadPhotosForCard(GalleryCard card) {
+  Future<List<GalleryPhoto>> loadPhotosForCard(GalleryCard card, {int page = 1}) {
     if (card.type == 'person' && card.id > 0) {
-      return _repository.getPersonPhotos(groupId: card.id, perPage: 120);
+      return _repository.getPersonPhotos(
+        groupId: card.id,
+        page: page,
+        perPage: 120,
+      );
     }
     if (card.type == 'collection') {
       final year = int.tryParse(card.value) ?? card.id;
       if (year > 0) {
-        return _repository.getCollectionYearPhotos(year: year, perPage: 120);
+        return _repository.getCollectionYearPhotos(
+          year: year,
+          page: page,
+          perPage: 120,
+        );
       }
     }
     return _repository.getByAttributePhotos(
       slug: card.type,
       value: card.value,
+      page: page,
       perPage: 120,
     );
   }
@@ -632,24 +641,32 @@ class GalleryController extends GetxController {
   Future<List<GalleryPhoto>> loadPhotosForFilter({
     required String slug,
     required String value,
+    int page = 1,
   }) {
     if (slug == 'duration') {
       return _repository.getCollectionYearPhotos(
         year: int.tryParse(value) ?? 0,
+        page: page,
         perPage: 120,
       );
     }
     return _repository.getByAttributePhotos(
       slug: slug,
       value: value,
+      page: page,
       perPage: 120,
     );
   }
 
   Future<List<GalleryPhoto>> loadPhotosForFilters({
     required Map<String, List<String>> selected,
+    int page = 1,
   }) {
-    return _repository.getFilteredPhotos(selected: selected, perPage: 120);
+    return _repository.getFilteredPhotos(
+      selected: selected,
+      page: page,
+      perPage: 120,
+    );
   }
 
   Future<GalleryPhotoAttributes> loadPhotoAttributes(int photoId) {

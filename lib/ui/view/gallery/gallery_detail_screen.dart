@@ -30,6 +30,7 @@ class GalleryDetailScreen extends StatefulWidget {
   final String subtitle;
   final String? coverUrl;
   final Future<List<GalleryPhoto>> Function() loader;
+  final Future<List<GalleryPhoto>> Function(int page)? loadMore;
   final bool showRecentPhotoMetadata;
 
   const GalleryDetailScreen({
@@ -37,6 +38,7 @@ class GalleryDetailScreen extends StatefulWidget {
     required this.title,
     required this.subtitle,
     required this.loader,
+    this.loadMore,
     this.coverUrl,
     this.showRecentPhotoMetadata = false,
   });
@@ -48,6 +50,7 @@ class GalleryDetailScreen extends StatefulWidget {
       subtitle: card.subtitle,
       coverUrl: card.coverUrl,
       loader: () => controller.loadPhotosForCard(card),
+      loadMore: (page) => controller.loadPhotosForCard(card, page: page),
     );
   }
 
@@ -62,6 +65,11 @@ class GalleryDetailScreen extends StatefulWidget {
       title: value,
       subtitle: '$title - $count Photos',
       loader: () => controller.loadPhotosForFilter(slug: slug, value: value),
+      loadMore: (page) => controller.loadPhotosForFilter(
+        slug: slug,
+        value: value,
+        page: page,
+      ),
     );
   }
 
@@ -75,6 +83,8 @@ class GalleryDetailScreen extends StatefulWidget {
       title: title,
       subtitle: subtitle,
       loader: () => controller.loadPhotosForFilters(selected: selected),
+      loadMore: (page) =>
+          controller.loadPhotosForFilters(selected: selected, page: page),
     );
   }
 
@@ -83,62 +93,167 @@ class GalleryDetailScreen extends StatefulWidget {
 }
 
 class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
-  late final Future<List<GalleryPhoto>> _photosFuture;
+  static const int _perPage = 120;
+
   final GalleryController _galleryController = Get.find<GalleryController>();
+  final ScrollController _scrollController = ScrollController();
+  final List<GalleryPhoto> _photos = [];
+
+  bool _initialLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = false;
+  bool _failed = false;
+  int _page = 1;
 
   @override
   void initState() {
     super.initState();
-    _photosFuture = widget.loader();
+    _scrollController.addListener(_onScroll);
+    _loadInitial();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadInitial() async {
+    try {
+      final photos = await widget.loader();
+      debugPrint(
+        'GalleryDetailScreen[${widget.title}]: initial load returned=${photos.length}',
+      );
+      if (!mounted) return;
+      setState(() {
+        _photos
+          ..clear()
+          ..addAll(_dedupe(photos, existing: const []));
+        _page = 1;
+        _hasMore = widget.loadMore != null && photos.length >= _perPage;
+        _initialLoading = false;
+        _failed = false;
+      });
+    } catch (e) {
+      debugPrint('GalleryDetailScreen[${widget.title}]: initial load failed, $e');
+      if (!mounted) return;
+      setState(() {
+        _initialLoading = false;
+        _failed = true;
+      });
+    }
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    if (_scrollController.position.extentAfter > 600) return;
+    _loadMore();
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoadingMore || !_hasMore || widget.loadMore == null) return;
+    setState(() => _isLoadingMore = true);
+    final nextPage = _page + 1;
+    try {
+      final photos = await widget.loadMore!(nextPage);
+      debugPrint(
+        'GalleryDetailScreen[${widget.title}]: page=$nextPage returned=${photos.length}',
+      );
+      if (!mounted) return;
+      final newPhotos = _dedupe(photos, existing: _photos);
+      setState(() {
+        _photos.addAll(newPhotos);
+        _page = nextPage;
+        _hasMore = photos.length >= _perPage;
+        _isLoadingMore = false;
+      });
+      debugPrint(
+        'GalleryDetailScreen[${widget.title}]: page=$nextPage '
+        'totalDisplayed=${_photos.length} hasMore=$_hasMore',
+      );
+    } catch (e) {
+      debugPrint(
+        'GalleryDetailScreen[${widget.title}]: page=$nextPage failed, $e',
+      );
+      if (!mounted) return;
+      setState(() => _isLoadingMore = false);
+    }
+  }
+
+  List<GalleryPhoto> _dedupe(
+    List<GalleryPhoto> incoming, {
+    required List<GalleryPhoto> existing,
+  }) {
+    final existingIds = existing
+        .where((photo) => photo.id > 0)
+        .map((photo) => photo.id)
+        .toSet();
+    final existingUrls = existing
+        .where((photo) => photo.id <= 0)
+        .map((photo) => photo.thumbnailUrl)
+        .toSet();
+    return incoming.where((photo) {
+      if (photo.id > 0) return existingIds.add(photo.id);
+      return photo.thumbnailUrl.isNotEmpty && existingUrls.add(photo.thumbnailUrl);
+    }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
+    final cover = widget.coverUrl?.isNotEmpty == true
+        ? widget.coverUrl!
+        : _photos.isNotEmpty
+        ? _photos.first.thumbnailUrl
+        : '';
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F6F3),
-      body: FutureBuilder<List<GalleryPhoto>>(
-        future: _photosFuture,
-        builder: (context, snapshot) {
-          final photos = snapshot.data ?? const <GalleryPhoto>[];
-          final cover = widget.coverUrl?.isNotEmpty == true
-              ? widget.coverUrl!
-              : photos.isNotEmpty
-              ? photos.first.thumbnailUrl
-              : '';
-
-          return CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              _MusicStyleHeader(
-                title: widget.title,
-                subtitle: widget.subtitle,
-                coverUrl: cover,
-                headers: _galleryController.imageHeaders,
+      body: CustomScrollView(
+        controller: _scrollController,
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          _MusicStyleHeader(
+            title: widget.title,
+            subtitle: widget.subtitle,
+            coverUrl: cover,
+            headers: _galleryController.imageHeaders,
+          ),
+          if (_initialLoading)
+            const SliverPadding(
+              padding: EdgeInsets.all(16),
+              sliver: _DetailShimmerMosaic(),
+            )
+          else if (_photos.isEmpty)
+            SliverToBoxAdapter(
+              child: GalleryEmptyState(
+                height: 260,
+                message: _failed ? 'Unable to load photos' : 'No photos found',
               ),
-              if (snapshot.connectionState != ConnectionState.done)
-                const SliverPadding(
-                  padding: EdgeInsets.all(16),
-                  sliver: _DetailShimmerMosaic(),
-                )
-              else if (photos.isEmpty)
-                const SliverToBoxAdapter(
-                  child: GalleryEmptyState(
-                    height: 260,
-                    message: 'No photos found',
+            )
+          else ...[
+            _MosaicPhotoSliver(
+              photos: _photos,
+              title: widget.title,
+              headers: _galleryController.imageHeaders,
+              showRecentPhotoMetadata: widget.showRecentPhotoMetadata,
+            ),
+            if (_isLoadingMore)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Center(
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2.4),
+                    ),
                   ),
-                )
-              else ...[
-                _MosaicPhotoSliver(
-                  photos: photos,
-                  title: widget.title,
-                  headers: _galleryController.imageHeaders,
-                  showRecentPhotoMetadata: widget.showRecentPhotoMetadata,
                 ),
-                const SliverToBoxAdapter(child: SizedBox(height: 28)),
-              ],
-            ],
-          );
-        },
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: 28)),
+          ],
+        ],
       ),
     );
   }
