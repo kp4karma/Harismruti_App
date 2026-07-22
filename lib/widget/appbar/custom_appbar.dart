@@ -136,6 +136,38 @@ class _ProfileAppbarButton extends StatelessWidget {
         ? Get.find<ProfileController>()
         : Get.put(ProfileController());
     return Obx(() {
+      final image = controller.profileImage.value;
+      final avatarUrl = controller.avatarUrl;
+
+      Widget avatarChild;
+      if (image != null) {
+        avatarChild = ClipOval(
+          child: Image.file(
+            image,
+            width: 44,
+            height: 44,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _AppbarInitial(controller: controller),
+          ),
+        );
+      } else if (avatarUrl.isNotEmpty) {
+        avatarChild = ClipOval(
+          child: Image.network(
+            avatarUrl,
+            width: 44,
+            height: 44,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _AppbarInitial(controller: controller),
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return _AppbarInitial(controller: controller);
+            },
+          ),
+        );
+      } else {
+        avatarChild = _AppbarInitial(controller: controller);
+      }
+
       return GestureDetector(
         onTap: onTap,
         child: Container(
@@ -147,16 +179,27 @@ class _ProfileAppbarButton extends StatelessWidget {
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white.withAlpha(180)),
           ),
-          child: Text(
-            controller.avatarInitial,
-            style: TextStyle(
-              color: primaryColor,
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
+          child: avatarChild,
         ),
       );
     });
+  }
+}
+
+class _AppbarInitial extends StatelessWidget {
+  final ProfileController controller;
+
+  const _AppbarInitial({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      controller.avatarInitial,
+      style: TextStyle(
+        color: primaryColor,
+        fontSize: 18,
+        fontWeight: FontWeight.w900,
+      ),
+    );
   }
 }

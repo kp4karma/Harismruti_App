@@ -580,10 +580,14 @@ class GalleryWithFeatureCard extends StatelessWidget {
           children: [
             card.coverUrl.isEmpty
                 ? Icon(CupertinoIcons.photo, color: primaryColor)
-                : NetworkImageWithLoader(
-                    imageUrl: card.coverUrl,
-                    title: card.title,
-                    headers: headers,
+                : ColoredBox(
+                    color: const Color(0xFFF2E9E4),
+                    child: NetworkImageWithLoader(
+                      imageUrl: card.coverUrl,
+                      title: card.title,
+                      headers: headers,
+                      fit: BoxFit.contain,
+                    ),
                   ),
             DecoratedBox(
               decoration: BoxDecoration(
@@ -621,10 +625,14 @@ class GalleryWithFeatureCard extends StatelessWidget {
                               child: Stack(
                                 fit: StackFit.expand,
                                 children: [
-                                  NetworkImageWithLoader(
-                                    imageUrl: previewImages[index],
-                                    title: card.title,
-                                    headers: headers,
+                                  ColoredBox(
+                                    color: const Color(0xFFF2E9E4),
+                                    child: NetworkImageWithLoader(
+                                      imageUrl: previewImages[index],
+                                      title: card.title,
+                                      headers: headers,
+                                      fit: BoxFit.contain,
+                                    ),
                                   ),
                                   DecoratedBox(
                                     decoration: BoxDecoration(

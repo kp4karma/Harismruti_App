@@ -52,12 +52,10 @@ class SmrutiSectionController extends GetxController {
     if (offset > lastOffset && offset > 50) {
       if (appBarController.value == 1.0) {
         appBarController.reverse();
-        showBottomBar.value = false;
       }
     } else if (offset < lastOffset - 10) {
       if (appBarController.value == 0.0) {
         appBarController.forward();
-        showBottomBar.value = true;
       }
     }
 

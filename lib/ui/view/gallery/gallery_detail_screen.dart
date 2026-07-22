@@ -1868,6 +1868,10 @@ class _ViewerTopBar extends StatelessWidget {
       1 => 'Yesterday',
       _ => _formatShortDate(date),
     };
+    // Photos without a real capture time fall back to a date-only value
+    // (midnight), so showing a fabricated "12:00 AM" would be misleading.
+    final hasKnownTime = date.hour != 0 || date.minute != 0;
+    if (!hasKnownTime) return dayLabel;
     return '$dayLabel  ${_formatTime(date)}';
   }
 
