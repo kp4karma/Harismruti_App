@@ -145,7 +145,7 @@ class MyPhotosController extends GetxController {
   final GalleryRepository _repository;
 
   static const int maxPhotos = 10;
-  static const int _maxUploadBytes = 8 * 1024 * 1024;
+  static const int _selfieTargetBytes = 500 * 1024;
   static const double _frontPoseLimit = 12;
   static const double _sidePoseLimit = 18;
 
@@ -509,45 +509,63 @@ class MyPhotosController extends GetxController {
     return frame.image;
   }
 
+  /// Compresses a My Smruti selfie capture toward ~300-500KB at up to 1080p,
+  /// small enough for fast upload while keeping enough detail for face
+  /// detection/matching. Scoped to this controller only — other gallery and
+  /// camera flows in the app are untouched.
   Future<String> _compressImageIfNeeded(String path) async {
     final source = File(path);
     if (!source.existsSync()) return path;
-    if (source.lengthSync() <= _maxUploadBytes) return path;
+    if (source.lengthSync() <= _selfieTargetBytes) return path;
 
     final tempDir = await getTemporaryDirectory();
     final stamp = DateTime.now().microsecondsSinceEpoch;
+    String? bestPath;
 
-    for (final quality in const [82, 72, 62, 52, 42]) {
+    const ladder = [
+      (quality: 82, dimension: 1080),
+      (quality: 72, dimension: 1080),
+      (quality: 62, dimension: 960),
+      (quality: 52, dimension: 800),
+      (quality: 42, dimension: 720),
+    ];
+
+    for (final step in ladder) {
       final targetPath =
-          '${tempDir.path}${Platform.pathSeparator}harismruti-$stamp-$quality.jpg';
+          '${tempDir.path}${Platform.pathSeparator}'
+          'harismruti-selfie-$stamp-${step.quality}.jpg';
       final compressed = await FlutterImageCompress.compressAndGetFile(
         path,
         targetPath,
-        quality: quality,
-        minWidth: 1600,
-        minHeight: 1600,
+        quality: step.quality,
+        minWidth: step.dimension,
+        minHeight: step.dimension,
         format: CompressFormat.jpeg,
       );
       if (compressed == null) continue;
 
       final compressedFile = File(compressed.path);
       if (!compressedFile.existsSync()) continue;
-      if (compressedFile.lengthSync() <= _maxUploadBytes) {
+      bestPath = compressedFile.path;
+      if (compressedFile.lengthSync() <= _selfieTargetBytes) {
         return compressedFile.path;
       }
     }
 
     final fallbackPath =
-        '${tempDir.path}${Platform.pathSeparator}harismruti-$stamp-small.jpg';
+        '${tempDir.path}${Platform.pathSeparator}harismruti-selfie-$stamp-small.jpg';
     final fallback = await FlutterImageCompress.compressAndGetFile(
       path,
       fallbackPath,
-      quality: 32,
-      minWidth: 1000,
-      minHeight: 1000,
+      quality: 35,
+      minWidth: 640,
+      minHeight: 640,
       format: CompressFormat.jpeg,
     );
-    return fallback?.path ?? path;
+    if (fallback != null && File(fallback.path).existsSync()) {
+      return fallback.path;
+    }
+    return bestPath ?? path;
   }
 
   Future<void> _deleteStaleTempFiles(List<String> paths) async {
