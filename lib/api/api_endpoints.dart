@@ -5,14 +5,12 @@ enum Environment { debug, profile, production }
 class ApiEndpoints {
   static Environment currentEnvironment = Environment.debug;
 
-  static const String _defaultLiveDomain =
-      "http://103.177.181.215:9000/api/v1/mobile";
-  // static const String _defaultLiveDomain =
-  // //     "http://192.168.31.71:8000/api/v1/mobile";
-  // "http://10.0.2.2:8000/api/v1/mobile";
+  static const String _localDomain = "http://10.0.2.2:8000/api/v1/mobile";
+  static const String _productionDomain =
+      "https://hpsmruti.suhrad.digital/api/v1/mobile";
   static final String _apiBaseUrl = String.fromEnvironment(
     "API_BASE_URL",
-    defaultValue: _defaultLiveDomain,
+    defaultValue: "",
   );
   static final String mobileApiKey = String.fromEnvironment(
     "MOBILE_API_KEY",
@@ -21,11 +19,11 @@ class ApiEndpoints {
   );
 
   static String get mainDomain {
-    if (kIsWeb) return _defaultLiveDomain;
     if (_apiBaseUrl.isNotEmpty) return _apiBaseUrl;
-    return currentEnvironment == Environment.production
-        ? _defaultLiveDomain
-        : _defaultLiveDomain;
+    if (kReleaseMode || currentEnvironment == Environment.production) {
+      return _productionDomain;
+    }
+    return _localDomain;
   }
 
   static String get home => "/home";
@@ -48,6 +46,8 @@ class ApiEndpoints {
   static String get myCollections => "/me/collections";
   static String get myImages => "/me/images";
   static String get myProfileImage => "/me/profile-image";
+  static String get mySmruti => "/me/smruti";
+  static String get myFaceSearch => "/me/face-search";
   static String get myDiary => "/me/diary";
 
   static String collectionMonths(int year) => "/collections/$year/months";
@@ -69,6 +69,8 @@ class ApiEndpoints {
   static String myDiaryEntry(String entryId) =>
       "/me/diary/${Uri.encodeComponent(entryId)}";
   static String myImage(int imageId) => "$mainDomain/me/images/$imageId";
+  static String myFaceSearchStatus(int requestId) =>
+      "/me/face-search/$requestId";
   static String faceThumbnail(int faceId) =>
       "$mainDomain/faces/$faceId/thumbnail";
   static String photoThumbnail(int photoId) =>

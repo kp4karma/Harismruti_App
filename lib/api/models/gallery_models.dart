@@ -108,6 +108,7 @@ class GalleryPhoto {
   final int? height;
   final int? fileSizeBytes;
   final String? fileSizeLabel;
+  final String? fileName;
   final double? latitude;
   final double? longitude;
   final List<String> tags;
@@ -123,6 +124,7 @@ class GalleryPhoto {
     this.height,
     this.fileSizeBytes,
     this.fileSizeLabel,
+    this.fileName,
     this.latitude,
     this.longitude,
     this.tags = const [],
@@ -188,6 +190,12 @@ class GalleryPhoto {
         'size_label',
         'sizeLabel',
       ]),
+      fileName: _readString(json, const [
+        'filename',
+        'file_name',
+        'fileName',
+        'name',
+      ]),
       latitude: _readDouble(json, const [
         'latitude',
         'lat',
@@ -218,6 +226,7 @@ class GalleryPhoto {
       if (height != null) 'height': height,
       if (fileSizeBytes != null) 'file_size_bytes': fileSizeBytes,
       if (fileSizeLabel != null) 'file_size_label': fileSizeLabel,
+      if (fileName != null) 'filename': fileName,
       if (latitude != null) 'latitude': latitude,
       if (longitude != null) 'longitude': longitude,
       if (tags.isNotEmpty) 'tags': tags,

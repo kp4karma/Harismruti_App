@@ -91,6 +91,41 @@ class GalleryRepository {
     return asJsonMap(response.data);
   }
 
+  Future<Map<String, dynamic>> getMySmruti() async {
+    final mobile = currentPhoneNumber();
+    if (mobile.isEmpty) {
+      throw Exception('Mobile number is missing from profile.');
+    }
+    final response = await ApiClient.get(
+      ApiEndpoints.mySmruti,
+      queryParams: {'mobile': mobile},
+    );
+    return asJsonMap(response.data);
+  }
+
+  Future<Map<String, dynamic>> submitMySmrutiSelfie(String path) async {
+    final mobile = currentPhoneNumber();
+    if (mobile.isEmpty) {
+      throw Exception('Mobile number is missing from profile.');
+    }
+    final response = await ApiClient.postMedia(
+      ApiEndpoints.myFaceSearch,
+      data: FormData.fromMap({
+        'name': currentUserName(),
+        'mobile': mobile,
+        'file': await MultipartFile.fromFile(path),
+      }),
+    );
+    return asJsonMap(response.data);
+  }
+
+  Future<Map<String, dynamic>> getMySmrutiRequestStatus(int requestId) async {
+    final response = await ApiClient.get(
+      ApiEndpoints.myFaceSearchStatus(requestId),
+    );
+    return asJsonMap(response.data);
+  }
+
   Future<void> addFavorite(int photoId) async {
     await ApiClient.post(ApiEndpoints.myFavorites, data: {'photo_id': photoId});
   }
@@ -128,7 +163,7 @@ class GalleryRepository {
     required String path,
     required String pose,
   }) async {
-    final phoneNumber = _currentPhoneNumber();
+    final phoneNumber = currentPhoneNumber();
     final fileName = _serverFileName(path, pose);
     final uploadPath = phoneNumber.isEmpty ? 'path' : 'path/$phoneNumber';
     final response = await ApiClient.postMedia(
@@ -154,7 +189,7 @@ class GalleryRepository {
     return safePose.isEmpty ? name : '$safePose-$name';
   }
 
-  String _currentPhoneNumber() {
+  String currentPhoneNumber() {
     final profileJson = StorageHelper.getValue<String>(
       key: StorageKeys.userProfile,
     );
@@ -175,6 +210,24 @@ class GalleryRepository {
       }
     }
     return '';
+  }
+
+  String currentUserName() {
+    final profileJson = StorageHelper.getValue<String>(
+      key: StorageKeys.userProfile,
+    );
+    if (profileJson != null && profileJson.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(profileJson);
+        if (decoded is Map) {
+          for (final key in ['name', 'full_name', 'display_name', 'username']) {
+            final value = decoded[key]?.toString().trim() ?? '';
+            if (value.isNotEmpty && value != 'null') return value;
+          }
+        }
+      } catch (_) {}
+    }
+    return 'Harismruti User';
   }
 
   Future<void> deleteMyImage(int imageId) async {

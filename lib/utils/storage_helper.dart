@@ -13,6 +13,7 @@ class StorageKeys {
   static const String myPhotos = 'myPhotos';
   static const String myDiaryEntries = 'myDiaryEntries';
   static const String myPhotosSubmitted = 'myPhotosSubmitted';
+  static const String mySmrutiRequestId = 'mySmrutiRequestId';
   static const String favoritePhotos = 'favoritePhotos';
   static const String galleryPhotoSnapshots = 'galleryPhotoSnapshots';
   static const String photoUserTags = 'photoUserTags';
@@ -48,7 +49,9 @@ class StorageHelper {
       key: StorageKeys.reorderTutorialSeen,
       defaultValue: false,
     );
-    final lastMobileNumber = getValue<String>(key: StorageKeys.lastMobileNumber);
+    final lastMobileNumber = getValue<String>(
+      key: StorageKeys.lastMobileNumber,
+    );
     final lastMobileCountryCode = getValue<String>(
       key: StorageKeys.lastMobileCountryCode,
     );

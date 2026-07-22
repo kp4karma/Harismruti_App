@@ -26,13 +26,14 @@ class MyPhotosSmruti extends StatelessWidget {
           .length;
       final status = !StorageHelper.isLogin()
           ? 'Login required'
+          : controller.hasPhoneMapping.value
+          ? 'Your Smruti is ready'
           : switch (controller.overallReviewStatus) {
               MyPhotoReviewStatus.verified => 'Verified',
               MyPhotoReviewStatus.pending => 'Verification pending',
               MyPhotoReviewStatus.rejected => 'Rejected - upload again',
-              MyPhotoReviewStatus.draft => requiredDone > 0
-                  ? 'Selfie ready to submit'
-                  : 'Add your selfie',
+              MyPhotoReviewStatus.draft =>
+                requiredDone > 0 ? 'Selfie ready to submit' : 'Add your selfie',
             };
 
       return GestureDetector(
@@ -86,7 +87,9 @@ class MyPhotosSmruti extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Add training photos to find your smruti.',
+                      controller.hasPhoneMapping.value
+                          ? 'Photos linked with your phone number.'
+                          : 'Add a live front selfie to find your smruti.',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -133,9 +136,10 @@ class _MyPhoneGuideScreenState extends State<MyPhoneGuideScreen> {
   void initState() {
     super.initState();
     _showEditor =
-        controller.photos.isEmpty ||
-        controller.overallReviewStatus == MyPhotoReviewStatus.draft ||
-        controller.overallReviewStatus == MyPhotoReviewStatus.rejected;
+        !controller.hasPhoneMapping.value &&
+        (controller.photos.isEmpty ||
+            controller.overallReviewStatus == MyPhotoReviewStatus.draft ||
+            controller.overallReviewStatus == MyPhotoReviewStatus.rejected);
     _photosWorker = ever<List<MyPhotoItem>>(controller.photos, (_) {
       if (!mounted || !_showEditor) return;
       if (controller.isVerified) {
@@ -188,7 +192,8 @@ class _MyPhoneGuideScreenState extends State<MyPhoneGuideScreen> {
                       _ReviewStatePanel(controller: controller),
                       const SizedBox(height: 12),
                     ],
-                    if (!controller.isVerified)
+                    if (!controller.isVerified &&
+                        !controller.hasPhoneMapping.value)
                       _EditorToggleButton(
                         controller: controller,
                         isOpen: _showEditor,
@@ -196,7 +201,9 @@ class _MyPhoneGuideScreenState extends State<MyPhoneGuideScreen> {
                           setState(() => _showEditor = !_showEditor);
                         },
                       ),
-                    if (_showEditor && !controller.isVerified) ...[
+                    if (_showEditor &&
+                        !controller.isVerified &&
+                        !controller.hasPhoneMapping.value) ...[
                       const SizedBox(height: 12),
                       _FrontSelfieCard(controller: controller),
                     ],
@@ -204,7 +211,9 @@ class _MyPhoneGuideScreenState extends State<MyPhoneGuideScreen> {
                       const SizedBox(height: 8),
                       _MessageBox(message: controller.helperMessage.value),
                     ],
-                    if (_showEditor && !controller.isVerified) ...[
+                    if (_showEditor &&
+                        !controller.isVerified &&
+                        !controller.hasPhoneMapping.value) ...[
                       const SizedBox(height: 12),
                       _SubmitCard(
                         controller: controller,
@@ -553,7 +562,9 @@ class _FrontSelfieCard extends StatelessWidget {
     }
     Navigator.push(
       context,
-      CupertinoPageRoute(builder: (_) => const MyPhoneCaptureScreen(pose: pose)),
+      CupertinoPageRoute(
+        builder: (_) => const MyPhoneCaptureScreen(pose: pose),
+      ),
     );
   }
 }

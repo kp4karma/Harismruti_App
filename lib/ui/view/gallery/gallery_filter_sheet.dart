@@ -30,6 +30,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
   final GalleryController _controller = Get.find<GalleryController>();
   final TextEditingController _searchController = TextEditingController();
   final Map<String, Set<String>> _selectedValues = {};
+  final Map<String, Map<String, GalleryFilterOption>> _selectedOptions = {};
   int _selectedIndex = 0;
   String _query = '';
 
@@ -69,6 +70,15 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
       final values = _selectedValues.putIfAbsent(group.slug, () => <String>{});
       if (!values.add(option.value)) {
         values.remove(option.value);
+        _selectedOptions[group.slug]?.remove(option.value);
+        if (_selectedOptions[group.slug]?.isEmpty ?? false) {
+          _selectedOptions.remove(group.slug);
+        }
+      } else {
+        _selectedOptions.putIfAbsent(
+          group.slug,
+          () => <String, GalleryFilterOption>{},
+        )[option.value] = option;
       }
       if (values.isEmpty) _selectedValues.remove(group.slug);
     });
@@ -84,10 +94,19 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
 
   GalleryFilterGroup _withAvailableOptions(GalleryFilterGroup group) {
     final selected = _selectedValues[group.slug] ?? const <String>{};
+    final optionsByValue = <String, GalleryFilterOption>{
+      for (final option in group.options) option.value: option,
+    };
+    for (final value in selected) {
+      final selectedOption = _selectedOptions[group.slug]?[value];
+      if (selectedOption != null) {
+        optionsByValue.putIfAbsent(value, () => selectedOption);
+      }
+    }
     return GalleryFilterGroup(
       slug: group.slug,
       title: group.title,
-      options: group.options
+      options: optionsByValue.values
           .where(
             (option) => option.count > 0 || selected.contains(option.value),
           )
@@ -108,43 +127,14 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
         .toList();
   }
 
-  void _pruneUnavailableSelections(List<GalleryFilterGroup> groups) {
-    if (_selectedValues.isEmpty) return;
-
-    final availableValues = {
-      for (final group in groups)
-        group.slug: group.options.map((option) => option.value).toSet(),
-    };
-    var changed = false;
-
-    for (final slug in _selectedValues.keys.toList()) {
-      final selected = _selectedValues[slug];
-      final available = availableValues[slug];
-      if (selected == null) continue;
-      if (available == null) {
-        _selectedValues.remove(slug);
-        changed = true;
-        continue;
-      }
-
-      final before = selected.length;
-      selected.removeWhere((value) => !available.contains(value));
-      if (selected.isEmpty) {
-        _selectedValues.remove(slug);
-      }
-      changed = changed || selected.length != before;
-    }
-
-    if (changed) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() {});
-      });
-    }
-  }
-
   void _clearFilters() {
-    if (_selectedValues.isEmpty) return;
-    setState(_selectedValues.clear);
+    if (_selectedValues.isEmpty && _query.isEmpty) return;
+    setState(() {
+      _selectedValues.clear();
+      _selectedOptions.clear();
+      _selectedIndex = 0;
+    });
+    _searchController.clear();
     _controller.loadFilters(force: true);
   }
 
@@ -251,7 +241,6 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                       ),
                     );
                   }
-                  _pruneUnavailableSelections(availableGroups);
                   final groups = _searchMatchedGroups(availableGroups);
                   if (groups.isEmpty) {
                     return Center(
@@ -316,6 +305,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
               ),
               _FilterActionsBar(
                 selectedCount: _selectedCount,
+                hasSearchQuery: _query.isNotEmpty,
                 onClear: _clearFilters,
                 onApply: _applyFilters,
               ),
@@ -495,11 +485,13 @@ class _FilterOptionsList extends StatelessWidget {
 
 class _FilterActionsBar extends StatelessWidget {
   final int selectedCount;
+  final bool hasSearchQuery;
   final VoidCallback onClear;
   final VoidCallback onApply;
 
   const _FilterActionsBar({
     required this.selectedCount,
+    required this.hasSearchQuery,
     required this.onClear,
     required this.onApply,
   });
@@ -517,7 +509,7 @@ class _FilterActionsBar extends StatelessWidget {
         child: Row(
           children: [
             TextButton(
-              onPressed: selectedCount == 0 ? null : onClear,
+              onPressed: selectedCount == 0 && !hasSearchQuery ? null : onClear,
               child: const Text('Clear'),
             ),
             const SizedBox(width: 10),
@@ -611,10 +603,7 @@ class _FilterSheetError extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
-            TextButton(
-              onPressed: onRetry,
-              child: const Text('Retry'),
-            ),
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
           ],
         ),
       ),

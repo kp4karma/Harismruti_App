@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -153,7 +154,11 @@ class MyPhotosController extends GetxController {
   final RxList<GalleryPhoto> matchedPhotos = <GalleryPhoto>[].obs;
   final RxBool isUploading = false.obs;
   final RxBool isFetchingMatches = false.obs;
+  final RxBool isCheckingMapping = false.obs;
+  final RxBool hasPhoneMapping = false.obs;
+  final RxnInt faceSearchRequestId = RxnInt();
   final RxString helperMessage = ''.obs;
+  Timer? _statusTimer;
   final FaceDetector _faceDetector = FaceDetector(
     options: FaceDetectorOptions(
       enableClassification: true,
@@ -211,6 +216,7 @@ class MyPhotosController extends GetxController {
   }
 
   bool get isVerified => overallReviewStatus == MyPhotoReviewStatus.verified;
+  bool get canShowMatchedSmruti => hasPhoneMapping.value;
   bool get isRejected => overallReviewStatus == MyPhotoReviewStatus.rejected;
   bool get isPendingReview =>
       overallReviewStatus == MyPhotoReviewStatus.pending;
@@ -221,11 +227,12 @@ class MyPhotosController extends GetxController {
   void onInit() {
     super.onInit();
     _loadPhotos();
-    _loadRemotePhotos();
+    refreshSmrutiFlow();
   }
 
   @override
   void onClose() {
+    _statusTimer?.cancel();
     _faceDetector.close();
     _lenientFaceDetector.close();
     super.onClose();
@@ -317,48 +324,135 @@ class MyPhotosController extends GetxController {
     }
     isUploading.value = true;
     try {
-      final toUpload = photos
-          .where(
-            (photo) =>
-                photo.reviewStatus != MyPhotoReviewStatus.pending &&
-                photo.reviewStatus != MyPhotoReviewStatus.verified,
-          )
-          .toList();
-      for (final photo in toUpload) {
-        final uploadPath = await _compressImageIfNeeded(photo.path);
-        await _repository.uploadMyImage(
-          path: uploadPath,
-          pose: photo.pose.name,
+      // Recheck the phone mapping immediately before uploading. An admin may
+      // have assigned this user while the screen was open.
+      if (await _loadPhoneMapping()) return;
+      final front = photoForPose(MyPhotoPose.front)!;
+      final uploadPath = await _compressImageIfNeeded(front.path);
+      final result = await _repository.submitMySmrutiSelfie(uploadPath);
+      final requestId = int.tryParse('${result['request_id']}');
+      faceSearchRequestId.value = requestId;
+      if (requestId != null) {
+        StorageHelper.setValue(
+          key: StorageKeys.mySmrutiRequestId,
+          value: requestId,
         );
-        final index = photos.indexOf(photo);
-        if (index != -1) {
-          photos[index] = MyPhotoItem(
-            id: photo.id,
-            path: photo.path,
-            pose: photo.pose,
-            reviewStatus: MyPhotoReviewStatus.pending,
-            remoteUrl: photo.remoteUrl,
-            note: photo.note,
-          );
-          _savePhotos();
-        }
       }
+      final index = photos.indexOf(front);
+      photos[index] = MyPhotoItem(
+        path: front.path,
+        pose: front.pose,
+        reviewStatus: MyPhotoReviewStatus.pending,
+      );
       _sortPhotos();
-      final front = photoForPose(MyPhotoPose.front);
-      if (front != null && Get.isRegistered<ProfileController>()) {
+      if (Get.isRegistered<ProfileController>()) {
         final profileController = Get.find<ProfileController>();
         profileController.profileImage.value = File(front.path);
         profileController.loadUploadedProfileImageUrl();
       }
       helperMessage.value =
-          'Photos uploaded. Verification pending for admin approval.';
+          result['message']?.toString() ??
+          'Selfie submitted. Verification is pending admin approval.';
       _savePhotos();
-      await _loadRemotePhotos();
+      if (requestId != null) await _refreshRequestStatus(requestId);
     } catch (error) {
       helperMessage.value = error.toString().replaceFirst('Exception: ', '');
     } finally {
       isUploading.value = false;
     }
+  }
+
+  Future<void> refreshSmrutiFlow() async {
+    if (!StorageHelper.isLogin() || isCheckingMapping.value) return;
+    isCheckingMapping.value = true;
+    try {
+      if (await _loadPhoneMapping()) return;
+      final storedId = StorageHelper.getValue<int>(
+        key: StorageKeys.mySmrutiRequestId,
+      );
+      if (storedId != null) {
+        faceSearchRequestId.value = storedId;
+        await _refreshRequestStatus(storedId);
+      } else {
+        await _loadRemotePhotos();
+      }
+    } catch (error) {
+      helperMessage.value = error.toString().replaceFirst('Exception: ', '');
+    } finally {
+      isCheckingMapping.value = false;
+    }
+  }
+
+  Future<bool> _loadPhoneMapping() async {
+    final result = await _repository.getMySmruti();
+    if (result['found'] != true) {
+      hasPhoneMapping.value = false;
+      return false;
+    }
+    final mapped =
+        (result['photos'] is List ? result['photos'] as List : const [])
+            .map(GalleryPhoto.fromJson)
+            .where((photo) => photo.id > 0)
+            .toList();
+    matchedPhotos.assignAll(mapped);
+    hasPhoneMapping.value = true;
+    faceSearchRequestId.value = null;
+    StorageHelper.removeValue(StorageKeys.mySmrutiRequestId);
+    helperMessage.value = mapped.isEmpty
+        ? 'Your phone number is assigned. Photos will appear when available.'
+        : 'Your Smruti photos are ready.';
+    return true;
+  }
+
+  Future<void> _refreshRequestStatus(int requestId) async {
+    final result = await _repository.getMySmrutiRequestStatus(requestId);
+    switch (result['status']?.toString()) {
+      case 'accepted':
+        _statusTimer?.cancel();
+        helperMessage.value = 'Approved. Checking for your Smruti photos.';
+        await _loadPhoneMapping();
+        return;
+      case 'rejected':
+        _statusTimer?.cancel();
+        StorageHelper.removeValue(StorageKeys.mySmrutiRequestId);
+        faceSearchRequestId.value = null;
+        final front = photoForPose(MyPhotoPose.front);
+        if (front != null) {
+          photos[photos.indexOf(front)] = MyPhotoItem(
+            path: front.path,
+            pose: front.pose,
+            reviewStatus: MyPhotoReviewStatus.rejected,
+            note: 'Rejected by admin. Please take a new front selfie.',
+          );
+          _savePhotos();
+        }
+        helperMessage.value =
+            'Admin rejected the selfie. Please upload a new one.';
+        return;
+      default:
+        helperMessage.value = 'Selfie submitted. Waiting for admin approval.';
+        _startStatusPolling(requestId);
+        return;
+    }
+  }
+
+  void _startStatusPolling(int requestId) {
+    _statusTimer?.cancel();
+    _statusTimer = Timer.periodic(const Duration(seconds: 15), (_) async {
+      if (isCheckingMapping.value) return;
+      isCheckingMapping.value = true;
+      try {
+        if (!await _loadPhoneMapping()) {
+          await _refreshRequestStatus(requestId);
+        } else {
+          _statusTimer?.cancel();
+        }
+      } catch (_) {
+        // A temporary network error should not stop later status checks.
+      } finally {
+        isCheckingMapping.value = false;
+      }
+    });
   }
 
   Future<MyPhotoValidationResult> validatePhoto(

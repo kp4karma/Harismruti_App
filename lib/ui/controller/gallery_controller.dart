@@ -99,6 +99,7 @@ class GalleryController extends GetxController {
   int _recentPage = 1;
   final Map<GallerySwami, _GalleryTabSnapshot> _tabSnapshots = {};
   final Map<GallerySwami, List<GalleryFilterGroup>> _filterSnapshots = {};
+  int _filtersRequestId = 0;
 
   Map<String, String> get imageHeaders => _repository.imageHeaders;
   bool get hasAnyData =>
@@ -214,7 +215,10 @@ class GalleryController extends GetxController {
 
     selectedSwami.value = next;
     GalleryRepository.activeSwami = next;
-    StorageHelper.setValue(key: StorageKeys.selectedSwami, value: next.apiValue);
+    StorageHelper.setValue(
+      key: StorageKeys.selectedSwami,
+      value: next.apiValue,
+    );
 
     final snapshot = _tabSnapshots[next];
     if (snapshot != null) {
@@ -599,22 +603,30 @@ class GalleryController extends GetxController {
     bool force = false,
   }) async {
     if (!force && selected.isEmpty && filters.isNotEmpty) return;
+    final requestId = ++_filtersRequestId;
     areFiltersLoading.value = true;
     filtersError.value = '';
     try {
       final loadedFilters = await _repository.getFilters(selected: selected);
+      if (requestId != _filtersRequestId) return;
       filters.assignAll(loadedFilters);
       if (selected.isEmpty) {
         _filterSnapshots[selectedSwami.value] = loadedFilters;
       }
     } catch (error) {
+      if (requestId != _filtersRequestId) return;
       filtersError.value = error.toString().replaceFirst('Exception: ', '');
     } finally {
-      areFiltersLoading.value = false;
+      if (requestId == _filtersRequestId) {
+        areFiltersLoading.value = false;
+      }
     }
   }
 
-  Future<List<GalleryPhoto>> loadPhotosForCard(GalleryCard card, {int page = 1}) {
+  Future<List<GalleryPhoto>> loadPhotosForCard(
+    GalleryCard card, {
+    int page = 1,
+  }) {
     if (card.type == 'person' && card.id > 0) {
       return _repository.getPersonPhotos(
         groupId: card.id,

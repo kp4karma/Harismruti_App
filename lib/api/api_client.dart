@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:get/get.dart' as get_x;
 
 import 'package:harismruti/api/api_endpoints.dart';
+import 'package:harismruti/api/api_visibility.dart';
 import 'package:harismruti/helper/log_helper.dart';
 import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:harismruti/utils/app_routes.dart';
@@ -104,6 +105,7 @@ class ApiClient {
               );
             }
             if (response.statusCode == 200 || response.statusCode == 201) {
+              response.data = filterIgnoredApiItems(response.data);
               return handler.next(response);
             }
             return handler.reject(

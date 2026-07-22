@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -65,11 +66,8 @@ class GalleryDetailScreen extends StatefulWidget {
       title: value,
       subtitle: '$title - $count Photos',
       loader: () => controller.loadPhotosForFilter(slug: slug, value: value),
-      loadMore: (page) => controller.loadPhotosForFilter(
-        slug: slug,
-        value: value,
-        page: page,
-      ),
+      loadMore: (page) =>
+          controller.loadPhotosForFilter(slug: slug, value: value, page: page),
     );
   }
 
@@ -136,7 +134,9 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
         _failed = false;
       });
     } catch (e) {
-      debugPrint('GalleryDetailScreen[${widget.title}]: initial load failed, $e');
+      debugPrint(
+        'GalleryDetailScreen[${widget.title}]: initial load failed, $e',
+      );
       if (!mounted) return;
       setState(() {
         _initialLoading = false;
@@ -195,7 +195,8 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
         .toSet();
     return incoming.where((photo) {
       if (photo.id > 0) return existingIds.add(photo.id);
-      return photo.thumbnailUrl.isNotEmpty && existingUrls.add(photo.thumbnailUrl);
+      return photo.thumbnailUrl.isNotEmpty &&
+          existingUrls.add(photo.thumbnailUrl);
     }).toList();
   }
 
@@ -1223,61 +1224,61 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
         children: [
           _reactive(
             () => PageView.builder(
-            controller: _pageController,
-            itemCount: _photosList.length,
-            allowImplicitScrolling: true,
-            physics: _zoomModeActive
-                ? const NeverScrollableScrollPhysics()
-                : const PageScrollPhysics(),
-            onPageChanged: (value) {
-              setState(() {
-                _index = value;
-                _resetZoom(animated: false);
-              });
-              _precacheAround(value);
-              _centerThumbnail(value);
-              _maybeLoadMoreRecent(value);
-            },
-            itemBuilder: (context, index) {
-              final photo = _photosList[index];
-              return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _toggleChrome,
-                onDoubleTapDown: _rememberDoubleTapPosition,
-                onDoubleTap: _toggleZoom,
-                onVerticalDragEnd: _zoomModeActive
-                    ? null
-                    : (details) {
-                        final velocity = details.primaryVelocity ?? 0;
-                        if (velocity > 360) {
-                          Navigator.pop(context);
-                        }
-                      },
-                child: InteractiveViewer(
-                  transformationController: _transformationController,
-                  minScale: 1,
-                  maxScale: 5,
-                  scaleEnabled: true,
-                  panEnabled: _zoomModeActive,
-                  boundaryMargin: const EdgeInsets.all(96),
-                  clipBehavior: Clip.none,
-                  onInteractionStart: _handleZoomInteractionStart,
-                  onInteractionUpdate: _handleZoomInteractionUpdate,
-                  onInteractionEnd: _handleZoomInteractionEnd,
-                  child: Center(
-                    child: Hero(
-                      tag: 'photo-${photo.id}',
-                      child: _FullscreenImage(
-                        photo: photo,
-                        title: widget.title,
-                        headers: _controller.imageHeaders,
-                        chromeVisible: _chromeVisible,
+              controller: _pageController,
+              itemCount: _photosList.length,
+              allowImplicitScrolling: true,
+              physics: _zoomModeActive
+                  ? const NeverScrollableScrollPhysics()
+                  : const PageScrollPhysics(),
+              onPageChanged: (value) {
+                setState(() {
+                  _index = value;
+                  _resetZoom(animated: false);
+                });
+                _precacheAround(value);
+                _centerThumbnail(value);
+                _maybeLoadMoreRecent(value);
+              },
+              itemBuilder: (context, index) {
+                final photo = _photosList[index];
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _toggleChrome,
+                  onDoubleTapDown: _rememberDoubleTapPosition,
+                  onDoubleTap: _toggleZoom,
+                  onVerticalDragEnd: _zoomModeActive
+                      ? null
+                      : (details) {
+                          final velocity = details.primaryVelocity ?? 0;
+                          if (velocity > 360) {
+                            Navigator.pop(context);
+                          }
+                        },
+                  child: InteractiveViewer(
+                    transformationController: _transformationController,
+                    minScale: 1,
+                    maxScale: 5,
+                    scaleEnabled: true,
+                    panEnabled: _zoomModeActive,
+                    boundaryMargin: const EdgeInsets.all(96),
+                    clipBehavior: Clip.none,
+                    onInteractionStart: _handleZoomInteractionStart,
+                    onInteractionUpdate: _handleZoomInteractionUpdate,
+                    onInteractionEnd: _handleZoomInteractionEnd,
+                    child: Center(
+                      child: Hero(
+                        tag: 'photo-${photo.id}',
+                        child: _FullscreenImage(
+                          photo: photo,
+                          title: widget.title,
+                          headers: _controller.imageHeaders,
+                          chromeVisible: _chromeVisible,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
             ),
           ),
           SafeArea(
@@ -1361,10 +1362,9 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                                     () => _ViewerThumbStrip(
                                       photos: _photosList,
                                       selectedIndex: _index,
-                                      isLoadingMore: widget.isRecentFeed &&
-                                          _controller
-                                              .isRecentPageLoading
-                                              .value,
+                                      isLoadingMore:
+                                          widget.isRecentFeed &&
+                                          _controller.isRecentPageLoading.value,
                                       controller: _thumbnailScrollController,
                                       headers: _controller.imageHeaders,
                                       onTap: (index) {
@@ -2153,7 +2153,9 @@ class _InfoToggleButton extends StatelessWidget {
             ),
             alignment: Alignment.center,
             child: Icon(
-              isOpen ? CupertinoIcons.info_circle_fill : CupertinoIcons.info_circle,
+              isOpen
+                  ? CupertinoIcons.info_circle_fill
+                  : CupertinoIcons.info_circle,
               color: isOpen ? Colors.white : primaryColor,
               size: 22,
             ),
@@ -2246,10 +2248,8 @@ class _InlineInfoPanel extends StatelessWidget {
                   builder: (context, snapshot) {
                     final data = snapshot.data;
                     final parts = [
-                      if (data != null && data[0] != 'Not available')
-                        data[0],
-                      if (data != null && data[1] != 'Not available')
-                        data[1],
+                      if (data != null && data[0] != 'Not available') data[0],
+                      if (data != null && data[1] != 'Not available') data[1],
                     ];
                     return Text(
                       parts.isEmpty ? 'Loading...' : parts.join(' • '),
@@ -2262,6 +2262,14 @@ class _InlineInfoPanel extends StatelessWidget {
                   },
                 ),
                 const SizedBox(height: 14),
+                if (kDebugMode) ...[
+                  _TagInfoCard(
+                    label: 'Image Name',
+                    value: _debugImageFileName(photo),
+                    color: const Color(0xFF5965D8),
+                  ),
+                  const SizedBox(height: 14),
+                ],
                 const Text(
                   'Image Tags',
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
@@ -2283,18 +2291,14 @@ class _InlineInfoPanel extends StatelessWidget {
                           Chip(
                             label: Text(tag),
                             deleteIcon:
-                                _controller
-                                    .tagsForPhoto(photo.id)
-                                    .contains(tag)
+                                _controller.tagsForPhoto(photo.id).contains(tag)
                                 ? const Icon(
                                     CupertinoIcons.xmark_circle_fill,
                                     size: 18,
                                   )
                                 : null,
                             onDeleted:
-                                _controller
-                                    .tagsForPhoto(photo.id)
-                                    .contains(tag)
+                                _controller.tagsForPhoto(photo.id).contains(tag)
                                 ? () {
                                     _controller.removeTagFromPhoto(
                                       photo.id,
@@ -2307,9 +2311,7 @@ class _InlineInfoPanel extends StatelessWidget {
                               color: primaryColor,
                               fontWeight: FontWeight.w800,
                             ),
-                            side: BorderSide(
-                              color: primaryColor.withAlpha(45),
-                            ),
+                            side: BorderSide(color: primaryColor.withAlpha(45)),
                           ),
                       ],
                     ),
@@ -2345,10 +2347,7 @@ class _InlineInfoPanel extends StatelessWidget {
                   const SizedBox(height: 16),
                   const Text(
                     'Location',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                    ),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 10),
                   _InfoMapCard(attrs: attrs!, photo: photo),
@@ -2359,6 +2358,19 @@ class _InlineInfoPanel extends StatelessWidget {
         },
       ),
     );
+  }
+
+  String _debugImageFileName(GalleryPhoto photo) {
+    final apiName = photo.fileName?.trim();
+    if (apiName != null && apiName.isNotEmpty) return apiName;
+    final uri = Uri.tryParse(photo.fullUrl);
+    if (uri != null && uri.pathSegments.isNotEmpty) {
+      final lastSegment = uri.pathSegments.last.trim();
+      if (lastSegment.isNotEmpty && lastSegment.contains('.')) {
+        return Uri.decodeComponent(lastSegment);
+      }
+    }
+    return 'Not available';
   }
 
   String? _formatDateTime(DateTime? date) {
@@ -2635,6 +2647,7 @@ class _InfoMapCard extends StatelessWidget {
       height: photo.height,
       fileSizeBytes: photo.fileSizeBytes,
       fileSizeLabel: photo.fileSizeLabel,
+      fileName: photo.fileName,
       latitude: photo.latitude ?? attrs.latitude,
       longitude: photo.longitude ?? attrs.longitude,
     );
