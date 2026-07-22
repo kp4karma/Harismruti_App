@@ -31,6 +31,7 @@ class CollectionSmruti extends StatelessWidget {
             card: collections[index],
             headers: galleryController.imageHeaders,
             width: 310,
+            maxTiles: 2,
           ),
         ),
       );

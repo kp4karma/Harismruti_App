@@ -210,6 +210,7 @@ class GalleryCollectionCollageCard extends StatelessWidget {
   final GalleryCard card;
   final Map<String, String>? headers;
   final double width;
+  final int maxTiles;
   final VoidCallback? onTap;
 
   const GalleryCollectionCollageCard({
@@ -217,6 +218,7 @@ class GalleryCollectionCollageCard extends StatelessWidget {
     required this.card,
     this.headers,
     this.width = 300,
+    this.maxTiles = 4,
     this.onTap,
   });
 
@@ -248,6 +250,7 @@ class GalleryCollectionCollageCard extends StatelessWidget {
                 photos: visiblePhotos,
                 headers: headers,
                 seed: card.title.hashCode,
+                maxTiles: maxTiles,
               ),
             ),
             Positioned(
@@ -384,11 +387,13 @@ class _HomeCollectionBentoCollage extends StatelessWidget {
   final List<GalleryPhoto> photos;
   final Map<String, String>? headers;
   final int seed;
+  final int maxTiles;
 
   const _HomeCollectionBentoCollage({
     required this.photos,
     required this.headers,
     required this.seed,
+    this.maxTiles = 4,
   });
 
   @override
@@ -400,7 +405,9 @@ class _HomeCollectionBentoCollage extends StatelessWidget {
       );
     }
     final preferredPhotos = _landscapePhotosFirst(photos);
-    final tileCount = preferredPhotos.length >= 4 ? 4 : preferredPhotos.length;
+    final tileCount = preferredPhotos.length >= maxTiles
+        ? maxTiles
+        : preferredPhotos.length;
     final orderedPhotos = List<GalleryPhoto>.generate(tileCount, (index) {
       final offset = seed.abs() % preferredPhotos.length;
       return preferredPhotos[(index + offset) % preferredPhotos.length];
