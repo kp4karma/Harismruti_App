@@ -37,7 +37,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
   @override
   void initState() {
     super.initState();
-    _controller.loadFilters();
+    _controller.resetFiltersForSheet();
     _searchController.addListener(() {
       setState(() {
         _query = _searchController.text.trim().toLowerCase();

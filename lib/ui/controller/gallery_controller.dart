@@ -623,6 +623,12 @@ class GalleryController extends GetxController {
     }
   }
 
+  Future<void> resetFiltersForSheet() async {
+    filters.assignAll(_filterSnapshots[selectedSwami.value] ?? const []);
+    filtersError.value = '';
+    await loadFilters(force: true);
+  }
+
   Future<List<GalleryPhoto>> loadPhotosForCard(
     GalleryCard card, {
     int page = 1,

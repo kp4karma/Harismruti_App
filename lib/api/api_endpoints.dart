@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 enum Environment { debug, profile, production }
 
 class ApiEndpoints {
-  static Environment currentEnvironment = Environment.debug;
+  static Environment currentEnvironment = Environment.production;
 
   static const String _localDomain = "http://10.0.2.2:8000/api/v1/mobile";
   static const String _productionDomain =
