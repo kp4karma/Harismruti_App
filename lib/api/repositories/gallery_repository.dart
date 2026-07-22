@@ -126,6 +126,34 @@ class GalleryRepository {
     return asJsonMap(response.data);
   }
 
+  Future<Map<String, dynamic>> getMobileFeatures() async {
+    final mobile = currentPhoneNumber();
+    if (mobile.isEmpty) return const {'allow_ignore': false};
+    final response = await ApiClient.get(
+      ApiEndpoints.mobileFeatures,
+      queryParams: {'mobile': mobile},
+    );
+    return asJsonMap(response.data);
+  }
+
+  Future<Set<int>> ignorePhotos(Iterable<int> photoIds) async {
+    final mobile = currentPhoneNumber();
+    if (mobile.isEmpty) {
+      throw Exception('Mobile number is missing from profile.');
+    }
+    final response = await ApiClient.post(
+      ApiEndpoints.ignoredPhotos,
+      data: {'mobile': mobile, 'photo_ids': photoIds.toSet().toList()},
+    );
+    final data = asJsonMap(response.data);
+    return (data['ignored_photo_ids'] is List
+            ? data['ignored_photo_ids'] as List
+            : const [])
+        .map((value) => int.tryParse('$value'))
+        .whereType<int>()
+        .toSet();
+  }
+
   Future<void> addFavorite(int photoId) async {
     await ApiClient.post(ApiEndpoints.myFavorites, data: {'photo_id': photoId});
   }

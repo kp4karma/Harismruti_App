@@ -669,6 +669,7 @@ class GalleryHomeBundle {
       collections: cardsFor(const ['collections', 'years'], 'collection'),
       smrutiWith: cardsFor(const ['with', 'smruti_with', 'smrutiWith'], 'with'),
       smrutiOf: cardsFor(const [
+        'darshan_of',
         'smruti_of',
         'smrutiOf',
         'attributes',

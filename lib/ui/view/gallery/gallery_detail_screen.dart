@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
+import 'package:harismruti/api/repositories/gallery_repository.dart';
 import 'package:harismruti/helper/auth_redirect_helper.dart';
 import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
@@ -96,8 +97,14 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
   final GalleryController _galleryController = Get.find<GalleryController>();
   final ScrollController _scrollController = ScrollController();
   final List<GalleryPhoto> _photos = [];
+  final GalleryRepository _repository = const GalleryRepository();
+  final Set<int> _ignoredPhotoIds = {};
+  final Set<int> _selectedPhotoIds = {};
 
   bool _initialLoading = true;
+  bool _allowIgnore = false;
+  bool _selectionMode = false;
+  bool _isIgnoring = false;
   bool _isLoadingMore = false;
   bool _hasMore = false;
   bool _failed = false;
@@ -119,6 +126,15 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
 
   Future<void> _loadInitial() async {
     try {
+      final features = await _repository.getMobileFeatures();
+      _allowIgnore = features['allow_ignore'] == true;
+      _ignoredPhotoIds.addAll(
+        (features['ignored_photo_ids'] is List
+                ? features['ignored_photo_ids'] as List
+                : const [])
+            .map((value) => int.tryParse('$value'))
+            .whereType<int>(),
+      );
       final photos = await widget.loader();
       debugPrint(
         'GalleryDetailScreen[${widget.title}]: initial load returned=${photos.length}',
@@ -127,7 +143,12 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
       setState(() {
         _photos
           ..clear()
-          ..addAll(_dedupe(photos, existing: const []));
+          ..addAll(
+            _dedupe(
+              photos,
+              existing: const [],
+            ).where((photo) => !_ignoredPhotoIds.contains(photo.id)),
+          );
         _page = 1;
         _hasMore = widget.loadMore != null && photos.length >= _perPage;
         _initialLoading = false;
@@ -161,7 +182,10 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
         'GalleryDetailScreen[${widget.title}]: page=$nextPage returned=${photos.length}',
       );
       if (!mounted) return;
-      final newPhotos = _dedupe(photos, existing: _photos);
+      final newPhotos = _dedupe(
+        photos,
+        existing: _photos,
+      ).where((photo) => !_ignoredPhotoIds.contains(photo.id));
       setState(() {
         _photos.addAll(newPhotos);
         _page = nextPage;
@@ -178,6 +202,64 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
       );
       if (!mounted) return;
       setState(() => _isLoadingMore = false);
+    }
+  }
+
+  void _toggleSelection(GalleryPhoto photo) {
+    if (!_allowIgnore || photo.id <= 0) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _selectionMode = true;
+      if (!_selectedPhotoIds.add(photo.id)) _selectedPhotoIds.remove(photo.id);
+      if (_selectedPhotoIds.isEmpty) _selectionMode = false;
+    });
+  }
+
+  void _closeSelection() {
+    setState(() {
+      _selectionMode = false;
+      _selectedPhotoIds.clear();
+    });
+  }
+
+  Future<void> _ignoreSelected() async {
+    if (_selectedPhotoIds.isEmpty || _isIgnoring) return;
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('Ignore selected photos?'),
+        content: Text(
+          '${_selectedPhotoIds.length} selected photos will be hidden from your gallery.',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Ignore'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _isIgnoring = true);
+    try {
+      final ignored = await _repository.ignorePhotos(_selectedPhotoIds);
+      if (!mounted) return;
+      setState(() {
+        _ignoredPhotoIds.addAll(ignored);
+        _photos.removeWhere((photo) => ignored.contains(photo.id));
+        _selectedPhotoIds.clear();
+        _selectionMode = false;
+      });
+      TopNotification.success('${ignored.length} photos ignored');
+    } catch (error) {
+      TopNotification.error(error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _isIgnoring = false);
     }
   }
 
@@ -210,6 +292,24 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F6F3),
+      floatingActionButton: _selectionMode
+          ? FloatingActionButton.extended(
+              onPressed: _isIgnoring ? null : _ignoreSelected,
+              backgroundColor: primaryColor,
+              foregroundColor: Colors.white,
+              icon: _isIgnoring
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(CupertinoIcons.eye_slash_fill),
+              label: Text('Ignore ${_selectedPhotoIds.length}'),
+            )
+          : null,
       body: CustomScrollView(
         controller: _scrollController,
         physics: const BouncingScrollPhysics(),
@@ -219,6 +319,11 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
             subtitle: widget.subtitle,
             coverUrl: cover,
             headers: _galleryController.imageHeaders,
+            allowIgnore: _allowIgnore,
+            selectionMode: _selectionMode,
+            selectedCount: _selectedPhotoIds.length,
+            onStartSelection: () => setState(() => _selectionMode = true),
+            onCloseSelection: _closeSelection,
           ),
           if (_initialLoading)
             const SliverPadding(
@@ -238,6 +343,9 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
               title: widget.title,
               headers: _galleryController.imageHeaders,
               showRecentPhotoMetadata: widget.showRecentPhotoMetadata,
+              selectionMode: _selectionMode,
+              selectedPhotoIds: _selectedPhotoIds,
+              onToggleSelection: _toggleSelection,
             ),
             if (_isLoadingMore)
               const SliverToBoxAdapter(
@@ -265,12 +373,22 @@ class _MusicStyleHeader extends StatelessWidget {
   final String subtitle;
   final String coverUrl;
   final Map<String, String>? headers;
+  final bool allowIgnore;
+  final bool selectionMode;
+  final int selectedCount;
+  final VoidCallback onStartSelection;
+  final VoidCallback onCloseSelection;
 
   const _MusicStyleHeader({
     required this.title,
     required this.subtitle,
     required this.coverUrl,
     required this.headers,
+    required this.allowIgnore,
+    required this.selectionMode,
+    required this.selectedCount,
+    required this.onStartSelection,
+    required this.onCloseSelection,
   });
 
   @override
@@ -282,11 +400,32 @@ class _MusicStyleHeader extends StatelessWidget {
       centerTitle: true,
       expandedHeight: expandedHeight,
       backgroundColor: Colors.transparent,
+      title: selectionMode
+          ? Text(
+              '$selectedCount selected',
+              style: const TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.w800,
+              ),
+            )
+          : null,
       surfaceTintColor: Colors.transparent,
       leading: _GlassIconButton(
-        icon: CupertinoIcons.chevron_left,
-        onTap: () => Navigator.pop(context),
+        icon: selectionMode
+            ? CupertinoIcons.xmark
+            : CupertinoIcons.chevron_left,
+        onTap: selectionMode ? onCloseSelection : () => Navigator.pop(context),
       ),
+      actions: [
+        if (allowIgnore)
+          _GlassIconButton(
+            icon: selectionMode
+                ? CupertinoIcons.checkmark_alt_circle_fill
+                : CupertinoIcons.checkmark_alt_circle,
+            onTap: selectionMode ? onCloseSelection : onStartSelection,
+          ),
+        const SizedBox(width: 8),
+      ],
       flexibleSpace: LayoutBuilder(
         builder: (context, constraints) {
           final collapsedHeight =
@@ -477,12 +616,18 @@ class _MosaicPhotoSliver extends StatelessWidget {
   final String title;
   final Map<String, String>? headers;
   final bool showRecentPhotoMetadata;
+  final bool selectionMode;
+  final Set<int> selectedPhotoIds;
+  final ValueChanged<GalleryPhoto> onToggleSelection;
 
   const _MosaicPhotoSliver({
     required this.photos,
     required this.title,
     required this.headers,
     required this.showRecentPhotoMetadata,
+    required this.selectionMode,
+    required this.selectedPhotoIds,
+    required this.onToggleSelection,
   });
 
   @override
@@ -504,6 +649,9 @@ class _MosaicPhotoSliver extends StatelessWidget {
             title: title,
             headers: headers,
             showRecentPhotoMetadata: showRecentPhotoMetadata,
+            selectionMode: selectionMode,
+            selected: selectedPhotoIds.contains(photos[index].id),
+            onToggleSelection: onToggleSelection,
           ),
           childCount: photos.length,
         ),
@@ -519,6 +667,9 @@ class _MosaicTile extends StatelessWidget {
   final String title;
   final Map<String, String>? headers;
   final bool showRecentPhotoMetadata;
+  final bool selectionMode;
+  final bool selected;
+  final ValueChanged<GalleryPhoto> onToggleSelection;
 
   const _MosaicTile({
     required this.photo,
@@ -527,6 +678,9 @@ class _MosaicTile extends StatelessWidget {
     required this.title,
     required this.headers,
     required this.showRecentPhotoMetadata,
+    required this.selectionMode,
+    required this.selected,
+    required this.onToggleSelection,
   });
 
   @override
@@ -534,6 +688,10 @@ class _MosaicTile extends StatelessWidget {
     final controller = Get.find<GalleryController>();
     return GestureDetector(
       onTap: () {
+        if (selectionMode) {
+          onToggleSelection(photo);
+          return;
+        }
         Navigator.push(
           context,
           CupertinoPageRoute(
@@ -546,6 +704,7 @@ class _MosaicTile extends StatelessWidget {
           ),
         );
       },
+      onLongPress: () => onToggleSelection(photo),
       child: Hero(
         tag: 'photo-${photo.id}',
         child: ClipRRect(
@@ -571,6 +730,21 @@ class _MosaicTile extends StatelessWidget {
                   ),
                 ),
               ),
+              if (selectionMode)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Icon(
+                    selected
+                        ? CupertinoIcons.checkmark_circle_fill
+                        : CupertinoIcons.circle,
+                    color: selected ? primaryColor : Colors.white,
+                    size: 27,
+                    shadows: const [
+                      Shadow(color: Colors.black45, blurRadius: 5),
+                    ],
+                  ),
+                ),
               Positioned(
                 left: 8,
                 right: 8,

@@ -48,6 +48,8 @@ class ApiEndpoints {
   static String get myProfileImage => "/me/profile-image";
   static String get mySmruti => "/me/smruti";
   static String get myFaceSearch => "/me/face-search";
+  static String get mobileFeatures => "/features";
+  static String get ignoredPhotos => "/features/ignored-photos";
   static String get myDiary => "/me/diary";
 
   static String collectionMonths(int year) => "/collections/$year/months";
