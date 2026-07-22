@@ -963,10 +963,14 @@ class _TimelinePhotoTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(large ? 14 : 4),
-      child: NetworkImageWithLoader(
-        imageUrl: photo.thumbnailUrl,
-        title: photo.title ?? 'Smruti',
-        headers: headers,
+      child: ColoredBox(
+        color: const Color(0xFFF2E9E4),
+        child: NetworkImageWithLoader(
+          imageUrl: photo.thumbnailUrl,
+          title: photo.title ?? 'Smruti',
+          headers: headers,
+          fit: BoxFit.contain,
+        ),
       ),
     );
   }

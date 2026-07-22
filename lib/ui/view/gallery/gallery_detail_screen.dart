@@ -486,116 +486,25 @@ class _MosaicPhotoSliver extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rows = (photos.length / 3).ceil();
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      sliver: SliverList.builder(
-        itemCount: rows,
-        itemBuilder: (context, rowIndex) {
-          final start = rowIndex * 3;
-          final rowPhotos = photos.skip(start).take(3).toList();
-          return _MosaicRow(
-            photos: rowPhotos,
+      sliver: SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          crossAxisSpacing: 6,
+          mainAxisSpacing: 6,
+          childAspectRatio: 1,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, index) => _MosaicTile(
+            photo: photos[index],
             allPhotos: photos,
-            startIndex: start,
+            index: index,
             title: title,
             headers: headers,
-            reversed: rowIndex.isOdd,
             showRecentPhotoMetadata: showRecentPhotoMetadata,
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _MosaicRow extends StatelessWidget {
-  final List<GalleryPhoto> photos;
-  final List<GalleryPhoto> allPhotos;
-  final int startIndex;
-  final String title;
-  final Map<String, String>? headers;
-  final bool reversed;
-  final bool showRecentPhotoMetadata;
-
-  const _MosaicRow({
-    required this.photos,
-    required this.allPhotos,
-    required this.startIndex,
-    required this.title,
-    required this.headers,
-    required this.reversed,
-    required this.showRecentPhotoMetadata,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (photos.length == 1) {
-      return SizedBox(
-        height: 240,
-        child: _MosaicTile(
-          photo: photos.first,
-          allPhotos: allPhotos,
-          index: startIndex,
-          title: title,
-          headers: headers,
-          showRecentPhotoMetadata: showRecentPhotoMetadata,
-        ),
-      );
-    }
-
-    final bigTile = Expanded(
-      flex: 6,
-      child: _MosaicTile(
-        photo: photos.first,
-        allPhotos: allPhotos,
-        index: startIndex,
-        title: title,
-        headers: headers,
-        showRecentPhotoMetadata: showRecentPhotoMetadata,
-      ),
-    );
-    final stack = Expanded(
-      flex: 4,
-      child: Column(
-        children: [
-          Expanded(
-            flex: 5,
-            child: _MosaicTile(
-              photo: photos[1],
-              allPhotos: allPhotos,
-              index: startIndex + 1,
-              title: title,
-              headers: headers,
-              showRecentPhotoMetadata: showRecentPhotoMetadata,
-            ),
           ),
-          if (photos.length > 2) ...[
-            const SizedBox(height: 6),
-            Expanded(
-              flex: 7,
-              child: _MosaicTile(
-                photo: photos[2],
-                allPhotos: allPhotos,
-                index: startIndex + 2,
-                title: title,
-                headers: headers,
-                showRecentPhotoMetadata: showRecentPhotoMetadata,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-
-    return SizedBox(
-      height: 268,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Row(
-          children: reversed
-              ? [stack, const SizedBox(width: 6), bigTile]
-              : [bigTile, const SizedBox(width: 6), stack],
+          childCount: photos.length,
         ),
       ),
     );
@@ -639,14 +548,18 @@ class _MosaicTile extends StatelessWidget {
       child: Hero(
         tag: 'photo-${photo.id}',
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           child: Stack(
             fit: StackFit.expand,
             children: [
-              NetworkImageWithLoader(
-                imageUrl: photo.thumbnailUrl,
-                title: photo.title ?? title,
-                headers: headers,
+              ColoredBox(
+                color: const Color(0xFFF2E9E4),
+                child: NetworkImageWithLoader(
+                  imageUrl: photo.thumbnailUrl,
+                  title: photo.title ?? title,
+                  headers: headers,
+                  fit: BoxFit.contain,
+                ),
               ),
               DecoratedBox(
                 decoration: BoxDecoration(
