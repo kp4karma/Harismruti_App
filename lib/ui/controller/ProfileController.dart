@@ -41,7 +41,7 @@ class ProfileController extends GetxController {
     return _firstNonEmpty([
       profile['name'],
       '${profile['first_name'] ?? ''} ${profile['last_name'] ?? ''}'.trim(),
-      'Hari Smruti User',
+      'HariPrabodham Smruti User',
     ]);
   }
 
@@ -120,12 +120,12 @@ class ProfileController extends GetxController {
       aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
       uiSettings: [
         AndroidUiSettings(
-          toolbarTitle: 'Hari Smruti',
+          toolbarTitle: 'HariPrabodham Smruti',
           toolbarColor: primaryColor,
           toolbarWidgetColor: Colors.white,
           lockAspectRatio: true,
         ),
-        IOSUiSettings(title: 'Hari Smruti'),
+        IOSUiSettings(title: 'HariPrabodham Smruti'),
       ],
     );
 

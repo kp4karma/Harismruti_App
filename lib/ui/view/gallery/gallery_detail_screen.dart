@@ -680,6 +680,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   bool _chromeVisible = true;
   bool _isZoomed = false;
   bool _zoomModeActive = false;
+  bool _infoPanelOpen = false;
   Offset _lastDoubleTapPosition = Offset.zero;
 
   @override
@@ -1195,18 +1196,11 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     return value?.trim().isEmpty == true ? null : value?.trim();
   }
 
-  void _openInfoSheet() {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _PhotoInfoBottomSheet(
-        photo: _photo,
-        attributesFuture: _attributesFor(_photo.id),
-        imageSizeFuture: _imageSizeFor(_photo),
-        storageSizeFuture: _storageSizeFor(_photo),
-      ),
-    );
+  void _toggleInfoPanel() {
+    setState(() {
+      _infoPanelOpen = !_infoPanelOpen;
+      if (_infoPanelOpen) _chromeVisible = true;
+    });
   }
 
   String _formatRecentViewerTitle(GalleryPhoto photo) {
@@ -1352,29 +1346,63 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _reactive(
-                        () => _ViewerThumbStrip(
-                          photos: _photosList,
-                          selectedIndex: _index,
-                          isLoadingMore: widget.isRecentFeed &&
-                              _controller.isRecentPageLoading.value,
-                          controller: _thumbnailScrollController,
-                          headers: _controller.imageHeaders,
-                          onTap: (index) {
-                            _pageController.animateToPage(
-                              index,
-                              duration: const Duration(milliseconds: 260),
-                              curve: Curves.easeOutCubic,
-                            );
-                          },
-                        ),
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 280),
+                        curve: Curves.easeOutCubic,
+                        alignment: Alignment.bottomCenter,
+                        child: _infoPanelOpen
+                            ? const SizedBox.shrink()
+                            : AnimatedOpacity(
+                                duration: const Duration(milliseconds: 160),
+                                opacity: _infoPanelOpen ? 0 : 1,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(bottom: 13),
+                                  child: _reactive(
+                                    () => _ViewerThumbStrip(
+                                      photos: _photosList,
+                                      selectedIndex: _index,
+                                      isLoadingMore: widget.isRecentFeed &&
+                                          _controller
+                                              .isRecentPageLoading
+                                              .value,
+                                      controller: _thumbnailScrollController,
+                                      headers: _controller.imageHeaders,
+                                      onTap: (index) {
+                                        _pageController.animateToPage(
+                                          index,
+                                          duration: const Duration(
+                                            milliseconds: 260,
+                                          ),
+                                          curve: Curves.easeOutCubic,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ),
                       ),
-                      const SizedBox(height: 13),
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 320),
+                        curve: Curves.easeOutCubic,
+                        alignment: Alignment.bottomCenter,
+                        child: _infoPanelOpen
+                            ? Padding(
+                                padding: const EdgeInsets.only(bottom: 13),
+                                child: _InlineInfoPanel(
+                                  photo: _photo,
+                                  attributesFuture: _attributesFor(_photo.id),
+                                  imageSizeFuture: _imageSizeFor(_photo),
+                                  storageSizeFuture: _storageSizeFor(_photo),
+                                ),
+                              )
+                            : const SizedBox(width: double.infinity),
+                      ),
                       _ViewerActions(
                         isFavorite: _controller.isFavorite(_photo.id),
                         onShare: _sharePhoto,
                         onFavorite: _toggleFavorite,
-                        onInfo: _openInfoSheet,
+                        onInfo: _toggleInfoPanel,
+                        isInfoOpen: _infoPanelOpen,
                         onOptions: _showMoreOptions,
                         onCollection: _openAddCollectionSheet,
                       ),
@@ -1977,6 +2005,7 @@ class _ViewerThumbStrip extends StatelessWidget {
 
 class _ViewerActions extends StatelessWidget {
   final bool isFavorite;
+  final bool isInfoOpen;
   final VoidCallback onShare;
   final VoidCallback onFavorite;
   final VoidCallback onInfo;
@@ -1985,6 +2014,7 @@ class _ViewerActions extends StatelessWidget {
 
   const _ViewerActions({
     required this.isFavorite,
+    required this.isInfoOpen,
     required this.onShare,
     required this.onFavorite,
     required this.onInfo,
@@ -2025,10 +2055,7 @@ class _ViewerActions extends StatelessWidget {
                   color: isFavorite ? Colors.redAccent : Colors.black,
                   onTap: onFavorite,
                 ),
-                _ViewerPlainButton(
-                  icon: CupertinoIcons.info_circle,
-                  onTap: onInfo,
-                ),
+                _InfoToggleButton(isOpen: isInfoOpen, onTap: onInfo),
                 _ViewerPlainButton(
                   icon: CupertinoIcons.slider_horizontal_3,
                   onTap: onOptions,
@@ -2101,6 +2128,42 @@ class _ViewerPlainButton extends StatelessWidget {
   }
 }
 
+class _InfoToggleButton extends StatelessWidget {
+  final bool isOpen;
+  final VoidCallback onTap;
+
+  const _InfoToggleButton({required this.isOpen, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: 44,
+        height: 40,
+        child: Center(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isOpen ? primaryColor : Colors.transparent,
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              isOpen ? CupertinoIcons.info_circle_fill : CupertinoIcons.info_circle,
+              color: isOpen ? Colors.white : primaryColor,
+              size: 22,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 String? _formatPhotoDimensions(int? width, int? height) {
   return width != null && height != null && width > 0 && height > 0
       ? '$width x $height'
@@ -2129,14 +2192,14 @@ String? _formatBytes(int? bytes) {
   return '${value.toStringAsFixed(decimals)} ${units[unitIndex]}';
 }
 
-class _PhotoInfoBottomSheet extends StatelessWidget {
+class _InlineInfoPanel extends StatelessWidget {
   final GalleryPhoto photo;
   final Future<GalleryPhotoAttributes> attributesFuture;
   final Future<String> imageSizeFuture;
   final Future<String> storageSizeFuture;
   final GalleryController _controller = Get.find<GalleryController>();
 
-  _PhotoInfoBottomSheet({
+  _InlineInfoPanel({
     required this.photo,
     required this.attributesFuture,
     required this.imageSizeFuture,
@@ -2145,180 +2208,160 @@ class _PhotoInfoBottomSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.58,
-      minChildSize: 0.34,
-      maxChildSize: 0.9,
-      builder: (context, scrollController) {
-        return ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-            child: Container(
-              color: Colors.white.withAlpha(238),
-              child: FutureBuilder<GalleryPhotoAttributes>(
-                future: attributesFuture,
-                builder: (context, snapshot) {
-                  final attrs = snapshot.data;
-                  final entries = attrs?.entries ?? const [];
-                  return ListView(
-                    controller: scrollController,
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 44,
-                          height: 5,
-                          decoration: BoxDecoration(
-                            color: Colors.black.withAlpha(35),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                        ),
+    return Container(
+      width: double.infinity,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.42,
+      ),
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: FutureBuilder<GalleryPhotoAttributes>(
+        future: attributesFuture,
+        builder: (context, snapshot) {
+          final attrs = snapshot.data;
+          final entries = attrs?.entries ?? const [];
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Photo Details',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  _formatDateTime(photo.takenAt) ?? 'Not available',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                FutureBuilder<List<String>>(
+                  future: Future.wait([imageSizeFuture, storageSizeFuture]),
+                  builder: (context, snapshot) {
+                    final data = snapshot.data;
+                    final parts = [
+                      if (data != null && data[0] != 'Not available')
+                        data[0],
+                      if (data != null && data[1] != 'Not available')
+                        data[1],
+                    ];
+                    return Text(
+                      parts.isEmpty ? 'Loading...' : parts.join(' • '),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black.withAlpha(135),
                       ),
-                      const SizedBox(height: 18),
-                      const Text(
-                        'Photo Details',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      _InfoRow(
-                        icon: CupertinoIcons.calendar,
-                        label: 'Image Date',
-                        value: _formatDate(photo.takenAt) ?? 'Not available',
-                      ),
-                      const SizedBox(height: 10),
-                      FutureBuilder<String>(
-                        future: imageSizeFuture,
-                        builder: (context, snapshot) {
-                          return _InfoRow(
-                            icon: CupertinoIcons.photo,
-                            label: 'Image Size',
-                            value: snapshot.data ?? 'Loading...',
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 10),
-                      FutureBuilder<String>(
-                        future: storageSizeFuture,
-                        builder: (context, snapshot) {
-                          return _InfoRow(
-                            icon: CupertinoIcons.archivebox,
-                            label: 'Storage Size',
-                            value: snapshot.data ?? 'Loading...',
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 18),
-                      const Text(
-                        'Image Tags',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Obx(() {
-                        final userTags = _mergedPhotoTags(
-                          photo.tags,
-                          _controller.tagsForPhoto(photo.id),
-                        );
-                        if (userTags.isEmpty) return const SizedBox.shrink();
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final tag in userTags)
-                                Chip(
-                                  label: Text(tag),
-                                  deleteIcon:
-                                      _controller
-                                          .tagsForPhoto(photo.id)
-                                          .contains(tag)
-                                      ? const Icon(
-                                          CupertinoIcons.xmark_circle_fill,
-                                          size: 18,
-                                        )
-                                      : null,
-                                  onDeleted:
-                                      _controller
-                                          .tagsForPhoto(photo.id)
-                                          .contains(tag)
-                                      ? () {
-                                          _controller.removeTagFromPhoto(
-                                            photo.id,
-                                            tag,
-                                          );
-                                        }
-                                      : null,
-                                  backgroundColor: primaryColor.withAlpha(24),
-                                  labelStyle: TextStyle(
-                                    color: primaryColor,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                  side: BorderSide(
-                                    color: primaryColor.withAlpha(45),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        );
-                      }),
-                      if (snapshot.connectionState != ConnectionState.done)
-                        const GalleryShimmerBox(height: 86, borderRadius: 18)
-                      else if (entries.isEmpty)
-                        Text(
-                          'No tags added',
-                          style: TextStyle(
-                            color: Colors.black.withAlpha(135),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        )
-                      else
-                        Column(
-                          children: [
-                            for (var i = 0; i < entries.length; i++)
-                              Padding(
-                                padding: EdgeInsets.only(
-                                  bottom: i == entries.length - 1 ? 0 : 10,
-                                ),
-                                child: _TagInfoCard(
-                                  label: entries[i].key,
-                                  value: entries[i].value,
-                                  color: _tagColors[i % _tagColors.length],
-                                ),
-                              ),
-                          ],
-                        ),
-                      if ((attrs?.placeLabel ?? '').isNotEmpty) ...[
-                        const SizedBox(height: 18),
-                        const Text(
-                          'Location',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        _InfoMapCard(attrs: attrs!, photo: photo),
-                      ],
-                    ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Image Tags',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 10),
+                Obx(() {
+                  final userTags = _mergedPhotoTags(
+                    photo.tags,
+                    _controller.tagsForPhoto(photo.id),
                   );
-                },
-              ),
+                  if (userTags.isEmpty) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final tag in userTags)
+                          Chip(
+                            label: Text(tag),
+                            deleteIcon:
+                                _controller
+                                    .tagsForPhoto(photo.id)
+                                    .contains(tag)
+                                ? const Icon(
+                                    CupertinoIcons.xmark_circle_fill,
+                                    size: 18,
+                                  )
+                                : null,
+                            onDeleted:
+                                _controller
+                                    .tagsForPhoto(photo.id)
+                                    .contains(tag)
+                                ? () {
+                                    _controller.removeTagFromPhoto(
+                                      photo.id,
+                                      tag,
+                                    );
+                                  }
+                                : null,
+                            backgroundColor: primaryColor.withAlpha(24),
+                            labelStyle: TextStyle(
+                              color: primaryColor,
+                              fontWeight: FontWeight.w800,
+                            ),
+                            side: BorderSide(
+                              color: primaryColor.withAlpha(45),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                }),
+                if (snapshot.connectionState != ConnectionState.done)
+                  const GalleryShimmerBox(height: 86, borderRadius: 18)
+                else if (entries.isEmpty)
+                  Text(
+                    'No tags added',
+                    style: TextStyle(
+                      color: Colors.black.withAlpha(135),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  )
+                else
+                  Column(
+                    children: [
+                      for (var i = 0; i < entries.length; i++)
+                        Padding(
+                          padding: EdgeInsets.only(
+                            bottom: i == entries.length - 1 ? 0 : 10,
+                          ),
+                          child: _TagInfoCard(
+                            label: entries[i].key,
+                            value: entries[i].value,
+                            color: _tagColors[i % _tagColors.length],
+                          ),
+                        ),
+                    ],
+                  ),
+                if ((attrs?.placeLabel ?? '').isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Location',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _InfoMapCard(attrs: attrs!, photo: photo),
+                ],
+              ],
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
-  String? _formatDate(DateTime? date) {
+  String? _formatDateTime(DateTime? date) {
     if (date == null) return null;
     const months = [
       'Jan',
@@ -2334,7 +2377,12 @@ class _PhotoInfoBottomSheet extends StatelessWidget {
       'Nov',
       'Dec',
     ];
-    return '${date.day} ${months[date.month - 1]} ${date.year}';
+    final hour24 = date.hour;
+    final period = hour24 >= 12 ? 'PM' : 'AM';
+    final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
+    final minute = date.minute.toString().padLeft(2, '0');
+    return '${date.day} ${months[date.month - 1]} ${date.year}, '
+        '$hour12:$minute $period';
   }
 
   List<String> _mergedPhotoTags(List<String> baseTags, List<String> userTags) {
@@ -2613,57 +2661,6 @@ class _InfoMapCard extends StatelessWidget {
     navigator.push(
       CupertinoPageRoute(
         builder: (_) => GalleryLocationScreen(card: _locationCard()),
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const _InfoRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF4F1EE),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: primaryColor),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: Colors.black.withAlpha(120),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
