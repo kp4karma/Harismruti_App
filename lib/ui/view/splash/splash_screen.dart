@@ -360,7 +360,12 @@ class _SplashLogoCard extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Image.asset(AppImages.appLogo, width: 120, height: 120),
+          Image.asset(
+            AppImages.appLogo,
+            width: 120,
+            height: 120,
+            fit: BoxFit.contain,
+          ),
           const SizedBox(height: 16),
           const Text(
             "HariPrabodham Smruti",
