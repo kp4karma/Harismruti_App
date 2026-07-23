@@ -64,6 +64,13 @@ class ProfileScreen extends StatelessWidget {
                           NavigationHelper.navigateAndRemoveAll(AppRoutes.home);
                         },
                       ),
+                      const SizedBox(height: 12),
+                      _ProfileOption(
+                        icon: Icons.delete_outline,
+                        label: 'Delete Account',
+                        destructive: true,
+                        onTap: () => _confirmDeleteAccount(context),
+                      ),
                     ],
                   ),
                 ),
@@ -89,6 +96,33 @@ class ProfileScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmDeleteAccount(BuildContext context) async {
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('Delete your account?'),
+        content: const Text(
+          'This will permanently delete your account and all associated '
+          'data. This action cannot be undone.',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    StorageHelper.clearStorage();
+    NavigationHelper.navigateAndRemoveAll(AppRoutes.home);
   }
 }
 
@@ -335,15 +369,18 @@ class _ProfileOption extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final bool destructive;
 
   const _ProfileOption({
     required this.icon,
     required this.label,
     required this.onTap,
+    this.destructive = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final color = destructive ? Colors.red.shade700 : Colors.brown;
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),
@@ -354,12 +391,12 @@ class _ProfileOption extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
-              Icon(icon, color: Colors.brown),
+              Icon(icon, color: color),
               const SizedBox(width: 16),
               Expanded(
                 child: Text(
                   label,
-                  style: const TextStyle(fontSize: 16, color: Colors.black87),
+                  style: TextStyle(fontSize: 16, color: color),
                 ),
               ),
               const Icon(
