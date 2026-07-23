@@ -32,36 +32,40 @@ class ProfileScreen extends StatelessWidget {
         body: Column(
           children: [
             Expanded(
-              child: ResponsiveCenter(
-                maxWidth: kContentMaxWidth,
-                child: ListView(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    _ProfileIdCard(profileController: profileController),
-                    const SizedBox(height: 16),
-                    _ProfileOption(
-                      icon: Icons.tune,
-                      label: 'Customize Preferences',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          CupertinoPageRoute(
-                            builder: (context) => SmrutiSectionSettingsScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    _ProfileOption(
-                      icon: Icons.logout,
-                      label: 'Logout',
-                      onTap: () {
-                        StorageHelper.clearStorage();
-                        NavigationHelper.navigateAndRemoveAll(AppRoutes.home);
-                      },
-                    ),
-                  ],
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: kContentMaxWidth),
+                  child: ListView(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      _ProfileIdCard(profileController: profileController),
+                      const SizedBox(height: 16),
+                      _ProfileOption(
+                        icon: Icons.tune,
+                        label: 'Customize Preferences',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            CupertinoPageRoute(
+                              builder: (context) =>
+                                  SmrutiSectionSettingsScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      _ProfileOption(
+                        icon: Icons.logout,
+                        label: 'Logout',
+                        onTap: () {
+                          StorageHelper.clearStorage();
+                          NavigationHelper.navigateAndRemoveAll(AppRoutes.home);
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

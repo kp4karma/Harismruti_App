@@ -23,17 +23,16 @@ class CollectionSmruti extends StatelessWidget {
 
       final scale = tabletScale(context);
       return SizedBox(
-        height: 250 * scale,
+        height: 255 * scale,
         child: ListView.builder(
           physics: const BouncingScrollPhysics(),
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 22),
           itemCount: collections.length,
-          itemBuilder: (context, index) => GalleryCollectionCollageCard(
+          itemBuilder: (context, index) => GalleryMosaicCard(
             card: collections[index],
             headers: galleryController.imageHeaders,
-            width: 310 * scale,
-            maxTiles: 3,
+            width: 230 * scale,
           ),
         ),
       );

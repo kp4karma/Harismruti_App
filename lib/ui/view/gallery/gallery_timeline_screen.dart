@@ -8,6 +8,7 @@ import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/responsive.dart';
+import 'package:harismruti/widget/gallery/gallery_card_widgets.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
 
@@ -445,19 +446,19 @@ class _YearBoxList extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 28),
       child: Column(
         children: [
-          for (final yearCard in years)
-            _CollectionCollageCard(
-              title: yearCard.title,
-              photoCount: yearCard.count ?? yearCard.photos.length,
-              locationCount: yearCard.locationCount,
-              tagCount: yearCard.tagCount,
-              photos: yearCard.photos,
-              headers: headers,
-              fallbackCoverUrl: yearCard.coverUrl,
-              accent: const Color(0xFF823D3D),
-              onTap: () =>
-                  onYearSelected(int.tryParse(yearCard.value) ?? yearCard.id),
+          for (final yearCard in years) ...[
+            SizedBox(
+              height: 255,
+              child: GalleryMosaicCard(
+                card: yearCard,
+                headers: headers,
+                width: double.infinity,
+                onTap: () =>
+                    onYearSelected(int.tryParse(yearCard.value) ?? yearCard.id),
+              ),
             ),
+            if (yearCard != years.last) const SizedBox(height: 12),
+          ],
         ],
       ),
     );
@@ -501,15 +502,27 @@ class _BucketList extends StatelessWidget {
         itemBuilder: (context, index) {
           final bucket = buckets[index];
           if (!compactTitle) {
-            return _CollectionCollageCard(
-              title: bucket.title,
-              photoCount: bucket.count,
-              locationCount: bucket.locationCount,
-              tagCount: bucket.tagCount,
-              photos: bucket.photos,
-              headers: headers,
-              accent: _monthAccent(bucket.month ?? index + 1),
-              onTap: () => onTap(bucket),
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: SizedBox(
+                height: 255,
+                child: GalleryMosaicCard(
+                  card: GalleryCard(
+                    id: bucket.month ?? bucket.year,
+                    title: bucket.title,
+                    subtitle: '${bucket.count} Photos',
+                    type: 'bucket',
+                    value: '',
+                    count: bucket.count,
+                    locationCount: bucket.locationCount,
+                    tagCount: bucket.tagCount,
+                    photos: bucket.photos,
+                  ),
+                  headers: headers,
+                  width: double.infinity,
+                  onTap: () => onTap(bucket),
+                ),
+              ),
             );
           }
           return _TimelinePhotoSection(
@@ -524,400 +537,6 @@ class _BucketList extends StatelessWidget {
             onPhotoTap: () => onTap(bucket),
           );
         },
-      ),
-    );
-  }
-}
-
-class _CollectionCollageCard extends StatelessWidget {
-  final String title;
-  final int photoCount;
-  final int? locationCount;
-  final int? tagCount;
-  final List<GalleryPhoto> photos;
-  final Map<String, String>? headers;
-  final String? fallbackCoverUrl;
-  final Color accent;
-  final VoidCallback onTap;
-
-  const _CollectionCollageCard({
-    required this.title,
-    required this.photoCount,
-    required this.photos,
-    required this.headers,
-    required this.accent,
-    required this.onTap,
-    this.locationCount,
-    this.tagCount,
-    this.fallbackCoverUrl,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final visiblePhotos = photos.isNotEmpty
-        ? photos
-        : [
-            if (fallbackCoverUrl != null && fallbackCoverUrl!.isNotEmpty)
-              GalleryPhoto(
-                id: 0,
-                thumbnailUrl: fallbackCoverUrl!,
-                fullUrl: fallbackCoverUrl!,
-              ),
-          ];
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 226,
-        margin: const EdgeInsets.only(bottom: 22),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(30),
-          color: Colors.transparent,
-        ),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned(
-              left: 4,
-              right: 4,
-              top: 0,
-              bottom: 18,
-              child: _CollectionPhotoRow(
-                photos: visiblePhotos,
-                headers: headers,
-                seed: title.hashCode,
-              ),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 10,
-              child: _ImageGlowBehindTitle(
-                photos: visiblePhotos,
-                headers: headers,
-                seed: title.hashCode,
-              ),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 10,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(22),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(22),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
-                    ),
-                    BoxShadow(
-                      color: accent.withAlpha(18),
-                      blurRadius: 26,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(22),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                    child: Container(
-                      padding: const EdgeInsets.fromLTRB(18, 14, 12, 14),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Colors.white.withAlpha(225),
-                            Colors.white.withAlpha(168),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: Colors.white.withAlpha(135)),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  title.trim(),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 30,
-                                    fontWeight: FontWeight.w900,
-                                    height: 1,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                _CollectionSummary(
-                                  accent: accent,
-                                  photoCount: photoCount,
-                                  locationCount: locationCount ?? 0,
-                                  tagCount: tagCount ?? 0,
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            height: 34,
-                            width: 34,
-                            decoration: BoxDecoration(
-                              color: accent.withAlpha(20),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              CupertinoIcons.chevron_right,
-                              color: accent.withAlpha(190),
-                              size: 17,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ImageGlowBehindTitle extends StatelessWidget {
-  final List<GalleryPhoto> photos;
-  final Map<String, String>? headers;
-  final int seed;
-
-  const _ImageGlowBehindTitle({
-    required this.photos,
-    required this.headers,
-    required this.seed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (photos.isEmpty) return const SizedBox.shrink();
-    final photo = photos[seed.abs() % photos.length];
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: ImageFiltered(
-        imageFilter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-        child: Opacity(
-          opacity: 0.42,
-          child: SizedBox(
-            height: 74,
-            child: NetworkImageWithLoader(
-              imageUrl: photo.thumbnailUrl,
-              title: photo.title ?? 'Smruti',
-              headers: headers,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CollectionPhotoRow extends StatelessWidget {
-  final List<GalleryPhoto> photos;
-  final Map<String, String>? headers;
-  final int seed;
-
-  const _CollectionPhotoRow({
-    required this.photos,
-    required this.headers,
-    required this.seed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (photos.isEmpty) {
-      return const GalleryShimmerBox(borderRadius: 18);
-    }
-    final scale = tabletScale(context);
-    final tileCount = photos.length >= 5 ? 5 : photos.length;
-    final ordered = List<GalleryPhoto>.generate(tileCount, (index) {
-      final offset = seed.abs() % photos.length;
-      return photos[(index + offset) % photos.length];
-    });
-
-    return _bentoLayout(ordered, scale);
-  }
-
-  Widget _tile(GalleryPhoto photo) {
-    return _CollectionPhotoTile(photo: photo, headers: headers, radius: 18);
-  }
-
-  Widget _bentoLayout(List<GalleryPhoto> tiles, double scale) {
-    final gap = 7 * scale;
-    switch (tiles.length) {
-      case 1:
-        return _tile(tiles[0]);
-      case 2:
-        return Column(
-          children: [
-            Expanded(child: _tile(tiles[0])),
-            SizedBox(height: gap),
-            Expanded(child: _tile(tiles[1])),
-          ],
-        );
-      case 3:
-        return Column(
-          children: [
-            Expanded(flex: 3, child: _tile(tiles[0])),
-            SizedBox(height: gap),
-            Expanded(
-              flex: 2,
-              child: Row(
-                children: [
-                  Expanded(child: _tile(tiles[1])),
-                  SizedBox(width: gap),
-                  Expanded(child: _tile(tiles[2])),
-                ],
-              ),
-            ),
-          ],
-        );
-      case 4:
-        return Column(
-          children: [
-            Expanded(
-              child: Row(
-                children: [
-                  Expanded(child: _tile(tiles[0])),
-                  SizedBox(width: gap),
-                  Expanded(child: _tile(tiles[1])),
-                ],
-              ),
-            ),
-            SizedBox(height: gap),
-            Expanded(
-              child: Row(
-                children: [
-                  Expanded(child: _tile(tiles[2])),
-                  SizedBox(width: gap),
-                  Expanded(child: _tile(tiles[3])),
-                ],
-              ),
-            ),
-          ],
-        );
-      default:
-        return Column(
-          children: [
-            Expanded(
-              flex: 3,
-              child: Row(
-                children: [
-                  Expanded(flex: 3, child: _tile(tiles[0])),
-                  SizedBox(width: gap),
-                  Expanded(flex: 2, child: _tile(tiles[1])),
-                ],
-              ),
-            ),
-            SizedBox(height: gap),
-            Expanded(
-              flex: 2,
-              child: Row(
-                children: [
-                  Expanded(child: _tile(tiles[2])),
-                  SizedBox(width: gap),
-                  Expanded(child: _tile(tiles[3])),
-                  SizedBox(width: gap),
-                  Expanded(child: _tile(tiles[4])),
-                ],
-              ),
-            ),
-          ],
-        );
-    }
-  }
-}
-
-class _CollectionSummary extends StatelessWidget {
-  final Color accent;
-  final int photoCount;
-  final int locationCount;
-  final int tagCount;
-
-  const _CollectionSummary({
-    required this.accent,
-    required this.photoCount,
-    required this.locationCount,
-    required this.tagCount,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final items = [
-      _SummaryItem(CupertinoIcons.photo_on_rectangle, '$photoCount Photos'),
-      _SummaryItem(CupertinoIcons.location, '$locationCount Locations'),
-      _SummaryItem(CupertinoIcons.tag, '$tagCount Tags'),
-    ];
-    return Wrap(
-      spacing: 9,
-      runSpacing: 3,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        for (final item in items)
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(item.icon, color: accent, size: 12),
-              const SizedBox(width: 4),
-              Text(
-                item.label,
-                style: TextStyle(
-                  color: accent,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-      ],
-    );
-  }
-}
-
-class _SummaryItem {
-  final IconData icon;
-  final String label;
-
-  const _SummaryItem(this.icon, this.label);
-}
-
-class _CollectionPhotoTile extends StatelessWidget {
-  final GalleryPhoto photo;
-  final Map<String, String>? headers;
-  final double radius;
-
-  const _CollectionPhotoTile({
-    required this.photo,
-    required this.headers,
-    required this.radius,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: ColoredBox(
-        color: const Color(0xFFFFFFFF),
-        child: NetworkImageWithLoader(
-          imageUrl: photo.thumbnailUrl,
-          title: photo.title ?? 'Smruti',
-          headers: headers,
-          fit: BoxFit.cover,
-        ),
       ),
     );
   }
@@ -1089,25 +708,6 @@ String _monthLabel(int month) {
   ];
   if (month < 1 || month > 12) return month.toString();
   return months[month - 1];
-}
-
-Color _monthAccent(int month) {
-  const colors = [
-    Color(0xFF823D3D),
-    Color(0xFF3F6C8F),
-    Color(0xFF6F5AA8),
-    Color(0xFF2E7D68),
-    Color(0xFFB05F3C),
-    Color(0xFF4E6E58),
-    Color(0xFF8A4F74),
-    Color(0xFF516B9E),
-    Color(0xFF7A653F),
-    Color(0xFF3E7775),
-    Color(0xFF9A544C),
-    Color(0xFF5F627A),
-  ];
-  if (month < 1 || month > 12) return colors.first;
-  return colors[month - 1];
 }
 
 int _defaultColumnsFor(TimelineLevel level) {

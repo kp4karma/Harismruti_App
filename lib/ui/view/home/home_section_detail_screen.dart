@@ -170,10 +170,10 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           itemCount: cards.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 14),
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (context, index) => SizedBox(
-            height: 250,
-            child: GalleryCollectionCollageCard(
+            height: 255,
+            child: GalleryMosaicCard(
               card: cards[index],
               headers: _controller.imageHeaders,
               width: double.infinity,
