@@ -742,26 +742,103 @@ class _CollectionPhotoRow extends StatelessWidget {
     if (photos.isEmpty) {
       return const GalleryShimmerBox(borderRadius: 18);
     }
-    final tileCount = photos.length >= 4 ? 4 : photos.length;
+    final scale = tabletScale(context);
+    final tileCount = photos.length >= 5 ? 5 : photos.length;
     final ordered = List<GalleryPhoto>.generate(tileCount, (index) {
       final offset = seed.abs() % photos.length;
       return photos[(index + offset) % photos.length];
     });
 
-    return Row(
-      children: [
-        for (var i = 0; i < ordered.length; i++) ...[
-          Expanded(
-            child: _CollectionPhotoTile(
-              photo: ordered[i],
-              headers: headers,
-              radius: 18,
+    return _bentoLayout(ordered, scale);
+  }
+
+  Widget _tile(GalleryPhoto photo) {
+    return _CollectionPhotoTile(photo: photo, headers: headers, radius: 18);
+  }
+
+  Widget _bentoLayout(List<GalleryPhoto> tiles, double scale) {
+    final gap = 7 * scale;
+    switch (tiles.length) {
+      case 1:
+        return _tile(tiles[0]);
+      case 2:
+        return Column(
+          children: [
+            Expanded(child: _tile(tiles[0])),
+            SizedBox(height: gap),
+            Expanded(child: _tile(tiles[1])),
+          ],
+        );
+      case 3:
+        return Column(
+          children: [
+            Expanded(flex: 3, child: _tile(tiles[0])),
+            SizedBox(height: gap),
+            Expanded(
+              flex: 2,
+              child: Row(
+                children: [
+                  Expanded(child: _tile(tiles[1])),
+                  SizedBox(width: gap),
+                  Expanded(child: _tile(tiles[2])),
+                ],
+              ),
             ),
-          ),
-          if (i != ordered.length - 1) const SizedBox(width: 7),
-        ],
-      ],
-    );
+          ],
+        );
+      case 4:
+        return Column(
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(child: _tile(tiles[0])),
+                  SizedBox(width: gap),
+                  Expanded(child: _tile(tiles[1])),
+                ],
+              ),
+            ),
+            SizedBox(height: gap),
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(child: _tile(tiles[2])),
+                  SizedBox(width: gap),
+                  Expanded(child: _tile(tiles[3])),
+                ],
+              ),
+            ),
+          ],
+        );
+      default:
+        return Column(
+          children: [
+            Expanded(
+              flex: 3,
+              child: Row(
+                children: [
+                  Expanded(flex: 3, child: _tile(tiles[0])),
+                  SizedBox(width: gap),
+                  Expanded(flex: 2, child: _tile(tiles[1])),
+                ],
+              ),
+            ),
+            SizedBox(height: gap),
+            Expanded(
+              flex: 2,
+              child: Row(
+                children: [
+                  Expanded(child: _tile(tiles[2])),
+                  SizedBox(width: gap),
+                  Expanded(child: _tile(tiles[3])),
+                  SizedBox(width: gap),
+                  Expanded(child: _tile(tiles[4])),
+                ],
+              ),
+            ),
+          ],
+        );
+    }
   }
 }
 
@@ -839,7 +916,7 @@ class _CollectionPhotoTile extends StatelessWidget {
           imageUrl: photo.thumbnailUrl,
           title: photo.title ?? 'Smruti',
           headers: headers,
-          fit: BoxFit.contain,
+          fit: BoxFit.cover,
         ),
       ),
     );

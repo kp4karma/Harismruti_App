@@ -7,6 +7,7 @@ import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/ui/view/gallery/gallery_location_screen.dart';
 import 'package:harismruti/ui/view/gallery/gallery_timeline_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
 
 class GalleryCoverCard extends StatelessWidget {
@@ -218,7 +219,7 @@ class GalleryCollectionCollageCard extends StatelessWidget {
     required this.card,
     this.headers,
     this.width = 300,
-    this.maxTiles = 4,
+    this.maxTiles = 5,
     this.onTap,
   });
 
@@ -393,7 +394,7 @@ class _HomeCollectionBentoCollage extends StatelessWidget {
     required this.photos,
     required this.headers,
     required this.seed,
-    this.maxTiles = 4,
+    this.maxTiles = 5,
   });
 
   @override
@@ -404,9 +405,11 @@ class _HomeCollectionBentoCollage extends StatelessWidget {
         child: Icon(CupertinoIcons.photo, color: primaryColor),
       );
     }
+    final scale = tabletScale(context);
+    final effectiveMax = maxTiles.clamp(1, 5);
     final preferredPhotos = _landscapePhotosFirst(photos);
-    final tileCount = preferredPhotos.length >= maxTiles
-        ? maxTiles
+    final tileCount = preferredPhotos.length >= effectiveMax
+        ? effectiveMax
         : preferredPhotos.length;
     final orderedPhotos = List<GalleryPhoto>.generate(tileCount, (index) {
       final offset = seed.abs() % preferredPhotos.length;
@@ -414,7 +417,7 @@ class _HomeCollectionBentoCollage extends StatelessWidget {
     });
 
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: EdgeInsets.all(8 * scale),
       decoration: BoxDecoration(
         color: const Color(0xFFF5EFEA),
         borderRadius: BorderRadius.circular(24),
@@ -437,22 +440,98 @@ class _HomeCollectionBentoCollage extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(19),
-        child: Row(
-          children: [
-            for (var i = 0; i < orderedPhotos.length; i++) ...[
-              Expanded(
-                child: _CollectionBentoTile(
-                  photo: orderedPhotos[i],
-                  headers: headers,
-                  radius: 16,
-                ),
-              ),
-              if (i != orderedPhotos.length - 1) const SizedBox(width: 7),
-            ],
-          ],
-        ),
+        child: _bentoLayout(orderedPhotos, scale),
       ),
     );
+  }
+
+  Widget _tile(GalleryPhoto photo) {
+    return _CollectionBentoTile(photo: photo, headers: headers, radius: 16);
+  }
+
+  Widget _bentoLayout(List<GalleryPhoto> tiles, double scale) {
+    final gap = 7 * scale;
+    switch (tiles.length) {
+      case 1:
+        return _tile(tiles[0]);
+      case 2:
+        return Column(
+          children: [
+            Expanded(child: _tile(tiles[0])),
+            SizedBox(height: gap),
+            Expanded(child: _tile(tiles[1])),
+          ],
+        );
+      case 3:
+        return Column(
+          children: [
+            Expanded(flex: 3, child: _tile(tiles[0])),
+            SizedBox(height: gap),
+            Expanded(
+              flex: 2,
+              child: Row(
+                children: [
+                  Expanded(child: _tile(tiles[1])),
+                  SizedBox(width: gap),
+                  Expanded(child: _tile(tiles[2])),
+                ],
+              ),
+            ),
+          ],
+        );
+      case 4:
+        return Column(
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(child: _tile(tiles[0])),
+                  SizedBox(width: gap),
+                  Expanded(child: _tile(tiles[1])),
+                ],
+              ),
+            ),
+            SizedBox(height: gap),
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(child: _tile(tiles[2])),
+                  SizedBox(width: gap),
+                  Expanded(child: _tile(tiles[3])),
+                ],
+              ),
+            ),
+          ],
+        );
+      default:
+        return Column(
+          children: [
+            Expanded(
+              flex: 3,
+              child: Row(
+                children: [
+                  Expanded(flex: 3, child: _tile(tiles[0])),
+                  SizedBox(width: gap),
+                  Expanded(flex: 2, child: _tile(tiles[1])),
+                ],
+              ),
+            ),
+            SizedBox(height: gap),
+            Expanded(
+              flex: 2,
+              child: Row(
+                children: [
+                  Expanded(child: _tile(tiles[2])),
+                  SizedBox(width: gap),
+                  Expanded(child: _tile(tiles[3])),
+                  SizedBox(width: gap),
+                  Expanded(child: _tile(tiles[4])),
+                ],
+              ),
+            ),
+          ],
+        );
+    }
   }
 
   static List<GalleryPhoto> _landscapePhotosFirst(List<GalleryPhoto> photos) {
@@ -503,7 +582,7 @@ class _CollectionBentoTile extends StatelessWidget {
       child: _CollectionPreviewImage(
         photo: photo,
         headers: headers,
-        fit: BoxFit.contain,
+        fit: BoxFit.cover,
         radius: radius,
       ),
     );
