@@ -849,6 +849,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   AnimationStatusListener? _zoomAnimationStatusListener;
   late int _index;
   final GalleryController _controller = Get.find<GalleryController>();
+  final GalleryRepository _repository = const GalleryRepository();
   final Map<int, Future<GalleryPhotoAttributes>> _attributesCache = {};
   final Map<int, Future<String>> _imageSizeCache = {};
   final Map<int, Future<String>> _storageSizeCache = {};
@@ -857,12 +858,15 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   bool _isZoomed = false;
   bool _zoomModeActive = false;
   bool _infoPanelOpen = false;
+  bool _allowIgnore = false;
+  bool _isIgnoring = false;
   Offset _lastDoubleTapPosition = Offset.zero;
 
   @override
   void initState() {
     super.initState();
     _index = widget.initialIndex;
+    _loadIgnoreFeature();
     _pageController = PageController(initialPage: widget.initialIndex);
     _thumbnailScrollController = ScrollController();
     _transformationController = TransformationController();
@@ -1131,6 +1135,80 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     _controller.toggleFavorite(_photo);
     if (mounted) setState(() {});
     if (!wasFavorite) _playFavoriteBurst();
+  }
+
+  Future<void> _loadIgnoreFeature() async {
+    try {
+      final features = await _repository.getMobileFeatures();
+      if (!mounted) return;
+      setState(() => _allowIgnore = features['allow_ignore'] == true);
+    } catch (_) {
+      // Ignore button simply stays hidden if the feature flag can't load.
+    }
+  }
+
+  Future<void> _ignoreCurrentPhoto() async {
+    if (!_allowIgnore || _isIgnoring || _photo.id <= 0) return;
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('Ignore this photo?'),
+        content: const Text(
+          'This photo will be hidden from your gallery.',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Ignore'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _isIgnoring = true);
+    try {
+      final photoId = _photo.id;
+      final ignored = await _repository.ignorePhotos({photoId});
+      if (!mounted) return;
+      if (ignored.isEmpty) {
+        TopNotification.error('Unable to ignore this photo');
+        return;
+      }
+      TopNotification.success('Photo ignored');
+      if (widget.isRecentFeed) {
+        final removedIndex = _controller.recentPhotos.indexWhere(
+          (photo) => photo.id == photoId,
+        );
+        if (removedIndex != -1) {
+          _controller.recentPhotos.removeAt(removedIndex);
+        }
+        if (_photosList.isEmpty) {
+          Navigator.pop(context);
+          return;
+        }
+        setState(() {
+          if (_index >= _photosList.length) {
+            _index = _photosList.length - 1;
+          }
+          _resetZoom(animated: false);
+        });
+        if (_pageController.hasClients) {
+          _pageController.jumpToPage(_index);
+        }
+      } else {
+        Navigator.pop(context);
+      }
+    } catch (error) {
+      if (!mounted) return;
+      TopNotification.error(error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _isIgnoring = false);
+    }
   }
 
   void _rememberDoubleTapPosition(TapDownDetails details) {
@@ -1480,6 +1558,9 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                         takenAt: _photo.takenAt,
                         attributesFuture: _attributesFor(_photo.id),
                         onBack: () => Navigator.pop(context),
+                        allowIgnore: _allowIgnore,
+                        isIgnoring: _isIgnoring,
+                        onIgnore: _ignoreCurrentPhoto,
                       ),
                     ),
                   ),
@@ -1973,6 +2054,9 @@ class _ViewerTopBar extends StatelessWidget {
   final DateTime? takenAt;
   final Future<GalleryPhotoAttributes>? attributesFuture;
   final VoidCallback onBack;
+  final bool allowIgnore;
+  final bool isIgnoring;
+  final VoidCallback onIgnore;
 
   const _ViewerTopBar({
     required this.title,
@@ -1980,6 +2064,9 @@ class _ViewerTopBar extends StatelessWidget {
     this.takenAt,
     this.attributesFuture,
     required this.onBack,
+    required this.allowIgnore,
+    required this.isIgnoring,
+    required this.onIgnore,
   });
 
   @override
@@ -2057,7 +2144,31 @@ class _ViewerTopBar extends StatelessWidget {
             },
           ),
         ),
-        const SizedBox(width: 54),
+        if (allowIgnore)
+          isIgnoring
+              ? Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: SizedBox(
+                    width: 42,
+                    height: 42,
+                    child: Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              : _GlassIconButton(
+                  icon: CupertinoIcons.checkmark_alt_circle,
+                  onTap: onIgnore,
+                )
+        else
+          const SizedBox(width: 54),
       ],
     );
   }
