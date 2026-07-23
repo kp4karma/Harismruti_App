@@ -36,12 +36,6 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    final savedMobile = StorageHelper.getValue<String>(
-      key: StorageKeys.lastMobileNumber,
-    );
-    if (savedMobile != null && savedMobile.isNotEmpty) {
-      _mobileController.text = savedMobile;
-    }
     final savedCountryCode = StorageHelper.getValue<String>(
       key: StorageKeys.lastMobileCountryCode,
     );
@@ -183,7 +177,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                           fontWeight: FontWeight.w700,
                                         ),
                                         decoration: const InputDecoration(
-                                          hintText: '98540 02451',
                                           border: InputBorder.none,
                                           isCollapsed: true,
                                           contentPadding: EdgeInsets.symmetric(
