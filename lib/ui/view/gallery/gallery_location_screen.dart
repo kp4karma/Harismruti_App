@@ -518,7 +518,7 @@ class _LocationGroupMapMarker extends StatelessWidget {
                       height: (selected ? 42 : 36) * markerScale,
                       child: marker.card.coverUrl.isEmpty
                           ? ColoredBox(
-                              color: const Color(0xFFF2E9E4),
+                              color: const Color(0xFFFFFFFF),
                               child: Icon(
                                 CupertinoIcons.photo,
                                 color: primaryColor,
@@ -989,7 +989,7 @@ class _CityListTile extends StatelessWidget {
                   height: 52 * tabletScale(context),
                   child: card.coverUrl.isEmpty
                       ? ColoredBox(
-                          color: const Color(0xFFF2E9E4),
+                          color: const Color(0xFFFFFFFF),
                           child: Icon(
                             CupertinoIcons.photo,
                             color: primaryColor,

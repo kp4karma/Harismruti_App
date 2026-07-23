@@ -834,7 +834,7 @@ class _CollectionPhotoTile extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: ColoredBox(
-        color: const Color(0xFFF2E9E4),
+        color: const Color(0xFFFFFFFF),
         child: NetworkImageWithLoader(
           imageUrl: photo.thumbnailUrl,
           title: photo.title ?? 'Smruti',
@@ -965,7 +965,7 @@ class _TimelinePhotoTile extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(large ? 14 : 4),
       child: ColoredBox(
-        color: const Color(0xFFF2E9E4),
+        color: const Color(0xFFFFFFFF),
         child: NetworkImageWithLoader(
           imageUrl: photo.thumbnailUrl,
           title: photo.title ?? 'Smruti',

@@ -714,7 +714,7 @@ class _MosaicTile extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               ColoredBox(
-                color: const Color(0xFFF2E9E4),
+                color: const Color(0xFFFFFFFF),
                 child: NetworkImageWithLoader(
                   imageUrl: photo.thumbnailUrl,
                   title: photo.title ?? title,
@@ -722,14 +722,30 @@ class _MosaicTile extends StatelessWidget {
                   fit: BoxFit.contain,
                 ),
               ),
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Colors.transparent, Colors.black.withAlpha(35)],
-                  ),
-                ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: 54,
+                child: Obx(() {
+                  final tags = _combinedTags(
+                    photo.tags,
+                    controller.tagsForPhoto(photo.id),
+                  );
+                  if (tags.isEmpty) return const SizedBox.shrink();
+                  return DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withAlpha(35),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
               ),
               if (selectionMode)
                 Positioned(

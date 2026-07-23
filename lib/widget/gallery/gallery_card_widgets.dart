@@ -186,7 +186,7 @@ class GalleryMosaicCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: url.isEmpty
           ? ColoredBox(
-              color: const Color(0xFFF2E9E4),
+              color: const Color(0xFFFFFFFF),
               child: Center(
                 child: Icon(
                   Icons.photo,
@@ -400,7 +400,7 @@ class _HomeCollectionBentoCollage extends StatelessWidget {
   Widget build(BuildContext context) {
     if (photos.isEmpty) {
       return ColoredBox(
-        color: const Color(0xFFF2E9E4),
+        color: const Color(0xFFFFFFFF),
         child: Icon(CupertinoIcons.photo, color: primaryColor),
       );
     }
@@ -528,7 +528,7 @@ class _CollectionPreviewImage extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: ColoredBox(
-        color: const Color(0xFFF2E9E4),
+        color: const Color(0xFFFFFFFF),
         child: NetworkImageWithLoader(
           imageUrl: photo.thumbnailUrl,
           title: photo.title ?? 'Smruti',
@@ -565,7 +565,7 @@ class GalleryWithFeatureCard extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: const Color(0xFFF2E9E4),
+          color: const Color(0xFFFFFFFF),
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
@@ -581,7 +581,7 @@ class GalleryWithFeatureCard extends StatelessWidget {
             card.coverUrl.isEmpty
                 ? Icon(CupertinoIcons.photo, color: primaryColor)
                 : ColoredBox(
-                    color: const Color(0xFFF2E9E4),
+                    color: const Color(0xFFFFFFFF),
                     child: NetworkImageWithLoader(
                       imageUrl: card.coverUrl,
                       title: card.title,
@@ -626,7 +626,7 @@ class GalleryWithFeatureCard extends StatelessWidget {
                                 fit: StackFit.expand,
                                 children: [
                                   ColoredBox(
-                                    color: const Color(0xFFF2E9E4),
+                                    color: const Color(0xFFFFFFFF),
                                     child: NetworkImageWithLoader(
                                       imageUrl: previewImages[index],
                                       title: card.title,
@@ -760,7 +760,7 @@ class GalleryGridCard extends StatelessWidget {
           children: [
             card.coverUrl.isEmpty
                 ? ColoredBox(
-                    color: const Color(0xFFF2E9E4),
+                    color: const Color(0xFFFFFFFF),
                     child: Center(
                       child: Icon(Icons.photo, color: primaryColor, size: 34),
                     ),
