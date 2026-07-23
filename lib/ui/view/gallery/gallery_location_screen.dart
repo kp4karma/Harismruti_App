@@ -10,6 +10,7 @@ import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
 import 'package:latlong2/latlong.dart' hide Path;
@@ -132,10 +133,11 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
     );
     if (index == -1 || !_cityScrollController.hasClients) return;
 
+    final scale = tabletScale(context);
     final viewport = _cityScrollController.position.viewportDimension;
     final target =
-        index * (_cityChipWidth + _cityChipGap) -
-        (viewport - _selectedCityChipWidth) / 2;
+        index * (_cityChipWidth * scale + _cityChipGap) -
+        (viewport - _selectedCityChipWidth * scale) / 2;
     _cityScrollController.animateTo(
       target.clamp(0.0, _cityScrollController.position.maxScrollExtent),
       duration: const Duration(milliseconds: 320),
@@ -306,7 +308,8 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
                   locationLabel: _activeCard.title,
                   headers: _controller.imageHeaders,
                   loading: loading,
-                  markerScale: _markerScaleForZoom(_mapZoom),
+                  markerScale:
+                      _markerScaleForZoom(_mapZoom) * tabletScale(context),
                   onZoomChanged: _handleMapZoomChanged,
                   onLocationTap: _openCityDetail,
                 ),
@@ -747,13 +750,14 @@ class _LocationSheetState extends State<_LocationSheet>
   @override
   Widget build(BuildContext context) {
     final expandedHeight = _expandedHeight(context);
-    final range = expandedHeight - _collapsedHeight;
+    final collapsedHeight = _collapsedHeight * tabletScale(context);
+    final range = expandedHeight - collapsedHeight;
 
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
         final t = _controller.value;
-        final height = _collapsedHeight + range * t;
+        final height = collapsedHeight + range * t;
         final horizontalMargin = lerpDouble(12, 0, t)!;
         final bottomMargin = lerpDouble(14, 0, t)!;
         final radius = lerpDouble(28, 24, t)!;
@@ -959,7 +963,9 @@ class _CityListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? primaryColor.withAlpha(24) : Colors.white.withAlpha(150),
+      color: selected
+          ? primaryColor.withAlpha(24)
+          : Colors.white.withAlpha(150),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -969,7 +975,9 @@ class _CityListTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: selected ? primaryColor.withAlpha(140) : Colors.white.withAlpha(190),
+              color: selected
+                  ? primaryColor.withAlpha(140)
+                  : Colors.white.withAlpha(190),
             ),
           ),
           child: Row(
@@ -977,8 +985,8 @@ class _CityListTile extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: SizedBox(
-                  width: 52,
-                  height: 52,
+                  width: 52 * tabletScale(context),
+                  height: 52 * tabletScale(context),
                   child: card.coverUrl.isEmpty
                       ? ColoredBox(
                           color: const Color(0xFFF2E9E4),
@@ -1105,7 +1113,7 @@ class _CitySearchField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 48,
+      height: 48 * tabletScale(context),
       child: TextField(
         controller: controller,
         textInputAction: TextInputAction.search,
@@ -1141,9 +1149,10 @@ class _CurrentLocationButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final size = 48 * tabletScale(context);
     return SizedBox(
-      width: 48,
-      height: 48,
+      width: size,
+      height: size,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: BackdropFilter(
@@ -1188,7 +1197,7 @@ class _CityPhotoChip extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
-        width: selected ? 156 : 132,
+        width: (selected ? 156 : 132) * tabletScale(context),
         margin: EdgeInsets.symmetric(vertical: selected ? 0 : 8),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
@@ -1338,9 +1347,13 @@ class _RoundMapButton extends StatelessWidget {
             customBorder: const CircleBorder(),
             onTap: onTap,
             child: SizedBox(
-              width: 46,
-              height: 46,
-              child: Icon(icon, color: primaryColor, size: 22),
+              width: 46 * tabletScale(context),
+              height: 46 * tabletScale(context),
+              child: Icon(
+                icon,
+                color: primaryColor,
+                size: 22 * tabletScale(context),
+              ),
             ),
           ),
         ),

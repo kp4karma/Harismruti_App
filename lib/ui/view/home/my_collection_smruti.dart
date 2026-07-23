@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/helper/auth_redirect_helper.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
@@ -17,11 +17,12 @@ class MyCollectionSmruti extends StatelessWidget {
   Widget build(BuildContext context) {
     final galleryController = Get.find<GalleryController>();
 
+    final scale = tabletScale(context);
     if (!StorageHelper.isLogin()) {
       return GestureDetector(
         onTap: AuthRedirectHelper.ensureLoggedIn,
         child: GalleryEmptyState(
-          height: 190.h,
+          height: 190 * scale,
           message: 'Login to see your collections',
         ),
       );
@@ -33,13 +34,13 @@ class MyCollectionSmruti extends StatelessWidget {
       );
       if (collections.isEmpty) {
         return GalleryEmptyState(
-          height: 190.h,
+          height: 190 * scale,
           message: 'Create collections from any photo',
         );
       }
 
       return SizedBox(
-        height: 220.h,
+        height: 220 * scale,
         child: ListView.builder(
           physics: const BouncingScrollPhysics(),
           scrollDirection: Axis.horizontal,
@@ -71,8 +72,10 @@ class MyCollectionSmruti extends StatelessWidget {
     final remove = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) =>
-          _RemoveCollectionSheet(collectionName: collectionName),
+      builder: (context) => ResponsiveCenter(
+        maxWidth: kSheetMaxWidth,
+        child: _RemoveCollectionSheet(collectionName: collectionName),
+      ),
     );
     if (remove == true) {
       controller.removeCollection(collectionName);
@@ -205,7 +208,7 @@ class _CollectionCard extends StatelessWidget {
               );
             },
       child: Container(
-        width: 245.h,
+        width: 245 * tabletScale(context),
         margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
@@ -257,12 +260,12 @@ class _CollectionCard extends StatelessWidget {
                   customBorder: const CircleBorder(),
                   onTap: onDelete,
                   child: SizedBox(
-                    width: 34,
-                    height: 34,
+                    width: 34 * tabletScale(context),
+                    height: 34 * tabletScale(context),
                     child: Icon(
                       Icons.delete_outline_rounded,
                       color: primaryColor,
-                      size: 19,
+                      size: 19 * tabletScale(context),
                     ),
                   ),
                 ),

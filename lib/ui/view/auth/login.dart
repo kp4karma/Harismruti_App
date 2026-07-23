@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:harismruti/ui/controller/auth_controller.dart';
 import 'package:harismruti/ui/view/auth/otp_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/utils/size_config.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/widget/auth/country_dial_code_picker.dart';
@@ -114,186 +115,196 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             Align(
               alignment: Alignment.bottomCenter,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(isKeyboardOpen ? 0 : 30),
-                child: Container(
-                  height: SizeConfig.heightMultiplier! * 60,
-                  color: isKeyboardOpen ? Colors.white60 : Colors.transparent,
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      child: SingleChildScrollView(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                CountryDialCodePicker(
-                                  countryCode: _countryCode,
-                                  onChanged: (dialCode) =>
-                                      setState(() => _countryCode = dialCode),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(
-                                        kPhoneInputRadius,
-                                      ),
-                                      boxShadow: kPhoneInputShadow,
-                                    ),
+              child: ResponsiveCenter(
+                maxWidth: kFormMaxWidth,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(isKeyboardOpen ? 0 : 30),
+                  child: Container(
+                    height: SizeConfig.heightMultiplier! * 60,
+                    color: isKeyboardOpen ? Colors.white60 : Colors.transparent,
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  CountryDialCodePicker(
+                                    countryCode: _countryCode,
+                                    onChanged: (dialCode) =>
+                                        setState(() => _countryCode = dialCode),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
                                     child: Container(
-                                      height: kPhoneInputHeight,
-                                      alignment: Alignment.center,
                                       decoration: BoxDecoration(
-                                        color: kPhoneInputFill,
                                         borderRadius: BorderRadius.circular(
                                           kPhoneInputRadius,
                                         ),
-                                        border: Border.all(
-                                          color: _showMobileError
-                                              ? const Color(0xFFC62828)
-                                              : _mobileFocusNode.hasFocus
-                                              ? primaryColor
-                                              : kPhoneInputBorder,
-                                          width: _mobileFocusNode.hasFocus
-                                              ? 1.6
-                                              : 1,
-                                        ),
+                                        boxShadow: kPhoneInputShadow,
                                       ),
-                                      child: TextField(
-                                        controller: _mobileController,
-                                        focusNode: _mobileFocusNode,
-                                        keyboardType: TextInputType.phone,
-                                        style: const TextStyle(
-                                          color: Color(0xFF322318),
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w700,
+                                      child: Container(
+                                        height: kPhoneInputHeight,
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          color: kPhoneInputFill,
+                                          borderRadius: BorderRadius.circular(
+                                            kPhoneInputRadius,
+                                          ),
+                                          border: Border.all(
+                                            color: _showMobileError
+                                                ? const Color(0xFFC62828)
+                                                : _mobileFocusNode.hasFocus
+                                                ? primaryColor
+                                                : kPhoneInputBorder,
+                                            width: _mobileFocusNode.hasFocus
+                                                ? 1.6
+                                                : 1,
+                                          ),
                                         ),
-                                        decoration: const InputDecoration(
-                                          border: InputBorder.none,
-                                          isCollapsed: true,
-                                          contentPadding: EdgeInsets.symmetric(
-                                            horizontal: 16,
+                                        child: TextField(
+                                          controller: _mobileController,
+                                          focusNode: _mobileFocusNode,
+                                          keyboardType: TextInputType.phone,
+                                          style: const TextStyle(
+                                            color: Color(0xFF322318),
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                          decoration: const InputDecoration(
+                                            border: InputBorder.none,
+                                            isCollapsed: true,
+                                            contentPadding:
+                                                EdgeInsets.symmetric(
+                                                  horizontal: 16,
+                                                ),
                                           ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            if (_showMobileError) ...[
-                              const SizedBox(height: 6),
-                              const Padding(
-                                padding: EdgeInsets.only(left: 4),
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                    'Mobile number is required',
-                                    style: TextStyle(
-                                      color: Color(0xFFC62828),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
+                                ],
+                              ),
+                              if (_showMobileError) ...[
+                                const SizedBox(height: 6),
+                                const Padding(
+                                  padding: EdgeInsets.only(left: 4),
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      'Mobile number is required',
+                                      style: TextStyle(
+                                        color: Color(0xFFC62828),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                   ),
                                 ),
+                              ],
+                              const SizedBox(height: 20),
+                              const Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  "Verification Method",
+                                  style: TextStyle(fontWeight: FontWeight.w500),
+                                ),
                               ),
-                            ],
-                            const SizedBox(height: 20),
-                            const Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                "Verification Method",
-                                style: TextStyle(fontWeight: FontWeight.w500),
-                              ),
-                            ),
-                            SizedBox(
-                              width: double.infinity,
-                              child: SegmentedButton<String>(
-                                segments: const [
-                                  ButtonSegment(
-                                    value: 'email',
-                                    label: Text('Email'),
-                                  ),
-                                  ButtonSegment(
-                                    value: 'whatsapp',
-                                    label: Text('Whatsapp'),
-                                  ),
-                                ],
-                                selected: {_validationMethod},
-                                onSelectionChanged: (selected) {
-                                  final method = selected.first;
-                                  if (method == 'whatsapp') {
-                                    if (!_hasShownWhatsappOtpAlert) {
-                                      _hasShownWhatsappOtpAlert = true;
-                                      _showWhatsappOtpAlert();
+                              SizedBox(
+                                width: double.infinity,
+                                child: SegmentedButton<String>(
+                                  segments: const [
+                                    ButtonSegment(
+                                      value: 'email',
+                                      label: Text('Email'),
+                                    ),
+                                    ButtonSegment(
+                                      value: 'whatsapp',
+                                      label: Text('Whatsapp'),
+                                    ),
+                                  ],
+                                  selected: {_validationMethod},
+                                  onSelectionChanged: (selected) {
+                                    final method = selected.first;
+                                    if (method == 'whatsapp') {
+                                      if (!_hasShownWhatsappOtpAlert) {
+                                        _hasShownWhatsappOtpAlert = true;
+                                        _showWhatsappOtpAlert();
+                                        return;
+                                      }
+                                      setState(
+                                        () => _validationMethod = method,
+                                      );
                                       return;
                                     }
                                     setState(() => _validationMethod = method);
-                                    return;
-                                  }
-                                  setState(() => _validationMethod = method);
-                                },
+                                  },
+                                ),
                               ),
-                            ),
-                            SizedBox(height: SizeConfig.heightMultiplier! * 4),
-                            Obx(
-                              () => CustomButton(
-                                text: _authController.isLoading.value
-                                    ? "Please wait..."
-                                    : "Sign In",
-                                isEnabled: _canSubmit,
-                                onTap: () async {
-                                  final sent = await _authController.login(
-                                    mobile:
-                                        '$_countryCode${_mobileController.text}',
-                                    validationMethod: _validationMethod,
-                                  );
-                                  if (!context.mounted || !sent) return;
-                                  StorageHelper.setValue(
-                                    key: StorageKeys.lastMobileNumber,
-                                    value: _mobileController.text.trim(),
-                                  );
-                                  StorageHelper.setValue(
-                                    key: StorageKeys.lastMobileCountryCode,
-                                    value: _countryCode,
-                                  );
-                                  Navigator.push(
-                                    context,
-                                    CupertinoPageRoute(
-                                      builder: (context) => const OTPScreen(),
-                                    ),
-                                  );
-                                },
+                              SizedBox(
+                                height: SizeConfig.heightMultiplier! * 4,
                               ),
-                            ),
-                            SizedBox(height: SizeConfig.heightMultiplier! * 4),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Text("Don't have an account? "),
-                                GestureDetector(
-                                  onTap: () => Get.toNamed('/register'),
-                                  child: Text(
-                                    "Register",
-                                    style: TextStyle(
-                                      color: const Color(0xFF833737),
-                                      fontWeight: FontWeight.bold,
-                                      decorationColor: primaryColor,
-                                      decoration: TextDecoration.underline,
+                              Obx(
+                                () => CustomButton(
+                                  text: _authController.isLoading.value
+                                      ? "Please wait..."
+                                      : "Sign In",
+                                  isEnabled: _canSubmit,
+                                  onTap: () async {
+                                    final sent = await _authController.login(
+                                      mobile:
+                                          '$_countryCode${_mobileController.text}',
+                                      validationMethod: _validationMethod,
+                                    );
+                                    if (!context.mounted || !sent) return;
+                                    StorageHelper.setValue(
+                                      key: StorageKeys.lastMobileNumber,
+                                      value: _mobileController.text.trim(),
+                                    );
+                                    StorageHelper.setValue(
+                                      key: StorageKeys.lastMobileCountryCode,
+                                      value: _countryCode,
+                                    );
+                                    Navigator.push(
+                                      context,
+                                      CupertinoPageRoute(
+                                        builder: (context) => const OTPScreen(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              SizedBox(
+                                height: SizeConfig.heightMultiplier! * 4,
+                              ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Text("Don't have an account? "),
+                                  GestureDetector(
+                                    onTap: () => Get.toNamed('/register'),
+                                    child: Text(
+                                      "Register",
+                                      style: TextStyle(
+                                        color: const Color(0xFF833737),
+                                        fontWeight: FontWeight.bold,
+                                        decorationColor: primaryColor,
+                                        decoration: TextDecoration.underline,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ],
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),

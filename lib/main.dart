@@ -31,7 +31,10 @@ class _MyAppState extends State<MyApp> {
       splitScreenMode: true,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          SizeConfig().init(constraints, Orientation.portrait);
+          final orientation = constraints.maxWidth > constraints.maxHeight
+              ? Orientation.landscape
+              : Orientation.portrait;
+          SizeConfig().init(constraints, orientation);
 
           return GetMaterialApp(
             debugShowCheckedModeBanner: false,

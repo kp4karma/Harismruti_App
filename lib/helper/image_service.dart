@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/utils/responsive.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -18,37 +19,43 @@ class ImagePickerHelper {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (context) => Wrap(
-        children: [
-          ListTile(
-            leading: Icon(CupertinoIcons.camera, color: themeColor),
-            title: const Text("Camera"),
-            onTap: () async {
-              Navigator.pop(context);
-              final result = await _pickImage(
-                ImageSource.camera,
-                allowMultiple,
-                enableCrop,
-                cropStyle,
-              );
-              if (result.isNotEmpty) onImagesPicked(result);
-            },
-          ),
-          ListTile(
-            leading: Icon(CupertinoIcons.photo_on_rectangle, color: themeColor),
-            title: const Text("Gallery"),
-            onTap: () async {
-              Navigator.pop(context);
-              final result = await _pickImage(
-                ImageSource.gallery,
-                allowMultiple,
-                enableCrop,
-                cropStyle,
-              );
-              if (result.isNotEmpty) onImagesPicked(result);
-            },
-          ),
-        ],
+      builder: (context) => ResponsiveCenter(
+        maxWidth: kSheetMaxWidth,
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: Icon(CupertinoIcons.camera, color: themeColor),
+              title: const Text("Camera"),
+              onTap: () async {
+                Navigator.pop(context);
+                final result = await _pickImage(
+                  ImageSource.camera,
+                  allowMultiple,
+                  enableCrop,
+                  cropStyle,
+                );
+                if (result.isNotEmpty) onImagesPicked(result);
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                CupertinoIcons.photo_on_rectangle,
+                color: themeColor,
+              ),
+              title: const Text("Gallery"),
+              onTap: () async {
+                Navigator.pop(context);
+                final result = await _pickImage(
+                  ImageSource.gallery,
+                  allowMultiple,
+                  enableCrop,
+                  cropStyle,
+                );
+                if (result.isNotEmpty) onImagesPicked(result);
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

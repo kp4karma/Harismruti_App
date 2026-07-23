@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_string.dart';
+import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/widget/appbar/detail_appbar.dart';
 import 'package:harismruti/widget/background/custom_background.dart';
 
@@ -32,81 +33,87 @@ class _SmrutiSectionSettingsScreenState
         ),
         body: Obx(() {
           final sections = controller.customizableSections();
-          return Column(
-            children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: _ReorderSectionHeader(),
-              ),
-              Expanded(
-                child: ReorderableListView.builder(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 12,
-                    horizontal: 16,
-                  ),
-                  proxyDecorator: (child, index, animation) {
-                    return Material(
-                      color: Colors.transparent,
-                      child: ScaleTransition(
-                        scale: Tween<double>(
-                          begin: 1,
-                          end: 1.02,
-                        ).animate(animation),
-                        child: child,
-                      ),
-                    );
-                  },
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: sections.length,
-                  onReorder: controller.reorderCustomizableSections,
-                  itemBuilder: (context, index) {
-                    final section = sections[index];
-                    final title = section['title'].toString();
-                    final isShown = section['is_show'] == true;
-
-                    return _PreferenceOptionTile(
-                      key: ValueKey(title),
-                      title: title,
-                      isShown: isShown,
-                      icon: _iconForSection(title),
-                      index: index,
-                      onTap: () => controller.updateSectionVisibilityByTitle(
-                        title,
-                        !isShown,
-                      ),
-                      onChanged: (value) {
-                        controller.updateSectionVisibilityByTitle(title, value);
-                      },
-                    );
-                  },
+          return ResponsiveCenter(
+            maxWidth: kContentMaxWidth,
+            child: Column(
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  child: _ReorderSectionHeader(),
                 ),
-              ),
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                Expanded(
+                  child: ReorderableListView.builder(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 16,
+                    ),
+                    proxyDecorator: (child, index, animation) {
+                      return Material(
+                        color: Colors.transparent,
+                        child: ScaleTransition(
+                          scale: Tween<double>(
+                            begin: 1,
+                            end: 1.02,
+                          ).animate(animation),
+                          child: child,
                         ),
-                      ),
-                      onPressed: controller.resetToDefaultOrder,
-                      icon: const Icon(Icons.restart_alt_rounded),
-                      label: const Text(
-                        'Set to Default Order',
-                        style: TextStyle(fontWeight: FontWeight.w900),
+                      );
+                    },
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: sections.length,
+                    onReorder: controller.reorderCustomizableSections,
+                    itemBuilder: (context, index) {
+                      final section = sections[index];
+                      final title = section['title'].toString();
+                      final isShown = section['is_show'] == true;
+
+                      return _PreferenceOptionTile(
+                        key: ValueKey(title),
+                        title: title,
+                        isShown: isShown,
+                        icon: _iconForSection(title),
+                        index: index,
+                        onTap: () => controller.updateSectionVisibilityByTitle(
+                          title,
+                          !isShown,
+                        ),
+                        onChanged: (value) {
+                          controller.updateSectionVisibilityByTitle(
+                            title,
+                            value,
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        onPressed: controller.resetToDefaultOrder,
+                        icon: const Icon(Icons.restart_alt_rounded),
+                        label: const Text(
+                          'Set to Default Order',
+                          style: TextStyle(fontWeight: FontWeight.w900),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           );
         }),
       ),
@@ -166,10 +173,8 @@ class _ReorderSectionHeaderState extends State<_ReorderSectionHeader> {
     }
     final overlay = Overlay.of(context);
     final entry = OverlayEntry(
-      builder: (context) => _ReorderHelpPopover(
-        layerLink: _layerLink,
-        onDismiss: _removePopover,
-      ),
+      builder: (context) =>
+          _ReorderHelpPopover(layerLink: _layerLink, onDismiss: _removePopover),
     );
     _popoverEntry = entry;
     overlay.insert(entry);
@@ -226,10 +231,7 @@ class _ReorderHelpPopover extends StatelessWidget {
   final LayerLink layerLink;
   final VoidCallback onDismiss;
 
-  const _ReorderHelpPopover({
-    required this.layerLink,
-    required this.onDismiss,
-  });
+  const _ReorderHelpPopover({required this.layerLink, required this.onDismiss});
 
   @override
   Widget build(BuildContext context) {
@@ -358,13 +360,17 @@ class _PreferenceOptionTile extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  width: 46,
-                  height: 46,
+                  width: 46 * tabletScale(context),
+                  height: 46 * tabletScale(context),
                   decoration: BoxDecoration(
                     color: primaryColor.withAlpha(16),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Icon(icon, color: primaryColor, size: 23),
+                  child: Icon(
+                    icon,
+                    color: primaryColor,
+                    size: 23 * tabletScale(context),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

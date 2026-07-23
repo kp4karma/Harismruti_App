@@ -193,8 +193,8 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           itemCount: photos.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 180,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
             childAspectRatio: 0.74,

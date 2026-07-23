@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:harismruti/ui/view/auth/login.dart';
 import 'package:harismruti/ui/view/auth/register.dart';
+import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/utils/size_config.dart';
 import 'package:harismruti/widget/appbar/custom_appbar.dart';
 import 'package:harismruti/widget/buttons/custom_button.dart';
@@ -31,40 +32,43 @@ class _LoginHomeScreenState extends State<LoginHomeScreen> {
             color: Colors.white,
             child: SafeArea(
               top: false,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(height: SizeConfig.heightMultiplier! * 4),
-                      CustomButton(
-                        text: "Sign In",
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            CupertinoPageRoute(
-                              builder: (context) => LoginScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      SizedBox(height: SizeConfig.heightMultiplier! * 2),
-                      CustomButton(
-                        text: "Register",
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            CupertinoPageRoute(
-                              builder: (context) => RegisterScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      SizedBox(height: SizeConfig.heightMultiplier! * 2),
-                    ],
-                  ),
-                ],
+              child: ResponsiveCenter(
+                maxWidth: kFormMaxWidth,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(height: SizeConfig.heightMultiplier! * 4),
+                        CustomButton(
+                          text: "Sign In",
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              CupertinoPageRoute(
+                                builder: (context) => LoginScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                        SizedBox(height: SizeConfig.heightMultiplier! * 2),
+                        CustomButton(
+                          text: "Register",
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              CupertinoPageRoute(
+                                builder: (context) => RegisterScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                        SizedBox(height: SizeConfig.heightMultiplier! * 2),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

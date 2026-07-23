@@ -1,11 +1,11 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/helper/auth_redirect_helper.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
+import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
@@ -19,24 +19,25 @@ class MyFavoriteSmruti extends StatelessWidget {
 
     return Obx(() {
       final photos = galleryController.favoritePhotos;
+      final scale = tabletScale(context);
       if (!StorageHelper.isLogin()) {
         return GestureDetector(
           onTap: AuthRedirectHelper.ensureLoggedIn,
           child: GalleryEmptyState(
-            height: 190.h,
+            height: 190 * scale,
             message: 'Login to see your favorite photos',
           ),
         );
       }
       if (photos.isEmpty) {
         return GalleryEmptyState(
-          height: 190.h,
+          height: 190 * scale,
           message: 'Favorite photos will show here',
         );
       }
 
       return SizedBox(
-        height: 230.h,
+        height: 230 * scale,
         child: ListView.builder(
           physics: const BouncingScrollPhysics(),
           scrollDirection: Axis.horizontal,
@@ -83,7 +84,7 @@ class _FavoritePhotoCard extends StatelessWidget {
         );
       },
       child: Container(
-        width: 168.h,
+        width: 168 * tabletScale(context),
         margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
@@ -123,16 +124,16 @@ class _FavoritePhotoCard extends StatelessWidget {
               right: 10,
               top: 10,
               child: Container(
-                height: 30,
-                width: 30,
+                height: 30 * tabletScale(context),
+                width: 30 * tabletScale(context),
                 decoration: BoxDecoration(
                   color: Colors.white.withAlpha(230),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   CupertinoIcons.heart_fill,
                   color: Colors.redAccent,
-                  size: 16,
+                  size: 16 * tabletScale(context),
                 ),
               ),
             ),

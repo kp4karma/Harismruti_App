@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
+import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/widget/gallery/gallery_card_widgets.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 
@@ -20,8 +21,9 @@ class AlbumSmruti extends StatelessWidget {
         return const GalleryEmptyState(height: 180);
       }
 
+      final scale = tabletScale(context);
       return SizedBox(
-        height: 255,
+        height: 255 * scale,
         child: ListView.builder(
           physics: const BouncingScrollPhysics(),
           scrollDirection: Axis.horizontal,
@@ -30,7 +32,7 @@ class AlbumSmruti extends StatelessWidget {
           itemBuilder: (context, index) => GalleryMosaicCard(
             card: albums[index],
             headers: galleryController.imageHeaders,
-            width: 230,
+            width: 230 * scale,
           ),
         ),
       );

@@ -7,6 +7,7 @@ import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
 
@@ -1033,12 +1034,14 @@ Color _monthAccent(int month) {
 }
 
 int _defaultColumnsFor(TimelineLevel level) {
+  final large = isLargeTabletDevice();
+  final tablet = large || isTabletDevice();
   switch (level) {
     case TimelineLevel.year:
-      return 9;
+      return large ? 14 : (tablet ? 12 : 9);
     case TimelineLevel.month:
-      return 5;
+      return large ? 8 : (tablet ? 7 : 5);
     case TimelineLevel.day:
-      return 3;
+      return large ? 5 : (tablet ? 4 : 3);
   }
 }

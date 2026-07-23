@@ -9,6 +9,7 @@ import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
 import 'package:harismruti/ui/view/Profile/smruti_section_setting.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_routes.dart';
+import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/widget/appbar/detail_appbar.dart';
 import 'package:harismruti/widget/background/custom_background.dart';
@@ -31,34 +32,37 @@ class ProfileScreen extends StatelessWidget {
         body: Column(
           children: [
             Expanded(
-              child: ListView(
-                shrinkWrap: true,
-                padding: const EdgeInsets.all(16),
-                children: [
-                  _ProfileIdCard(profileController: profileController),
-                  const SizedBox(height: 16),
-                  _ProfileOption(
-                    icon: Icons.tune,
-                    label: 'Customize Preferences',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        CupertinoPageRoute(
-                          builder: (context) => SmrutiSectionSettingsScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  _ProfileOption(
-                    icon: Icons.logout,
-                    label: 'Logout',
-                    onTap: () {
-                      StorageHelper.clearStorage();
-                      NavigationHelper.navigateAndRemoveAll(AppRoutes.home);
-                    },
-                  ),
-                ],
+              child: ResponsiveCenter(
+                maxWidth: kContentMaxWidth,
+                child: ListView(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    _ProfileIdCard(profileController: profileController),
+                    const SizedBox(height: 16),
+                    _ProfileOption(
+                      icon: Icons.tune,
+                      label: 'Customize Preferences',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          CupertinoPageRoute(
+                            builder: (context) => SmrutiSectionSettingsScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _ProfileOption(
+                      icon: Icons.logout,
+                      label: 'Logout',
+                      onTap: () {
+                        StorageHelper.clearStorage();
+                        NavigationHelper.navigateAndRemoveAll(AppRoutes.home);
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
 
@@ -181,13 +185,14 @@ class _ProfileAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final image = profileController.profileImage.value;
     final avatarUrl = profileController.avatarUrl;
+    final scale = tabletScale(context);
     return CircleAvatar(
-      radius: 28,
+      radius: 28 * scale,
       backgroundColor: Colors.white.withAlpha(170),
       child: ClipOval(
         child: SizedBox(
-          width: 50,
-          height: 50,
+          width: 50 * scale,
+          height: 50 * scale,
           child: image != null
               ? Image.file(
                   image,
@@ -274,14 +279,18 @@ class _ProfileInfoRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 30,
-                height: 30,
+                width: 30 * tabletScale(context),
+                height: 30 * tabletScale(context),
                 decoration: BoxDecoration(
                   color: Colors.white.withAlpha(100),
                   borderRadius: BorderRadius.circular(9),
                   border: Border.all(color: Colors.white.withAlpha(145)),
                 ),
-                child: Icon(data.icon, color: primaryColor, size: 16),
+                child: Icon(
+                  data.icon,
+                  color: primaryColor,
+                  size: 16 * tabletScale(context),
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(

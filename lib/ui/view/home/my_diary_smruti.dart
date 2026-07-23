@@ -11,6 +11,7 @@ import 'package:harismruti/helper/auth_redirect_helper.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/controller/my_diary_controller.dart';
 import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
 
 class MyDiarySmruti extends StatelessWidget {
@@ -165,45 +166,59 @@ class MyDiaryScreen extends StatelessWidget {
               ),
             ),
             SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                child: Center(
-                  child: Text(
-                    _formatMonth(month),
-                    style: TextStyle(
-                      color: primaryColor,
-                      fontSize: 23,
-                      fontWeight: FontWeight.w900,
+              child: ResponsiveCenter(
+                maxWidth: kContentMaxWidth,
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                      child: Center(
+                        child: Text(
+                          _formatMonth(month),
+                          style: TextStyle(
+                            color: primaryColor,
+                            fontSize: 23,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    const _WeekdayHeader(),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 22),
+                      child: GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: controller.monthCalendarDates(month).length,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 7,
+                              mainAxisSpacing: 3,
+                              crossAxisSpacing: 3,
+                              childAspectRatio: 0.95,
+                            ),
+                        itemBuilder: (context, index) {
+                          final date = controller.monthCalendarDates(
+                            month,
+                          )[index];
+                          if (date == null) {
+                            return const DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: Color(0xFFFFFFFF),
+                              ),
+                            );
+                          }
+                          final entry = controller.entryForDate(date);
+                          return _CalendarDateCell(
+                            date: date,
+                            entry: entry,
+                            onTap: () => _openDate(context, date),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ),
-            const SliverToBoxAdapter(child: _WeekdayHeader()),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 22),
-              sliver: SliverGrid.builder(
-                itemCount: controller.monthCalendarDates(month).length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 7,
-                  mainAxisSpacing: 3,
-                  crossAxisSpacing: 3,
-                  childAspectRatio: 0.95,
-                ),
-                itemBuilder: (context, index) {
-                  final date = controller.monthCalendarDates(month)[index];
-                  if (date == null) {
-                    return const DecoratedBox(
-                      decoration: BoxDecoration(color: Color(0xFFFFFFFF)),
-                    );
-                  }
-                  final entry = controller.entryForDate(date);
-                  return _CalendarDateCell(
-                    date: date,
-                    entry: entry,
-                    onTap: () => _openDate(context, date),
-                  );
-                },
               ),
             ),
             SliverPadding(
@@ -512,7 +527,10 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _DiaryPhotoSelectionSheet(initialSelected: _images),
+      builder: (_) => ResponsiveCenter(
+        maxWidth: kSheetMaxWidth,
+        child: _DiaryPhotoSelectionSheet(initialSelected: _images),
+      ),
     );
     if (selected == null) return;
     setState(() {
@@ -534,13 +552,16 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _DiaryReusablePickerSheet(
-        title: title,
-        hint: hint,
-        createLabel: title.replaceFirst('Add', 'Create new'),
-        suggestions: suggestions,
-        selectedValues: selectedValues,
-        controller: controller,
+      builder: (_) => ResponsiveCenter(
+        maxWidth: kSheetMaxWidth,
+        child: _DiaryReusablePickerSheet(
+          title: title,
+          hint: hint,
+          createLabel: title.replaceFirst('Add', 'Create new'),
+          suggestions: suggestions,
+          selectedValues: selectedValues,
+          controller: controller,
+        ),
       ),
     ).then((value) {
       final cleanValue = value?.trim();
@@ -613,49 +634,52 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          16,
-          16,
-          MediaQuery.of(context).viewInsets.bottom + 18,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Location name',
-              style: TextStyle(
-                color: Color(0xFF322318),
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
+      builder: (_) => ResponsiveCenter(
+        maxWidth: kSheetMaxWidth,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            16,
+            16,
+            MediaQuery.of(context).viewInsets.bottom + 18,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Location name',
+                style: TextStyle(
+                  color: Color(0xFF322318),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _locationController,
-              autofocus: true,
-              style: const TextStyle(color: Color(0xFF322318)),
-              decoration: _darkInputDecoration('Temple, home, city...'),
-            ),
-            const SizedBox(height: 12),
-            CupertinoButton(
-              color: primaryColor,
-              borderRadius: BorderRadius.circular(16),
-              onPressed: () {
-                setState(() {
-                  _latitude = null;
-                  _longitude = null;
-                });
-                Navigator.pop(context);
-              },
-              child: const Text(
-                'Save Location',
-                style: TextStyle(fontWeight: FontWeight.w900),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _locationController,
+                autofocus: true,
+                style: const TextStyle(color: Color(0xFF322318)),
+                decoration: _darkInputDecoration('Temple, home, city...'),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              CupertinoButton(
+                color: primaryColor,
+                borderRadius: BorderRadius.circular(16),
+                onPressed: () {
+                  setState(() {
+                    _latitude = null;
+                    _longitude = null;
+                  });
+                  Navigator.pop(context);
+                },
+                child: const Text(
+                  'Save Location',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1257,8 +1281,8 @@ class _DiaryPhotoSelectionSheetState extends State<_DiaryPhotoSelectionSheet> {
                               ),
                               itemCount: photos.length,
                               gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 3,
+                                  const SliverGridDelegateWithMaxCrossAxisExtent(
+                                    maxCrossAxisExtent: 125,
                                     mainAxisSpacing: 3,
                                     crossAxisSpacing: 3,
                                     childAspectRatio: 1,

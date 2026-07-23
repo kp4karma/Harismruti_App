@@ -7,6 +7,7 @@ import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/widget/appbar/detail_appbar.dart';
 import 'package:harismruti/widget/background/custom_background.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
@@ -35,45 +36,50 @@ class MyCollectionScreen extends StatelessWidget {
             );
           }
 
-          return ListView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-            children: [
-              _SectionHeader(
-                icon: CupertinoIcons.heart_fill,
-                title: 'Favorites',
-                count: favorites.length,
-              ),
-              const SizedBox(height: 12),
-              if (favorites.isEmpty)
-                const _EmptyPanel(message: 'Favorite photos will show here')
-              else
-                _PhotoGrid(
-                  photos: favorites,
+          return ResponsiveCenter(
+            maxWidth: kContentMaxWidth,
+            child: ListView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+              children: [
+                _SectionHeader(
+                  icon: CupertinoIcons.heart_fill,
                   title: 'Favorites',
-                  headers: controller.imageHeaders,
+                  count: favorites.length,
                 ),
-              const SizedBox(height: 22),
-              _SectionHeader(
-                icon: CupertinoIcons.collections,
-                title: 'Collections',
-                count: collections.length,
-              ),
-              const SizedBox(height: 12),
-              if (collections.isEmpty)
-                const _EmptyPanel(message: 'Create collections from any photo')
-              else
-                for (final collection in collections) ...[
-                  _CollectionCard(
-                    collection: collection,
-                    photos: controller.photosForCollection(collection),
+                const SizedBox(height: 12),
+                if (favorites.isEmpty)
+                  const _EmptyPanel(message: 'Favorite photos will show here')
+                else
+                  _PhotoGrid(
+                    photos: favorites,
+                    title: 'Favorites',
                     headers: controller.imageHeaders,
-                    onDelete: () =>
-                        _confirmRemoveCollection(context, collection.name),
                   ),
-                  const SizedBox(height: 12),
-                ],
-            ],
+                const SizedBox(height: 22),
+                _SectionHeader(
+                  icon: CupertinoIcons.collections,
+                  title: 'Collections',
+                  count: collections.length,
+                ),
+                const SizedBox(height: 12),
+                if (collections.isEmpty)
+                  const _EmptyPanel(
+                    message: 'Create collections from any photo',
+                  )
+                else
+                  for (final collection in collections) ...[
+                    _CollectionCard(
+                      collection: collection,
+                      photos: controller.photosForCollection(collection),
+                      headers: controller.imageHeaders,
+                      onDelete: () =>
+                          _confirmRemoveCollection(context, collection.name),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+              ],
+            ),
           );
         }),
       ),
@@ -87,8 +93,10 @@ class MyCollectionScreen extends StatelessWidget {
     final remove = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) =>
-          _RemoveCollectionSheet(collectionName: collectionName),
+      builder: (context) => ResponsiveCenter(
+        maxWidth: kSheetMaxWidth,
+        child: _RemoveCollectionSheet(collectionName: collectionName),
+      ),
     );
     if (remove == true) {
       controller.removeCollection(collectionName);
@@ -236,8 +244,8 @@ class _PhotoGrid extends StatelessWidget {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: photos.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 120,
         mainAxisSpacing: 8,
         crossAxisSpacing: 8,
       ),
@@ -311,8 +319,8 @@ class _CollectionCard extends StatelessWidget {
               child: Row(
                 children: [
                   SizedBox(
-                    width: 72,
-                    height: 72,
+                    width: 72 * tabletScale(context),
+                    height: 72 * tabletScale(context),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(14),
                       child: photos.isEmpty

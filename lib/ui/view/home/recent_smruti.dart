@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
+import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
 
@@ -19,15 +19,16 @@ class RecentSmruti extends StatelessWidget {
 
     return Obx(() {
       final photos = _uniquePhotos(galleryController.recentPhotos);
+      final scale = tabletScale(context);
       if (galleryController.isLoading.value && photos.isEmpty) {
-        return GallerySectionLoader(height: 300.h);
+        return GallerySectionLoader(height: 300 * scale);
       }
       if (photos.isEmpty) {
-        return GalleryEmptyState(height: 220.h);
+        return GalleryEmptyState(height: 220 * scale);
       }
 
       return SizedBox(
-        height: 320.h,
+        height: 320 * scale,
         child: _AutoSwapRecentStack(
           photos: photos,
           headers: galleryController.imageHeaders,
@@ -169,24 +170,33 @@ class _AutoSwapRecentStackState extends State<_AutoSwapRecentStack> {
       },
       child: Padding(
         padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            for (var depth = visibleCount - 1; depth >= 0; depth--)
-              _buildPositionedCard(context, depth),
-          ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                for (var depth = visibleCount - 1; depth >= 0; depth--)
+                  _buildPositionedCard(context, depth, constraints.maxWidth),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _buildPositionedCard(BuildContext context, int depth) {
+  Widget _buildPositionedCard(
+    BuildContext context,
+    int depth,
+    double availableWidth,
+  ) {
     final photo = widget.photos[(_frontIndex + depth) % widget.photos.length];
 
     return _RecentStackPosition(
       key: ValueKey(_photoKey(photo)),
       depth: depth,
       duration: _swapDuration,
+      availableWidth: availableWidth,
       child: _RecentPhotoCard(
         photo: photo,
         headers: widget.headers,
@@ -202,20 +212,28 @@ class _AutoSwapRecentStackState extends State<_AutoSwapRecentStack> {
 }
 
 class _RecentStackPosition extends StatelessWidget {
+  // The pixel insets below were tuned against this available-width baseline
+  // (padded phone viewport); scaling by availableWidth/_referenceWidth keeps
+  // the overlap proportions consistent instead of the gutters staying
+  // pixel-fixed while the card barely shrinks on a much wider tablet.
+  static const _referenceWidth = 380.0;
+
   final int depth;
   final Duration duration;
+  final double availableWidth;
   final Widget child;
 
   const _RecentStackPosition({
     super.key,
     required this.depth,
     required this.duration,
+    required this.availableWidth,
     required this.child,
   });
 
   @override
   Widget build(BuildContext context) {
-    final layout = switch (depth) {
+    final baseLayout = switch (depth) {
       0 => const _StackCardLayout(
         left: 46,
         right: 46,
@@ -249,6 +267,9 @@ class _RecentStackPosition extends StatelessWidget {
         opacity: 0.82,
       ),
     };
+
+    final ratio = availableWidth > 0 ? availableWidth / _referenceWidth : 1.0;
+    final layout = baseLayout.scaled(ratio);
 
     return AnimatedPositioned(
       duration: duration,
@@ -288,6 +309,19 @@ class _StackCardLayout {
     required this.rotation,
     required this.opacity,
   });
+
+  /// Scales only the positional insets by [ratio] -- rotation/opacity are
+  /// visual constants, not tied to available width.
+  _StackCardLayout scaled(double ratio) {
+    return _StackCardLayout(
+      left: left * ratio,
+      right: right * ratio,
+      top: top * ratio,
+      bottom: bottom * ratio,
+      rotation: rotation,
+      opacity: opacity,
+    );
+  }
 }
 
 class _RecentPhotoCard extends StatelessWidget {

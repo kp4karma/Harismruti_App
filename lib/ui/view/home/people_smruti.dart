@@ -4,6 +4,7 @@ import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
 
@@ -23,7 +24,7 @@ class PeopleSmruti extends StatelessWidget {
       }
 
       return SizedBox(
-        height: 250,
+        height: 250 * tabletScale(context),
         child: ListView.builder(
           physics: const BouncingScrollPhysics(),
           scrollDirection: Axis.horizontal,
@@ -59,7 +60,7 @@ class _PersonWiseCard extends StatelessWidget {
         MaterialPageRoute(builder: (_) => GalleryDetailScreen.fromCard(card)),
       ),
       child: SizedBox(
-        width: 210,
+        width: 210 * tabletScale(context),
         child: Container(
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(

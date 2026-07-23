@@ -7,6 +7,7 @@ import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 
 Future<void> showGalleryFilterSheet(BuildContext context) {
@@ -15,7 +16,10 @@ Future<void> showGalleryFilterSheet(BuildContext context) {
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => const GalleryFilterSheet(),
+    builder: (_) => const ResponsiveCenter(
+      maxWidth: kSheetMaxWidth,
+      child: GalleryFilterSheet(),
+    ),
   );
 }
 

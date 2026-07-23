@@ -12,10 +12,7 @@ import 'package:harismruti/utils/storage_helper.dart';
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+  await SystemChrome.setPreferredOrientations(defaultOrientationsForDevice());
 
   _configureLoadingUI();
   // MediaKit.ensureInitialized();
@@ -53,6 +50,30 @@ Future<void> bootstrap() async {
       debugPrint('Notification bootstrap failed, continuing without it: $e');
     }
   }
+}
+
+/// Phones stay portrait-locked (existing behavior, unchanged). Tablets
+/// (shortest physical side >= 600dp) are allowed to rotate freely so
+/// landscape use is possible on iPad/Android tablets.
+///
+/// Exposed (not private) so routes that need to temporarily force
+/// portrait (e.g. a fixed-layout capture screen) can restore this
+/// app-level default afterwards instead of hardcoding a guess.
+List<DeviceOrientation> defaultOrientationsForDevice() {
+  final view = PlatformDispatcher.instance.views.first;
+  final size = view.physicalSize / view.devicePixelRatio;
+  final shortestSide = size.shortestSide;
+
+  if (shortestSide >= 600) {
+    return [
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ];
+  }
+
+  return [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown];
 }
 
 void _configureLoadingUI() {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
+import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/widget/gallery/gallery_card_widgets.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 
@@ -23,8 +24,9 @@ class WallpaperSmruti extends StatelessWidget {
         return const GalleryEmptyState(height: 180);
       }
 
+      final scale = tabletScale(context);
       return SizedBox(
-        height: 305,
+        height: 305 * scale,
         child: ListView.builder(
           physics: const BouncingScrollPhysics(),
           scrollDirection: Axis.horizontal,
@@ -33,8 +35,8 @@ class WallpaperSmruti extends StatelessWidget {
           itemBuilder: (context, index) => GalleryCoverCard(
             card: wallpapers[index],
             headers: galleryController.imageHeaders,
-            width: 170,
-            height: 285,
+            width: 170 * scale,
+            height: 285 * scale,
           ),
         ),
       );

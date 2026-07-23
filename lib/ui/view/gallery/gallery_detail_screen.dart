@@ -18,6 +18,7 @@ import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_location_screen.dart';
 import 'package:harismruti/ui/view/home/my_diary_smruti.dart';
 import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
 import 'package:latlong2/latlong.dart' hide Path;
@@ -635,8 +636,8 @@ class _MosaicPhotoSliver extends StatelessWidget {
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       sliver: SliverGrid(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 130,
           crossAxisSpacing: 6,
           mainAxisSpacing: 6,
           childAspectRatio: 1,
@@ -1360,12 +1361,15 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _TextEntryBottomSheet(
-        title: title,
-        hint: hint,
-        action: action,
-        suggestions: suggestions,
-        selectedValues: selectedValues,
+      builder: (context) => ResponsiveCenter(
+        maxWidth: kSheetMaxWidth,
+        child: _TextEntryBottomSheet(
+          title: title,
+          hint: hint,
+          action: action,
+          suggestions: suggestions,
+          selectedValues: selectedValues,
+        ),
       ),
     );
     return value?.trim().isEmpty == true ? null : value?.trim();
@@ -2123,8 +2127,9 @@ class _ViewerThumbStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final itemCount = photos.length + (isLoadingMore ? 1 : 0);
+    final scale = tabletScale(context);
     return SizedBox(
-      height: 34,
+      height: 34 * scale,
       child: ListView.separated(
         controller: controller,
         scrollDirection: Axis.horizontal,
@@ -2134,14 +2139,14 @@ class _ViewerThumbStrip extends StatelessWidget {
         separatorBuilder: (_, __) => const SizedBox(width: 5),
         itemBuilder: (context, index) {
           if (index >= photos.length) {
-            return const SizedBox(
-              width: 24,
-              height: 24,
+            return SizedBox(
+              width: 24 * scale,
+              height: 24 * scale,
               child: Center(
                 child: SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
+                  width: 16 * scale,
+                  height: 16 * scale,
+                  child: const CircularProgressIndicator(
                     strokeWidth: 2,
                     color: Colors.white,
                   ),
@@ -2154,8 +2159,8 @@ class _ViewerThumbStrip extends StatelessWidget {
             onTap: () => onTap(index),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
-              width: isSelected ? 34 : 24,
-              height: isSelected ? 34 : 29,
+              width: (isSelected ? 34 : 24) * scale,
+              height: (isSelected ? 34 : 29) * scale,
               margin: EdgeInsets.symmetric(horizontal: isSelected ? 5 : 0),
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
@@ -2654,11 +2659,12 @@ class _InfoMapCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final point = _photoPoint(photo, attrs);
+    final scale = tabletScale(context);
 
     return GestureDetector(
       onTap: () => _openLocationMap(context),
       child: Container(
-        height: 166,
+        height: 166 * scale,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
@@ -2698,13 +2704,13 @@ class _InfoMapCard extends StatelessWidget {
                     markers: [
                       Marker(
                         point: point,
-                        width: 86,
-                        height: 86,
+                        width: 86 * scale,
+                        height: 86 * scale,
                         child: Center(
                           child: Icon(
                             CupertinoIcons.location_solid,
                             color: primaryColor,
-                            size: 46,
+                            size: 46 * scale,
                           ),
                         ),
                       ),

@@ -108,58 +108,79 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
                     color: Colors.white,
                     child: Stack(
                       children: [
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          controller: _scrollController,
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Row(
-                              children: [
-                                ...List.generate(widget.tabs.length, (index) {
-                                  final isSelected = selectedIndex == index;
-                                  return GestureDetector(
-                                    onTap: () {
-                                      setState(() => selectedIndex = index);
-                                      scrollToIndex(index);
-                                      if (widget.onTabSelected != null) {
-                                        widget.onTabSelected!(index);
-                                      }
-                                    },
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                        milliseconds: 300,
-                                      ),
-                                      margin: const EdgeInsets.symmetric(
-                                        horizontal: 4,
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 10,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: isSelected
-                                            ? const Color(0xFF823D3D)
-                                            : Colors.transparent,
-                                        borderRadius: BorderRadius.circular(30),
-                                      ),
-                                      constraints: const BoxConstraints(
-                                        minWidth: 150,
-                                      ),
-                                      child: Text(
-                                        widget.tabs[index],
-                                        style: TextStyle(
-                                          color: isSelected
-                                              ? Colors.white
-                                              : Colors.black87,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            return SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              controller: _scrollController,
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minWidth: constraints.maxWidth,
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: Center(
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        ...List.generate(widget.tabs.length, (
+                                          index,
+                                        ) {
+                                          final isSelected =
+                                              selectedIndex == index;
+                                          return GestureDetector(
+                                            onTap: () {
+                                              setState(
+                                                () => selectedIndex = index,
+                                              );
+                                              scrollToIndex(index);
+                                              if (widget.onTabSelected !=
+                                                  null) {
+                                                widget.onTabSelected!(index);
+                                              }
+                                            },
+                                            child: AnimatedContainer(
+                                              duration: const Duration(
+                                                milliseconds: 300,
+                                              ),
+                                              margin:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 4,
+                                                  ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 16,
+                                                    vertical: 10,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: isSelected
+                                                    ? const Color(0xFF823D3D)
+                                                    : Colors.transparent,
+                                                borderRadius:
+                                                    BorderRadius.circular(30),
+                                              ),
+                                              constraints: const BoxConstraints(
+                                                minWidth: 150,
+                                              ),
+                                              child: Text(
+                                                widget.tabs[index],
+                                                style: TextStyle(
+                                                  color: isSelected
+                                                      ? Colors.white
+                                                      : Colors.black87,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        }),
+                                      ],
                                     ),
-                                  );
-                                }),
-                              ],
-                            ),
-                          ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
                         ),
 
                         // Right Fade

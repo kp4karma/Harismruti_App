@@ -4,6 +4,7 @@ import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
 
@@ -26,8 +27,9 @@ class SubjectSmruti extends StatelessWidget {
         return const GalleryEmptyState(height: 180);
       }
 
+      final scale = tabletScale(context);
       return SizedBox(
-        height: 248,
+        height: 248 * scale,
         child: ListView.separated(
           physics: const BouncingScrollPhysics(),
           scrollDirection: Axis.horizontal,
@@ -37,7 +39,7 @@ class SubjectSmruti extends StatelessWidget {
           itemBuilder: (context, index) => _SubjectRibbonCard(
             card: items[index],
             headers: galleryController.imageHeaders,
-            width: index.isEven ? 214 : 190,
+            width: (index.isEven ? 214 : 190) * scale,
           ),
         ),
       );

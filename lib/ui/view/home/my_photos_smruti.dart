@@ -4,9 +4,11 @@ import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:camera/camera.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
+import 'package:harismruti/bootstrap.dart';
 import 'package:harismruti/helper/auth_redirect_helper.dart';
 import 'package:harismruti/ui/controller/my_photos_controller.dart';
 import 'package:harismruti/utils/app_color.dart';
@@ -859,8 +861,8 @@ class _MatchedPhotosSection extends StatelessWidget {
           primary: false,
           padding: EdgeInsets.zero,
           itemCount: photos.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 190,
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
             childAspectRatio: 0.86,
@@ -1024,6 +1026,13 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
   @override
   void initState() {
     super.initState();
+    // This capture UI is a fixed, non-scrolling layout tuned for portrait;
+    // force portrait here regardless of device class so it can't overflow
+    // in landscape now that tablets are allowed to rotate.
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
@@ -1033,6 +1042,7 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
 
   @override
   void dispose() {
+    SystemChrome.setPreferredOrientations(defaultOrientationsForDevice());
     _timer?.cancel();
     _cameraController?.dispose();
     _controller.dispose();

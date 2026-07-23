@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:harismruti/ui/controller/auth_controller.dart';
 import 'package:harismruti/ui/view/auth/otp_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/utils/size_config.dart';
 import 'package:harismruti/widget/auth/country_dial_code_picker.dart';
 import 'package:harismruti/widget/buttons/custom_button.dart';
@@ -112,151 +113,159 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             Align(
               alignment: Alignment.bottomCenter,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(isKeyboardOpen ? 0 : 30),
-                child: Container(
-                  color: isKeyboardOpen ? Colors.white60 : Colors.transparent,
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                    child: Container(
-                      height: SizeConfig.heightMultiplier! * 60,
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      child: SingleChildScrollView(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            TextField(
-                              controller: _nameController,
-                              decoration: const InputDecoration(
-                                labelText: 'Full Name',
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
-                              autofillHints: const [AutofillHints.email],
-                              decoration: const InputDecoration(
-                                labelText: 'Email',
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: _cityController,
-                              decoration: const InputDecoration(
-                                labelText: 'Location (Optional)',
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                CountryDialCodePicker(
-                                  countryCode: _countryCode,
-                                  onChanged: (dialCode) =>
-                                      setState(() => _countryCode = dialCode),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: TextField(
-                                    controller: _mobileController,
-                                    keyboardType: TextInputType.phone,
-                                    decoration: const InputDecoration(
-                                      hintText: '98540 02451',
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 12,
-                              ),
-                              decoration: BoxDecoration(
-                                color: primaryColor.withAlpha(22),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: primaryColor.withAlpha(42),
+              child: ResponsiveCenter(
+                maxWidth: kFormMaxWidth,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(isKeyboardOpen ? 0 : 30),
+                  child: Container(
+                    color: isKeyboardOpen ? Colors.white60 : Colors.transparent,
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                      child: Container(
+                        height: SizeConfig.heightMultiplier! * 60,
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              TextField(
+                                controller: _nameController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Full Name',
                                 ),
                               ),
-                              child: Row(
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _emailController,
+                                keyboardType: TextInputType.emailAddress,
+                                autofillHints: const [AutofillHints.email],
+                                decoration: const InputDecoration(
+                                  labelText: 'Email',
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _cityController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Location (Optional)',
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
                                 children: [
-                                  Icon(
-                                    CupertinoIcons.chat_bubble_2_fill,
-                                    color: primaryColor,
-                                    size: 20,
+                                  CountryDialCodePicker(
+                                    countryCode: _countryCode,
+                                    onChanged: (dialCode) =>
+                                        setState(() => _countryCode = dialCode),
                                   ),
                                   const SizedBox(width: 10),
-                                  const Expanded(
-                                    child: Text(
-                                      'OTP will be sent on WhatsApp',
-                                      style: TextStyle(
-                                        color: Color(0xFF322318),
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w800,
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _mobileController,
+                                      keyboardType: TextInputType.phone,
+                                      decoration: const InputDecoration(
+                                        hintText: '98540 02451',
                                       ),
                                     ),
                                   ),
-                                  Icon(
-                                    CupertinoIcons.checkmark_circle_fill,
-                                    color: primaryColor,
-                                    size: 22,
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: primaryColor.withAlpha(22),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: primaryColor.withAlpha(42),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      CupertinoIcons.chat_bubble_2_fill,
+                                      color: primaryColor,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    const Expanded(
+                                      child: Text(
+                                        'OTP will be sent on WhatsApp',
+                                        style: TextStyle(
+                                          color: Color(0xFF322318),
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                    Icon(
+                                      CupertinoIcons.checkmark_circle_fill,
+                                      color: primaryColor,
+                                      size: 22,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(
+                                height: SizeConfig.heightMultiplier! * 4,
+                              ),
+                              Obx(
+                                () => CustomButton(
+                                  text: _authController.isLoading.value
+                                      ? "Please wait..."
+                                      : "Register",
+                                  isEnabled: _canSubmit,
+                                  onTap: () async {
+                                    final registered = await _authController
+                                        .register(
+                                          fullName: _nameController.text,
+                                          mobile:
+                                              '$_countryCode${_mobileController.text}',
+                                          city: _cityController.text,
+                                          validationMethod: _validationMethod,
+                                          email: _emailController.text,
+                                        );
+                                    if (!context.mounted || !registered) return;
+                                    Navigator.push(
+                                      context,
+                                      CupertinoPageRoute(
+                                        builder: (context) => const OTPScreen(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              SizedBox(
+                                height: SizeConfig.heightMultiplier! * 4,
+                              ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Text("Already have an account? "),
+                                  GestureDetector(
+                                    onTap: () => Navigator.pop(context),
+                                    child: Text(
+                                      "Sign In",
+                                      style: TextStyle(
+                                        color: const Color(0xFF833737),
+                                        fontWeight: FontWeight.bold,
+                                        decorationColor: primaryColor,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
-                            ),
-                            SizedBox(height: SizeConfig.heightMultiplier! * 4),
-                            Obx(
-                              () => CustomButton(
-                                text: _authController.isLoading.value
-                                    ? "Please wait..."
-                                    : "Register",
-                                isEnabled: _canSubmit,
-                                onTap: () async {
-                                  final registered = await _authController.register(
-                                    fullName: _nameController.text,
-                                    mobile:
-                                        '$_countryCode${_mobileController.text}',
-                                    city: _cityController.text,
-                                    validationMethod: _validationMethod,
-                                    email: _emailController.text,
-                                  );
-                                  if (!context.mounted || !registered) return;
-                                  Navigator.push(
-                                    context,
-                                    CupertinoPageRoute(
-                                      builder: (context) => const OTPScreen(),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                            SizedBox(height: SizeConfig.heightMultiplier! * 4),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Text("Already have an account? "),
-                                GestureDetector(
-                                  onTap: () => Navigator.pop(context),
-                                  child: Text(
-                                    "Sign In",
-                                    style: TextStyle(
-                                      color: const Color(0xFF833737),
-                                      fontWeight: FontWeight.bold,
-                                      decorationColor: primaryColor,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),

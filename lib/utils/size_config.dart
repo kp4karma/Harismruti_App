@@ -18,20 +18,19 @@ class SizeConfig {
       _screenWidth = constraints.maxWidth;
       _screenHeight = constraints.maxHeight;
       isPortrait = true;
-      if (_screenWidth! < 450) {
-        isMobilePortrait = true;
-        isTablet = false;
-      } else if (_screenWidth! >= 800) {
-        isTablet = true;
-
-        isMobilePortrait = false;
-      }
     } else {
       _screenWidth = constraints.maxHeight;
       _screenHeight = constraints.maxWidth;
       isPortrait = false;
-      isMobilePortrait = false;
     }
+
+    // Tablet detection uses the shortest side so it stays correct across
+    // rotation (matches lib/utils/responsive.dart's breakpoint).
+    final shortestSide = constraints.maxWidth < constraints.maxHeight
+        ? constraints.maxWidth
+        : constraints.maxHeight;
+    isTablet = shortestSide >= 600;
+    isMobilePortrait = isPortrait && !isTablet && _screenWidth! < 450;
 
     _blockWidth = _screenWidth! / 100;
     _blockHeight = _screenHeight! / 100;
