@@ -119,7 +119,9 @@ class GalleryController extends GetxController {
     _restorePersistedSwami();
     _restoreSnapshots();
     loadMyLibrary();
-    loadHome();
+    // Render the persisted snapshot immediately, but always validate it once
+    // per app launch so newly imported/edited photos appear on this restart.
+    loadHome(force: true);
   }
 
   void _restorePersistedSwami() {

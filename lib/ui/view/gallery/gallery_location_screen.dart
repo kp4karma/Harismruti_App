@@ -3,10 +3,8 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
-import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
@@ -41,7 +39,6 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
   double _mapZoom = 11;
   String _query = '';
   String? _lastFitKey;
-  bool _locating = false;
 
   @override
   void initState() {
@@ -145,40 +142,6 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
     );
   }
 
-  Future<void> _moveToCurrentLocation() async {
-    if (_locating) return;
-    setState(() => _locating = true);
-    try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        _showMessage('Location service is off');
-        return;
-      }
-
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        _showMessage('Location permission denied');
-        return;
-      }
-
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 8),
-        ),
-      );
-      _mapController.move(LatLng(position.latitude, position.longitude), 14);
-    } catch (_) {
-      _showMessage('Unable to get current location');
-    } finally {
-      if (mounted) setState(() => _locating = false);
-    }
-  }
-
   void _fitCityMarkers(
     List<_PhotoCluster> clusters,
     List<_LocationGroupMarker> locationMarkers,
@@ -230,11 +193,6 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
         maxZoom: _maxFitZoom,
       ),
     );
-  }
-
-  void _showMessage(String message) {
-    if (!mounted) return;
-    TopNotification.show(title: 'Location', message: message);
   }
 
   List<GalleryCard> get _matchingCities {
@@ -329,10 +287,8 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
                   cities: cities,
                   activeCard: _activeCard,
                   cityScrollController: _cityScrollController,
-                  locating: _locating,
                   onBack: () => Navigator.pop(context),
                   onCityTap: _selectCity,
-                  onCurrentLocationTap: _moveToCurrentLocation,
                 ),
               ),
               Positioned(
@@ -601,10 +557,8 @@ class _LocationTopPanel extends StatelessWidget {
   final List<GalleryCard> cities;
   final GalleryCard activeCard;
   final ScrollController cityScrollController;
-  final bool locating;
   final VoidCallback onBack;
   final ValueChanged<GalleryCard> onCityTap;
-  final VoidCallback onCurrentLocationTap;
 
   const _LocationTopPanel({
     required this.title,
@@ -614,10 +568,8 @@ class _LocationTopPanel extends StatelessWidget {
     required this.cities,
     required this.activeCard,
     required this.cityScrollController,
-    required this.locating,
     required this.onBack,
     required this.onCityTap,
-    required this.onCurrentLocationTap,
   });
 
   @override
@@ -658,11 +610,6 @@ class _LocationTopPanel extends StatelessWidget {
                       count: count,
                       mappedCount: mappedCount,
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  _CurrentLocationButton(
-                    locating: locating,
-                    onTap: onCurrentLocationTap,
                   ),
                 ],
               ),
@@ -1134,42 +1081,6 @@ class _CitySearchField extends StatelessWidget {
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide(color: Colors.white.withAlpha(190)),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CurrentLocationButton extends StatelessWidget {
-  final bool locating;
-  final VoidCallback onTap;
-
-  const _CurrentLocationButton({required this.locating, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final size = 48 * tabletScale(context);
-    return SizedBox(
-      width: size,
-      height: size,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: Material(
-            color: primaryColor.withAlpha(205),
-            borderRadius: BorderRadius.circular(16),
-            child: InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(16),
-              child: locating
-                  ? const CupertinoActivityIndicator(color: Colors.white)
-                  : const Icon(
-                      CupertinoIcons.location_fill,
-                      color: Colors.white,
-                    ),
-            ),
           ),
         ),
       ),

@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:camera/camera.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
@@ -15,6 +16,15 @@ import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
 
+double _galleryPhotoAspectRatio(GalleryPhoto photo) {
+  final width = photo.width;
+  final height = photo.height;
+  if (width == null || height == null || width <= 0 || height <= 0) {
+    return 1.15;
+  }
+  return (width / height).clamp(0.72, 1.5);
+}
+
 class MyPhotosSmruti extends StatelessWidget {
   const MyPhotosSmruti({super.key});
 
@@ -23,6 +33,38 @@ class MyPhotosSmruti extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
+      final matchedPhotos = controller.matchedPhotos;
+      if (controller.hasPhoneMapping.value && matchedPhotos.isNotEmpty) {
+        return SizedBox(
+          height: 190,
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: matchedPhotos.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final photo = matchedPhotos[index];
+              return GestureDetector(
+                onTap: () {
+                  if (!AuthRedirectHelper.ensureLoggedIn()) return;
+                  Navigator.push(
+                    context,
+                    CupertinoPageRoute(
+                      builder: (_) => const MyPhoneGuideScreen(),
+                    ),
+                  );
+                },
+                child: SizedBox(
+                  width: 142,
+                  child: _MatchedPhotoTile(photo: photo),
+                ),
+              );
+            },
+          ),
+        );
+      }
+
       final requiredDone = controller.requiredPoses
           .where((pose) => controller.photoForPose(pose) != null)
           .length;
@@ -856,20 +898,20 @@ class _MatchedPhotosSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10),
-        GridView.builder(
+        MasonryGridView.count(
           shrinkWrap: true,
           primary: false,
           padding: EdgeInsets.zero,
           itemCount: photos.length,
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 190,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 0.86,
-          ),
+          crossAxisCount: MediaQuery.sizeOf(context).width >= 680 ? 3 : 2,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
           itemBuilder: (context, index) {
             final item = photos[index];
-            return _MatchedPhotoTile(photo: item);
+            return AspectRatio(
+              aspectRatio: _galleryPhotoAspectRatio(item),
+              child: _MatchedPhotoTile(photo: item),
+            );
           },
         ),
       ],
@@ -982,20 +1024,10 @@ class _MatchedPhotoTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          NetworkImageWithLoader(imageUrl: photo.thumbnailUrl, title: ''),
-          Positioned(
-            left: 8,
-            bottom: 8,
-            child: _StatusPill(
-              label: photo.title ?? 'Smruti',
-              color: Colors.white,
-              background: Colors.black.withAlpha(115),
-            ),
-          ),
-        ],
+      child: NetworkImageWithLoader(
+        imageUrl: photo.thumbnailUrl,
+        title: '',
+        fit: BoxFit.cover,
       ),
     );
   }

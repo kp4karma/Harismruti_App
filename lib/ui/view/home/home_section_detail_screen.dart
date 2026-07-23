@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
@@ -18,6 +19,15 @@ import 'package:harismruti/widget/appbar/detail_appbar.dart';
 import 'package:harismruti/widget/gallery/gallery_card_widgets.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
+
+double _galleryPhotoAspectRatio(GalleryPhoto photo) {
+  final width = photo.width;
+  final height = photo.height;
+  if (width == null || height == null || width <= 0 || height <= 0) {
+    return 1.15;
+  }
+  return (width / height).clamp(0.72, 1.5);
+}
 
 class HomeSectionDetailScreen extends StatefulWidget {
   final String title;
@@ -189,20 +199,25 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
         final photos = visibleItems.whereType<GalleryPhoto>().toList(
           growable: false,
         );
-        return GridView.builder(
+        final showPhotoTitles =
+            widget.title == SmrutiSectionKeys.myFavorite ||
+            widget.title == 'My Favot' ||
+            widget.title == 'My Favorites';
+        return MasonryGridView.count(
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           itemCount: photos.length,
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 180,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 0.74,
-          ),
-          itemBuilder: (context, index) => _PhotoPosterCard(
-            photo: photos[index],
-            headers: _controller.imageHeaders,
-            onTap: () => _openPhotoGallery(photos, index),
+          crossAxisCount: MediaQuery.sizeOf(context).width >= 680 ? 3 : 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          itemBuilder: (context, index) => AspectRatio(
+            aspectRatio: _galleryPhotoAspectRatio(photos[index]),
+            child: _PhotoPosterCard(
+              photo: photos[index],
+              headers: _controller.imageHeaders,
+              showTitle: showPhotoTitles,
+              onTap: () => _openPhotoGallery(photos, index),
+            ),
           ),
         );
       case SmrutiSectionKeys.myCollection:
@@ -1245,11 +1260,13 @@ class _SectionCardTile extends StatelessWidget {
 class _PhotoPosterCard extends StatelessWidget {
   final GalleryPhoto photo;
   final Map<String, String>? headers;
+  final bool showTitle;
   final VoidCallback onTap;
 
   const _PhotoPosterCard({
     required this.photo,
     required this.headers,
+    this.showTitle = true,
     required this.onTap,
   });
 
@@ -1275,38 +1292,40 @@ class _PhotoPosterCard extends StatelessWidget {
           children: [
             NetworkImageWithLoader(
               imageUrl: photo.thumbnailUrl,
-              title: photo.title ?? 'Smruti',
+              title: '',
               headers: headers,
             ),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withAlpha(18),
-                    Colors.black.withAlpha(135),
-                  ],
-                  stops: const [0.45, 0.72, 1],
+            if (showTitle) ...[
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withAlpha(18),
+                      Colors.black.withAlpha(135),
+                    ],
+                    stops: const [0.45, 0.72, 1],
+                  ),
                 ),
               ),
-            ),
-            Positioned(
-              left: 10,
-              right: 10,
-              bottom: 10,
-              child: Text(
-                photo.title ?? 'Smruti',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 13,
+              Positioned(
+                left: 10,
+                right: 10,
+                bottom: 10,
+                child: Text(
+                  photo.title ?? 'Smruti',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),

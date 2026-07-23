@@ -3,7 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
@@ -13,6 +13,15 @@ import 'package:harismruti/ui/controller/my_diary_controller.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
+
+double _galleryPhotoAspectRatio(GalleryPhoto photo) {
+  final width = photo.width;
+  final height = photo.height;
+  if (width == null || height == null || width <= 0 || height <= 0) {
+    return 1.15;
+  }
+  return (width / height).clamp(0.72, 1.5);
+}
 
 class MyDiarySmruti extends StatelessWidget {
   const MyDiarySmruti({super.key});
@@ -276,7 +285,6 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
   final List<String> _images = [];
   double? _latitude;
   double? _longitude;
-  bool _isPickingLocation = false;
   String? _loadedEntryId;
 
   MyDiaryController get controller => Get.find<MyDiaryController>();
@@ -502,7 +510,6 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
   }
 
   String _locationButtonLabel() {
-    if (_isPickingLocation) return 'Getting location...';
     if (_locationController.text.trim().isNotEmpty) {
       return _locationController.text.trim();
     }
@@ -594,13 +601,6 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.pop(context);
-              _pickCurrentLocation();
-            },
-            child: const Text('Use current location'),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(context);
               _showManualLocationSheet();
             },
             child: const Text('Type location name'),
@@ -683,36 +683,6 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
         ),
       ),
     );
-  }
-
-  Future<void> _pickCurrentLocation() async {
-    setState(() => _isPickingLocation = true);
-    try {
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        _showMessage('Location permission denied');
-        return;
-      }
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
-      );
-      setState(() {
-        _latitude = position.latitude;
-        _longitude = position.longitude;
-        _locationController.text =
-            '${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}';
-      });
-    } catch (_) {
-      _showMessage('Unable to get current location');
-    } finally {
-      if (mounted) setState(() => _isPickingLocation = false);
-    }
   }
 
   void _showMessage(String message) {
@@ -1270,7 +1240,7 @@ class _DiaryPhotoSelectionSheetState extends State<_DiaryPhotoSelectionSheet> {
                               message:
                                   'No recent photos are loaded yet. Pull home to refresh and try again.',
                             )
-                          : GridView.builder(
+                          : MasonryGridView.count(
                               controller: scrollController,
                               physics: const BouncingScrollPhysics(),
                               padding: const EdgeInsets.fromLTRB(
@@ -1280,13 +1250,12 @@ class _DiaryPhotoSelectionSheetState extends State<_DiaryPhotoSelectionSheet> {
                                 24,
                               ),
                               itemCount: photos.length,
-                              gridDelegate:
-                                  const SliverGridDelegateWithMaxCrossAxisExtent(
-                                    maxCrossAxisExtent: 125,
-                                    mainAxisSpacing: 3,
-                                    crossAxisSpacing: 3,
-                                    childAspectRatio: 1,
-                                  ),
+                              crossAxisCount:
+                                  MediaQuery.sizeOf(context).width >= 680
+                                  ? 3
+                                  : 2,
+                              mainAxisSpacing: 6,
+                              crossAxisSpacing: 6,
                               itemBuilder: (context, index) {
                                 final photo = photos[index];
                                 final value = photo.fullUrl.isNotEmpty
@@ -1296,20 +1265,23 @@ class _DiaryPhotoSelectionSheetState extends State<_DiaryPhotoSelectionSheet> {
                                 final selectedIndex = _selected
                                     .toList()
                                     .indexOf(value);
-                                return _DiarySelectablePhotoTile(
-                                  photo: photo,
-                                  selected: selected,
-                                  selectedIndex: selectedIndex,
-                                  headers: _galleryController.imageHeaders,
-                                  onTap: () {
-                                    setState(() {
-                                      if (selected) {
-                                        _selected.remove(value);
-                                      } else {
-                                        _selected.add(value);
-                                      }
-                                    });
-                                  },
+                                return AspectRatio(
+                                  aspectRatio: _galleryPhotoAspectRatio(photo),
+                                  child: _DiarySelectablePhotoTile(
+                                    photo: photo,
+                                    selected: selected,
+                                    selectedIndex: selectedIndex,
+                                    headers: _galleryController.imageHeaders,
+                                    onTap: () {
+                                      setState(() {
+                                        if (selected) {
+                                          _selected.remove(value);
+                                        } else {
+                                          _selected.add(value);
+                                        }
+                                      });
+                                    },
+                                  ),
                                 );
                               },
                             ),
@@ -1443,6 +1415,7 @@ class _DiarySelectablePhotoTile extends StatelessWidget {
               imageUrl: photo.thumbnailUrl,
               title: photo.title ?? 'Diary photo',
               headers: headers,
+              fit: BoxFit.cover,
             ),
             AnimatedOpacity(
               opacity: selected ? 1 : 0,

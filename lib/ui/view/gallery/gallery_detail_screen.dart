@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/api/repositories/gallery_repository.dart';
@@ -27,6 +28,15 @@ import 'package:share_plus/share_plus.dart';
 
 const double _homeAppbarBlurSigma = 24;
 const int _homeAppbarGlassAlpha = 125;
+
+double _galleryPhotoAspectRatio(GalleryPhoto photo) {
+  final width = photo.width;
+  final height = photo.height;
+  if (width == null || height == null || width <= 0 || height <= 0) {
+    return 1.15;
+  }
+  return (width / height).clamp(0.72, 1.5);
+}
 
 class GalleryDetailScreen extends StatefulWidget {
   final String title;
@@ -635,15 +645,14 @@ class _MosaicPhotoSliver extends StatelessWidget {
   Widget build(BuildContext context) {
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      sliver: SliverGrid(
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 130,
-          crossAxisSpacing: 6,
-          mainAxisSpacing: 6,
-          childAspectRatio: 1,
-        ),
-        delegate: SliverChildBuilderDelegate(
-          (context, index) => _MosaicTile(
+      sliver: SliverMasonryGrid.count(
+        crossAxisCount: isTablet(context) ? 3 : 2,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        childCount: photos.length,
+        itemBuilder: (context, index) => AspectRatio(
+          aspectRatio: _galleryPhotoAspectRatio(photos[index]),
+          child: _MosaicTile(
             photo: photos[index],
             allPhotos: photos,
             index: index,
@@ -654,7 +663,6 @@ class _MosaicPhotoSliver extends StatelessWidget {
             selected: selectedPhotoIds.contains(photos[index].id),
             onToggleSelection: onToggleSelection,
           ),
-          childCount: photos.length,
         ),
       ),
     );
@@ -719,7 +727,7 @@ class _MosaicTile extends StatelessWidget {
                   imageUrl: photo.thumbnailUrl,
                   title: photo.title ?? title,
                   headers: headers,
-                  fit: BoxFit.contain,
+                  fit: BoxFit.cover,
                 ),
               ),
               Positioned(
@@ -1169,9 +1177,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       context: context,
       builder: (context) => CupertinoAlertDialog(
         title: const Text('Ignore this photo?'),
-        content: const Text(
-          'This photo will be hidden from your gallery.',
-        ),
+        content: const Text('This photo will be hidden from your gallery.'),
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.pop(context, false),
@@ -2180,7 +2186,7 @@ class _ViewerTopBar extends StatelessWidget {
                   ),
                 )
               : _GlassIconButton(
-                  icon: CupertinoIcons.checkmark_alt_circle,
+                  icon: CupertinoIcons.eye_slash_fill,
                   onTap: onIgnore,
                 )
         else

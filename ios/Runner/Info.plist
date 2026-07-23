@@ -41,8 +41,6 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Hari Smruti uses the camera to capture face training photos for My Smruti.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Hari Smruti uses your location to center the photo map near you.</string>
 	<key>NSMotionUsageDescription</key>
 	<string>Used to enable motion-based visual effects.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

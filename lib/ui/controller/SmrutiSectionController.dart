@@ -93,8 +93,8 @@ class SmrutiSectionController extends GetxController {
             ...e,
             'user_is_show': localVisibility,
             'is_show':
-                cachedGlobalVisibility[_sectionKeyForTitle(title)] ??
-                localVisibility,
+                (cachedGlobalVisibility[_sectionKeyForTitle(title)] ?? true) &&
+                (localVisibility == true),
             "widget": _getWidgetByTitle(title),
           };
         }),
@@ -117,15 +117,14 @@ class SmrutiSectionController extends GetxController {
     sections[index]['user_is_show'] = value;
     final sectionKey = _sectionKeyForTitle(sections[index]['title'].toString());
     final globalVisibility = _loadCachedGlobalVisibility();
-    sections[index]['is_show'] = globalVisibility[sectionKey] ?? value;
+    sections[index]['is_show'] =
+        (globalVisibility[sectionKey] ?? true) && value;
     saveSectionsToStorage();
     sections.refresh();
   }
 
   List<Map<String, dynamic>> customizableSections() {
-    return sections
-        .where((section) => !_isHiddenFromPreferences(section['title']))
-        .toList();
+    return sections.where(_isAdminEnabled).toList();
   }
 
   void updateSectionVisibilityByTitle(String title, bool value) {
@@ -138,6 +137,7 @@ class SmrutiSectionController extends GetxController {
     final editableTitles = customizableSections()
         .map((section) => section['title'])
         .toList();
+    final editableTitleSet = editableTitles.toSet();
     if (newIndex > oldIndex) newIndex--;
 
     final movedTitle = editableTitles.removeAt(oldIndex);
@@ -152,7 +152,7 @@ class SmrutiSectionController extends GetxController {
     var editableIndex = 0;
     for (var slotIndex = 0; slotIndex < sortedSlots.length; slotIndex++) {
       final section = sortedSlots[slotIndex];
-      if (_isHiddenFromPreferences(section['title'])) {
+      if (!editableTitleSet.contains(section['title'])) {
         reordered.add({...section, 'order_index': slotIndex + 1});
         continue;
       }
@@ -360,7 +360,8 @@ class SmrutiSectionController extends GetxController {
       final sectionKey = _sectionKeyForTitle(section['title'].toString());
       final globalValue = visibility[sectionKey];
       if (globalValue != null) {
-        section['is_show'] = globalValue;
+        final userValue = section['user_is_show'] ?? section['is_show'] ?? true;
+        section['is_show'] = globalValue && (userValue == true);
       }
     }
     resetVisibleCount();
@@ -386,7 +387,10 @@ class SmrutiSectionController extends GetxController {
     };
   }
 
-  bool _isHiddenFromPreferences(dynamic title) => false;
+  bool _isAdminEnabled(Map<String, dynamic> section) {
+    final sectionKey = _sectionKeyForTitle(section['title'].toString());
+    return _loadCachedGlobalVisibility()[sectionKey] != false;
+  }
 
   bool _isRemovedHomeSection(dynamic title) {
     return title == SmrutiSectionKeys.wallpapers ||
