@@ -34,7 +34,7 @@ class MyPhotosSmruti extends StatelessWidget {
   Widget build(BuildContext context) {
     return Obx(() {
       final matchedPhotos = controller.matchedPhotos;
-      if (controller.hasPhoneMapping.value && matchedPhotos.isNotEmpty) {
+      if (matchedPhotos.isNotEmpty) {
         return SizedBox(
           height: 190,
           child: ListView.separated(
@@ -70,8 +70,8 @@ class MyPhotosSmruti extends StatelessWidget {
           .length;
       final status = !StorageHelper.isLogin()
           ? 'Login required'
-          : controller.hasPhoneMapping.value
-          ? 'Your Smruti is ready'
+          : controller.smrutiLookupFinished
+          ? 'Smruti not found'
           : switch (controller.overallReviewStatus) {
               MyPhotoReviewStatus.verified => 'Verified',
               MyPhotoReviewStatus.pending => 'Verification pending',
@@ -131,8 +131,10 @@ class MyPhotosSmruti extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      controller.hasPhoneMapping.value
+                      controller.hasMatchedSmruti
                           ? 'Photos linked with your phone number.'
+                          : controller.smrutiLookupFinished
+                          ? 'No matching Smruti photos are available.'
                           : 'Add a live front selfie to find your smruti.',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -179,11 +181,7 @@ class _MyPhoneGuideScreenState extends State<MyPhoneGuideScreen> {
   @override
   void initState() {
     super.initState();
-    _showEditor =
-        !controller.hasPhoneMapping.value &&
-        (controller.photos.isEmpty ||
-            controller.overallReviewStatus == MyPhotoReviewStatus.draft ||
-            controller.overallReviewStatus == MyPhotoReviewStatus.rejected);
+    _showEditor = controller.canShowUploadSection;
     _photosWorker = ever<List<MyPhotoItem>>(controller.photos, (_) {
       if (!mounted || !_showEditor) return;
       if (controller.isVerified) {
@@ -236,8 +234,7 @@ class _MyPhoneGuideScreenState extends State<MyPhoneGuideScreen> {
                       _ReviewStatePanel(controller: controller),
                       const SizedBox(height: 12),
                     ],
-                    if (!controller.isVerified &&
-                        !controller.hasPhoneMapping.value)
+                    if (controller.canShowUploadSection)
                       _EditorToggleButton(
                         controller: controller,
                         isOpen: _showEditor,
@@ -245,9 +242,7 @@ class _MyPhoneGuideScreenState extends State<MyPhoneGuideScreen> {
                           setState(() => _showEditor = !_showEditor);
                         },
                       ),
-                    if (_showEditor &&
-                        !controller.isVerified &&
-                        !controller.hasPhoneMapping.value) ...[
+                    if (_showEditor && controller.canShowUploadSection) ...[
                       const SizedBox(height: 12),
                       _FrontSelfieCard(controller: controller),
                     ],
@@ -255,9 +250,7 @@ class _MyPhoneGuideScreenState extends State<MyPhoneGuideScreen> {
                       const SizedBox(height: 8),
                       _MessageBox(message: controller.helperMessage.value),
                     ],
-                    if (_showEditor &&
-                        !controller.isVerified &&
-                        !controller.hasPhoneMapping.value) ...[
+                    if (_showEditor && controller.canShowUploadSection) ...[
                       const SizedBox(height: 12),
                       _SubmitCard(
                         controller: controller,
@@ -866,10 +859,7 @@ class _MatchedPhotosSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (controller.overallReviewStatus == MyPhotoReviewStatus.draft) {
-      return const SizedBox.shrink();
-    }
-    if (!controller.isVerified) {
+    if (!controller.smrutiLookupFinished) {
       return const SizedBox.shrink();
     }
     final photos = controller.matchedPhotos;
@@ -877,7 +867,7 @@ class _MatchedPhotosSection extends StatelessWidget {
       return const _ServerFetchPanel();
     }
     if (photos.isEmpty) {
-      return const SizedBox.shrink();
+      return const _SmrutiNotFoundPanel();
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -929,16 +919,25 @@ class _ReviewStatePanel extends StatelessWidget {
     if (controller.photos.isEmpty) return const SizedBox.shrink();
     final status = controller.overallReviewStatus;
     final title = switch (status) {
-      MyPhotoReviewStatus.verified => 'Server fetching',
+      MyPhotoReviewStatus.verified =>
+        controller.hasMatchedSmruti
+            ? 'Smruti found'
+            : controller.smrutiLookupFinished
+            ? 'Smruti not found'
+            : 'Server fetching',
       MyPhotoReviewStatus.pending => 'Waiting for admin approval',
       MyPhotoReviewStatus.rejected => 'Upload needs changes',
       MyPhotoReviewStatus.draft => 'Ready to upload',
     };
     final message = switch (status) {
       MyPhotoReviewStatus.verified =>
-        'Verified. We are fetching your matched smruti photos from the server.',
+        controller.hasMatchedSmruti
+            ? 'Your matched Smruti photos are ready.'
+            : controller.smrutiLookupFinished
+            ? 'Your selfie was accepted, but no matching Smruti photos are available.'
+            : 'Verified. We are fetching your matched smruti photos from the server.',
       MyPhotoReviewStatus.pending =>
-        'Your photos are waiting for admin review. You can still add, delete or update them.',
+        'Your selfie is waiting for admin review. Retake will be available if it is rejected.',
       MyPhotoReviewStatus.rejected =>
         'Rejected photos are visible above. Retake or remove them, then submit again.',
       MyPhotoReviewStatus.draft =>
@@ -979,6 +978,46 @@ class _ReviewStatePanel extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SmrutiNotFoundPanel extends StatelessWidget {
+  const _SmrutiNotFoundPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            CupertinoIcons.photo_on_rectangle,
+            color: primaryColor,
+            size: 34,
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Smruti not found',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            'No matching Smruti photos are available for your account.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.black.withAlpha(135),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],

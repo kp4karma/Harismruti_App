@@ -95,6 +95,7 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: SafeArea(
+            minimum: const EdgeInsets.only(bottom: 8),
             child: Row(
               children: [
                 // Tab Bar

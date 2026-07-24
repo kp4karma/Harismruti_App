@@ -156,6 +156,7 @@ class MyPhotosController extends GetxController {
   final RxBool isFetchingMatches = false.obs;
   final RxBool isCheckingMapping = false.obs;
   final RxBool hasPhoneMapping = false.obs;
+  final RxBool faceSearchCompleted = false.obs;
   final RxnInt faceSearchRequestId = RxnInt();
   final RxString helperMessage = ''.obs;
   Timer? _statusTimer;
@@ -216,7 +217,14 @@ class MyPhotosController extends GetxController {
   }
 
   bool get isVerified => overallReviewStatus == MyPhotoReviewStatus.verified;
-  bool get canShowMatchedSmruti => hasPhoneMapping.value;
+  bool get hasMatchedSmruti => matchedPhotos.isNotEmpty;
+  bool get smrutiLookupFinished =>
+      hasPhoneMapping.value || faceSearchCompleted.value;
+  bool get canShowMatchedSmruti => hasMatchedSmruti;
+  bool get canShowUploadSection =>
+      !smrutiLookupFinished &&
+      (overallReviewStatus == MyPhotoReviewStatus.draft ||
+          overallReviewStatus == MyPhotoReviewStatus.rejected);
   bool get isRejected => overallReviewStatus == MyPhotoReviewStatus.rejected;
   bool get isPendingReview =>
       overallReviewStatus == MyPhotoReviewStatus.pending;
@@ -396,10 +404,11 @@ class MyPhotosController extends GetxController {
             .toList();
     matchedPhotos.assignAll(mapped);
     hasPhoneMapping.value = true;
+    faceSearchCompleted.value = true;
     faceSearchRequestId.value = null;
     StorageHelper.removeValue(StorageKeys.mySmrutiRequestId);
     helperMessage.value = mapped.isEmpty
-        ? 'Your phone number is assigned. Photos will appear when available.'
+        ? 'Smruti not found.'
         : 'Your Smruti photos are ready.';
     return true;
   }
@@ -409,11 +418,17 @@ class MyPhotosController extends GetxController {
     switch (result['status']?.toString()) {
       case 'accepted':
         _statusTimer?.cancel();
-        helperMessage.value = 'Approved. Checking for your Smruti photos.';
-        await _loadPhoneMapping();
+        faceSearchCompleted.value = true;
+        _markFrontPhotoVerified();
+        final found = await _loadPhoneMapping();
+        if (!found) {
+          matchedPhotos.clear();
+          helperMessage.value = 'Smruti not found.';
+        }
         return;
       case 'rejected':
         _statusTimer?.cancel();
+        faceSearchCompleted.value = false;
         StorageHelper.removeValue(StorageKeys.mySmrutiRequestId);
         faceSearchRequestId.value = null;
         final front = photoForPose(MyPhotoPose.front);
@@ -430,6 +445,7 @@ class MyPhotosController extends GetxController {
             'Admin rejected the selfie. Please upload a new one.';
         return;
       default:
+        faceSearchCompleted.value = false;
         helperMessage.value = 'Selfie submitted. Waiting for admin approval.';
         _startStatusPolling(requestId);
         return;
@@ -732,6 +748,9 @@ class MyPhotosController extends GetxController {
               .where((photo) => photo.id > 0)
               .toList();
       matchedPhotos.assignAll(matched);
+      if (matched.isNotEmpty) {
+        faceSearchCompleted.value = true;
+      }
       if (remote.isNotEmpty) {
         final stalePaths = photos
             .where((photo) => photo.hasLocalFile)
@@ -747,6 +766,7 @@ class MyPhotosController extends GetxController {
       if (remote.any(
         (photo) => photo.reviewStatus == MyPhotoReviewStatus.verified,
       )) {
+        faceSearchCompleted.value = true;
         await fetchServerMatches();
       }
     } catch (_) {}
@@ -770,8 +790,9 @@ class MyPhotosController extends GetxController {
               .where((photo) => photo.id > 0)
               .toList();
       matchedPhotos.assignAll(matched);
+      faceSearchCompleted.value = true;
       helperMessage.value = matched.isEmpty
-          ? 'Verified. We are fetching your smruti from the server.'
+          ? 'Smruti not found.'
           : 'Verified. Your smruti photos are ready.';
     } catch (error) {
       helperMessage.value = error.toString().replaceFirst('Exception: ', '');
@@ -790,6 +811,23 @@ class MyPhotosController extends GetxController {
   void _sortPhotos() {
     photos.sort((a, b) => a.pose.sortOrder.compareTo(b.pose.sortOrder));
     photos.refresh();
+  }
+
+  void _markFrontPhotoVerified() {
+    final front = photoForPose(MyPhotoPose.front);
+    if (front == null || front.reviewStatus == MyPhotoReviewStatus.verified) {
+      return;
+    }
+    photos[photos.indexOf(front)] = MyPhotoItem(
+      id: front.id,
+      path: front.path,
+      pose: front.pose,
+      reviewStatus: MyPhotoReviewStatus.verified,
+      remoteUrl: front.remoteUrl,
+      note: front.note,
+    );
+    _sortPhotos();
+    _savePhotos();
   }
 }
 

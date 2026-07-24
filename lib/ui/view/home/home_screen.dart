@@ -74,6 +74,7 @@ class _HomeScreenState extends State<HomeScreen>
       final displaySections = sortedVisibleSections
           .take(sectionController.visibleCount.value)
           .toList();
+      final bottomSystemInset = MediaQuery.of(context).viewPadding.bottom;
 
       return CustomBackground(
         child: Center(
@@ -104,7 +105,9 @@ class _HomeScreenState extends State<HomeScreen>
               bottomNavigationBar: AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 height: sectionController.showBottomBar.value
-                    ? kBottomNavigationBarHeight * 1.7
+                    // Keep the controls at a stable height and reserve the
+                    // device's navigation/gesture area separately.
+                    ? 76 + bottomSystemInset
                     : 0,
                 child: sectionController.showBottomBar.value
                     ? SwamiTabBar(
