@@ -407,12 +407,17 @@ class MyPhotosController extends GetxController {
     }
   }
 
-  // Safety cap on pages fetched, in case a backend that ignores the `page`
-  // param keeps echoing the same data (would otherwise loop forever).
+  // Backend paginates /me/smruti via offset+limit and reports `total`.
+  static const int _mySmrutiPageSize = 50;
+  // Safety cap on pages fetched, in case `total` is wrong or the backend
+  // keeps echoing the same data (would otherwise loop forever).
   static const int _maxMySmrutiPages = 50;
 
   Future<bool> _loadPhoneMapping() async {
-    final firstPage = await _repository.getMySmruti();
+    final firstPage = await _repository.getMySmruti(
+      offset: 0,
+      limit: _mySmrutiPageSize,
+    );
     if (firstPage['found'] != true) {
       hasPhoneMapping.value = false;
       return false;
@@ -431,17 +436,23 @@ class MyPhotosController extends GetxController {
     }
 
     addPage(firstPage);
-    var page = 1;
-    while (page < _maxMySmrutiPages) {
+    final total = int.tryParse('${firstPage['total']}') ?? mapped.length;
+    var offset = _mySmrutiPageSize;
+    var pagesFetched = 1;
+    while (mapped.length < total && pagesFetched < _maxMySmrutiPages) {
       final beforeCount = mapped.length;
-      page++;
-      final nextPage = await _repository.getMySmruti(page: page);
+      final nextPage = await _repository.getMySmruti(
+        offset: offset,
+        limit: _mySmrutiPageSize,
+      );
       final nextPhotos = nextPage['photos'] is List
           ? nextPage['photos'] as List
           : const [];
       if (nextPhotos.isEmpty) break;
       addPage(nextPage);
+      pagesFetched++;
       if (mapped.length == beforeCount) break; // no new photos, stop paging
+      offset += _mySmrutiPageSize;
     }
 
     matchedPhotos.assignAll(mapped);

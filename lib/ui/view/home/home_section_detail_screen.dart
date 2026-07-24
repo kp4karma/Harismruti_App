@@ -44,14 +44,10 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
-  String _query = '';
 
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(() {
-      setState(() => _query = _searchController.text.trim().toLowerCase());
-    });
     _searchFocusNode.addListener(() => setState(() {}));
     _scrollController.addListener(_maybeLoadMoreRecent);
   }
@@ -69,43 +65,47 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F6F3),
       appBar: DetailAppbar(title: _appBarTitle()),
-      body: Obx(() {
-        final items = _itemsForTitle(widget.title);
-        final visibleItems = _filterItems(items);
-        final suggestions = _suggestionsForItems(items);
+      body: ListenableBuilder(
+        listenable: _searchController,
+        builder: (context, _) => Obx(() {
+          final items = _itemsForTitle(widget.title);
+          final visibleItems = _filterItems(items);
+          final suggestions = _suggestionsForItems(items);
 
-        return Stack(
-          children: [
-            Column(
-              children: [
-                _SearchFilterBar(
-                  controller: _searchController,
-                  focusNode: _searchFocusNode,
-                  onFilterTap: () => showGalleryFilterSheet(context),
-                ),
-                Expanded(
-                  child: visibleItems.isEmpty
-                      ? const GalleryEmptyState(
-                          height: 260,
-                          message: 'No smruti found',
-                        )
-                      : _buildSectionBody(visibleItems),
-                ),
-              ],
-            ),
-            Positioned(
-              left: 16,
-              right: 78,
-              top: 74,
-              child: _SearchSuggestionsList(
-                suggestions: suggestions,
-                isVisible: _searchFocusNode.hasFocus && suggestions.isNotEmpty,
-                onTap: _applySuggestion,
+          return Stack(
+            children: [
+              Column(
+                children: [
+                  _SearchFilterBar(
+                    controller: _searchController,
+                    focusNode: _searchFocusNode,
+                    onFilterTap: () => showGalleryFilterSheet(context),
+                  ),
+                  Expanded(
+                    child: visibleItems.isEmpty
+                        ? const GalleryEmptyState(
+                            height: 260,
+                            message: 'No smruti found',
+                          )
+                        : _buildSectionBody(visibleItems),
+                  ),
+                ],
               ),
-            ),
-          ],
-        );
-      }),
+              Positioned(
+                left: 16,
+                right: 78,
+                top: 74,
+                child: _SearchSuggestionsList(
+                  suggestions: suggestions,
+                  isVisible:
+                      _searchFocusNode.hasFocus && suggestions.isNotEmpty,
+                  onTap: _applySuggestion,
+                ),
+              ),
+            ],
+          );
+        }),
+      ),
     );
   }
 
@@ -558,8 +558,11 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
     }
   }
 
+  String get _query => _searchController.text.trim().toLowerCase();
+
   List<Object> _filterItems(List<Object> items) {
-    if (_query.isEmpty) return items;
+    final query = _query;
+    if (query.isEmpty) return items;
     return items
         .where((item) {
           final text = switch (item) {
@@ -569,7 +572,7 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
             DiaryEntry() => '${item.title} ${item.note} ${item.tags.join(' ')}',
             _ => '',
           };
-          return text.toLowerCase().contains(_query);
+          return text.toLowerCase().contains(query);
         })
         .toList(growable: false);
   }
