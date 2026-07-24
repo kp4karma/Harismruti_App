@@ -91,14 +91,14 @@ class GalleryRepository {
     return asJsonMap(response.data);
   }
 
-  Future<Map<String, dynamic>> getMySmruti() async {
+  Future<Map<String, dynamic>> getMySmruti({int page = 1}) async {
     final mobile = currentPhoneNumber();
     if (mobile.isEmpty) {
       throw Exception('Mobile number is missing from profile.');
     }
     final response = await ApiClient.get(
       ApiEndpoints.mySmruti,
-      queryParams: {'mobile': mobile},
+      queryParams: {'mobile': mobile, 'page': page},
     );
     return asJsonMap(response.data);
   }

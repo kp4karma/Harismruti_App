@@ -886,10 +886,12 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   bool _isIgnoring = false;
   Offset _lastDoubleTapPosition = Offset.zero;
   int _gesturePointerCount = 1;
+  late final List<GalleryPhoto> _localPhotos;
 
   @override
   void initState() {
     super.initState();
+    _localPhotos = List<GalleryPhoto>.of(widget.photos);
     _index = widget.initialIndex;
     _loadIgnoreFeature();
     _pageController = PageController(initialPage: widget.initialIndex);
@@ -938,7 +940,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   }
 
   List<GalleryPhoto> get _photosList =>
-      widget.isRecentFeed ? _controller.recentPhotos : widget.photos;
+      widget.isRecentFeed ? _controller.recentPhotos : _localPhotos;
 
   GalleryPhoto get _photo => _photosList[_index];
 
@@ -1203,28 +1205,23 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
         return;
       }
       TopNotification.success('Photo ignored');
-      if (widget.isRecentFeed) {
-        final removedIndex = _controller.recentPhotos.indexWhere(
-          (photo) => photo.id == photoId,
-        );
-        if (removedIndex != -1) {
-          _controller.recentPhotos.removeAt(removedIndex);
-        }
-        if (_photosList.isEmpty) {
-          Navigator.pop(context);
-          return;
-        }
-        setState(() {
-          if (_index >= _photosList.length) {
-            _index = _photosList.length - 1;
-          }
-          _resetZoom(animated: false);
-        });
-        if (_pageController.hasClients) {
-          _pageController.jumpToPage(_index);
-        }
-      } else {
+      final list = _photosList;
+      final removedIndex = list.indexWhere((photo) => photo.id == photoId);
+      if (removedIndex != -1) {
+        list.removeAt(removedIndex);
+      }
+      if (list.isEmpty) {
         Navigator.pop(context);
+        return;
+      }
+      setState(() {
+        if (_index >= list.length) {
+          _index = list.length - 1;
+        }
+        _resetZoom(animated: false);
+      });
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(_index);
       }
     } catch (error) {
       if (!mounted) return;
@@ -1546,11 +1543,13 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                     child: Center(
                       child: Hero(
                         tag: 'photo-${photo.id}',
-                        child: _FullscreenImage(
-                          photo: photo,
-                          title: widget.title,
-                          headers: _controller.imageHeaders,
-                          chromeVisible: _chromeVisible,
+                        child: RepaintBoundary(
+                          child: _FullscreenImage(
+                            photo: photo,
+                            title: widget.title,
+                            headers: _controller.imageHeaders,
+                            chromeVisible: _chromeVisible,
+                          ),
                         ),
                       ),
                     ),
@@ -2034,6 +2033,15 @@ class _FullscreenImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.sizeOf(context);
     final verticalPadding = chromeVisible ? 96 + 132 : 0;
+    // Cap decode resolution so pinch-zoom recompositing a giant source photo
+    // doesn't have to raster/scale a huge texture every frame. Sized with
+    // headroom above the max pinch scale (5x) so zoomed-in detail still
+    // looks sharp; only width is capped so aspect ratio is preserved.
+    final cacheWidth = (screenSize.width *
+            MediaQuery.devicePixelRatioOf(context) *
+            3)
+        .clamp(600, 3000)
+        .round();
     return AnimatedPadding(
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOutCubic,
@@ -2053,6 +2061,7 @@ class _FullscreenImage extends StatelessWidget {
           alignment: Alignment.center,
           fadeInDuration: Duration.zero,
           fadeOutDuration: Duration.zero,
+          memCacheWidth: cacheWidth,
           placeholder: (context, url) => CachedNetworkImage(
             imageUrl: photo.thumbnailUrl,
             httpHeaders: headers,

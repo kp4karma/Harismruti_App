@@ -68,22 +68,24 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
       children: [
         // Background Blur
         Positioned.fill(
-          child: ClipRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-              child: Container(
-                decoration: const BoxDecoration(
-                  backgroundBlendMode: BlendMode.dstOut,
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    stops: [0.5, 0.7, 0.9, 1.0],
-                    colors: [
-                      Colors.transparent,
-                      Colors.white24,
-                      Colors.white,
-                      Colors.white,
-                    ],
+          child: RepaintBoundary(
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                child: Container(
+                  decoration: const BoxDecoration(
+                    backgroundBlendMode: BlendMode.dstOut,
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      stops: [0.5, 0.7, 0.9, 1.0],
+                      colors: [
+                        Colors.transparent,
+                        Colors.white24,
+                        Colors.white,
+                        Colors.white,
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -92,159 +94,163 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
         ),
 
         // Tab bar & search icon
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: SafeArea(
-            child: Row(
-              children: [
-                // Tab Bar
-                Expanded(
-                  child: Card(
-                    elevation: 200,
-                    shadowColor: Colors.black54,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    color: Colors.white,
-                    child: Stack(
-                      children: [
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            return SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              controller: _scrollController,
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  minWidth: constraints.maxWidth,
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: Center(
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        ...List.generate(widget.tabs.length, (
-                                          index,
-                                        ) {
-                                          final isSelected =
-                                              selectedIndex == index;
-                                          return GestureDetector(
-                                            onTap: () {
-                                              setState(
-                                                () => selectedIndex = index,
-                                              );
-                                              scrollToIndex(index);
-                                              if (widget.onTabSelected !=
-                                                  null) {
-                                                widget.onTabSelected!(index);
-                                              }
-                                            },
-                                            child: AnimatedContainer(
-                                              duration: const Duration(
-                                                milliseconds: 300,
-                                              ),
-                                              margin:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 4,
-                                                  ),
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 16,
-                                                    vertical: 10,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: isSelected
-                                                    ? const Color(0xFF823D3D)
-                                                    : Colors.transparent,
-                                                borderRadius:
-                                                    BorderRadius.circular(30),
-                                              ),
-                                              constraints: const BoxConstraints(
-                                                minWidth: 150,
-                                              ),
-                                              child: Text(
-                                                widget.tabs[index],
-                                                style: TextStyle(
+        RepaintBoundary(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: SafeArea(
+              child: Row(
+                children: [
+                  // Tab Bar
+                  Expanded(
+                    child: Card(
+                      elevation: 200,
+                      shadowColor: Colors.black54,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      color: Colors.white,
+                      child: Stack(
+                        children: [
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              return SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                controller: _scrollController,
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    minWidth: constraints.maxWidth,
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Center(
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          ...List.generate(widget.tabs.length, (
+                                            index,
+                                          ) {
+                                            final isSelected =
+                                                selectedIndex == index;
+                                            return GestureDetector(
+                                              onTap: () {
+                                                setState(
+                                                  () => selectedIndex = index,
+                                                );
+                                                scrollToIndex(index);
+                                                if (widget.onTabSelected !=
+                                                    null) {
+                                                  widget.onTabSelected!(index);
+                                                }
+                                              },
+                                              child: AnimatedContainer(
+                                                duration: const Duration(
+                                                  milliseconds: 300,
+                                                ),
+                                                margin:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 4,
+                                                    ),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 16,
+                                                      vertical: 10,
+                                                    ),
+                                                decoration: BoxDecoration(
                                                   color: isSelected
-                                                      ? Colors.white
-                                                      : Colors.black87,
-                                                  fontWeight: FontWeight.w500,
+                                                      ? const Color(0xFF823D3D)
+                                                      : Colors.transparent,
+                                                  borderRadius:
+                                                      BorderRadius.circular(30),
+                                                ),
+                                                constraints:
+                                                    const BoxConstraints(
+                                                      minWidth: 150,
+                                                    ),
+                                                child: Text(
+                                                  widget.tabs[index],
+                                                  style: TextStyle(
+                                                    color: isSelected
+                                                        ? Colors.white
+                                                        : Colors.black87,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                          );
-                                        }),
-                                      ],
+                                            );
+                                          }),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+
+                          // Right Fade
+                          if (selectedIndex != widget.tabs.length - 1)
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              bottom: 0,
+                              width: 80,
+                              child: IgnorePointer(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(30),
+                                    gradient: const LinearGradient(
+                                      begin: Alignment.centerLeft,
+                                      end: Alignment.centerRight,
+                                      colors: [Colors.white24, Colors.white],
                                     ),
                                   ),
                                 ),
                               ),
-                            );
-                          },
-                        ),
+                            ),
 
-                        // Right Fade
-                        if (selectedIndex != widget.tabs.length - 1)
-                          Positioned(
-                            right: 0,
-                            top: 0,
-                            bottom: 0,
-                            width: 80,
-                            child: IgnorePointer(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(30),
-                                  gradient: const LinearGradient(
-                                    begin: Alignment.centerLeft,
-                                    end: Alignment.centerRight,
-                                    colors: [Colors.white24, Colors.white],
+                          // Left Fade
+                          if (selectedIndex != 0)
+                            Positioned(
+                              left: 0,
+                              top: 0,
+                              bottom: 0,
+                              width: 80,
+                              child: IgnorePointer(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(30),
+                                    gradient: const LinearGradient(
+                                      begin: Alignment.centerRight,
+                                      end: Alignment.centerLeft,
+                                      colors: [Colors.white24, Colors.white],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-
-                        // Left Fade
-                        if (selectedIndex != 0)
-                          Positioned(
-                            left: 0,
-                            top: 0,
-                            bottom: 0,
-                            width: 80,
-                            child: IgnorePointer(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(30),
-                                  gradient: const LinearGradient(
-                                    begin: Alignment.centerRight,
-                                    end: Alignment.centerLeft,
-                                    colors: [Colors.white24, Colors.white],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
 
-                if (showActions) ...[
-                  const SizedBox(width: 10),
-                  if (widget.onSearchTap != null)
-                    _BottomActionButton(
-                      icon: Icons.search,
-                      onTap: widget.onSearchTap,
-                    ),
-                  if (widget.onSearchTap != null && widget.onFilterTap != null)
-                    const SizedBox(width: 8),
-                  if (widget.onFilterTap != null)
-                    _BottomActionButton(
-                      icon: Icons.tune_rounded,
-                      onTap: widget.onFilterTap,
-                    ),
+                  if (showActions) ...[
+                    const SizedBox(width: 10),
+                    if (widget.onSearchTap != null)
+                      _BottomActionButton(
+                        icon: Icons.search,
+                        onTap: widget.onSearchTap,
+                      ),
+                    if (widget.onSearchTap != null &&
+                        widget.onFilterTap != null)
+                      const SizedBox(width: 8),
+                    if (widget.onFilterTap != null)
+                      _BottomActionButton(
+                        icon: Icons.tune_rounded,
+                        onTap: widget.onFilterTap,
+                      ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

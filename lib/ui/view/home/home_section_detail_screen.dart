@@ -68,7 +68,7 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F6F3),
-      appBar: DetailAppbar(title: widget.title),
+      appBar: DetailAppbar(title: _appBarTitle()),
       body: Obx(() {
         final items = _itemsForTitle(widget.title);
         final visibleItems = _filterItems(items);
@@ -496,6 +496,19 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
         );
       },
     );
+  }
+
+  String _appBarTitle() {
+    switch (widget.title) {
+      case SmrutiSectionKeys.myPhotos:
+      case 'My Phone':
+      case 'My Photos':
+        if (!Get.isRegistered<MyPhotosController>()) return widget.title;
+        final count = Get.find<MyPhotosController>().matchedPhotos.length;
+        return count > 0 ? '${widget.title} ($count)' : widget.title;
+      default:
+        return widget.title;
+    }
   }
 
   List<Object> _itemsForTitle(String title) {

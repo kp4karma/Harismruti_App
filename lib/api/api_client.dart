@@ -105,7 +105,20 @@ class ApiClient {
               );
             }
             if (response.statusCode == 200 || response.statusCode == 201) {
-              response.data = filterIgnoredApiItems(response.data);
+              if (kDebugMode) {
+                final rawCount = countApiListItems(response.data);
+                final filtered = filterIgnoredApiItems(response.data);
+                final filteredCount = countApiListItems(filtered);
+                debugPrint(
+                  '📊 [${response.requestOptions.method}] '
+                  '${response.requestOptions.path}: '
+                  'raw_items=$rawCount filtered_items=$filteredCount '
+                  '(dropped=${rawCount - filteredCount})',
+                );
+                response.data = filtered;
+              } else {
+                response.data = filterIgnoredApiItems(response.data);
+              }
               return handler.next(response);
             }
             return handler.reject(
