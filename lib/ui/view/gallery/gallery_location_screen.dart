@@ -13,6 +13,25 @@ import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 
+List<GalleryCard> _filterCities(List<GalleryCard> cities, String query) {
+  if (query.isEmpty) return cities;
+  return cities.where((card) => _cityMatchesQuery(card, query)).toList();
+}
+
+bool _cityMatchesQuery(GalleryCard card, String query) {
+  final searchableText = [
+    card.title,
+    card.subtitle,
+    card.value,
+    card.type,
+    for (final photo in card.photos) ...[
+      photo.title ?? '',
+      photo.subtitle ?? '',
+    ],
+  ].join(' ').toLowerCase();
+  return searchableText.contains(query);
+}
+
 class GalleryLocationScreen extends StatefulWidget {
   final GalleryCard card;
 
@@ -37,7 +56,6 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _cityScrollController = ScrollController();
   double _mapZoom = 11;
-  String _query = '';
   String? _lastFitKey;
 
   @override
@@ -45,7 +63,6 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
     super.initState();
     _activeCard = widget.card;
     _photosFuture = _controller.loadPhotosForCard(_activeCard);
-    _searchController.addListener(_handleSearchChanged);
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _centerSelectedCity(_activeCard),
     );
@@ -63,17 +80,9 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
 
   @override
   void dispose() {
-    _searchController
-      ..removeListener(_handleSearchChanged)
-      ..dispose();
+    _searchController.dispose();
     _cityScrollController.dispose();
     super.dispose();
-  }
-
-  void _handleSearchChanged() {
-    final value = _searchController.text.trim().toLowerCase();
-    if (value == _query) return;
-    setState(() => _query = value);
   }
 
   void _handleMapZoomChanged(double zoom) {
@@ -124,7 +133,7 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
   }
 
   void _centerSelectedCity(GalleryCard card) {
-    final cities = _matchingCities;
+    final cities = _allCities;
     final index = cities.indexWhere(
       (city) => city.id == card.id && city.value == card.value,
     );
@@ -195,30 +204,17 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
     );
   }
 
-  List<GalleryCard> get _matchingCities {
-    final locations = _controller.locations.toList(growable: false);
-    if (_query.isEmpty) return locations;
-    return locations.where(_matchesLocationQuery).toList();
-  }
-
-  bool _matchesLocationQuery(GalleryCard card) {
-    final searchableText = [
-      card.title,
-      card.subtitle,
-      card.value,
-      card.type,
-      for (final photo in card.photos) ...[
-        photo.title ?? '',
-        photo.subtitle ?? '',
-      ],
-    ].join(' ').toLowerCase();
-    return searchableText.contains(_query);
-  }
+  List<GalleryCard> get _allCities =>
+      _controller.locations.toList(growable: false);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFEFF3EA),
+      // Keyboard insets are handled inside _LocationSheet instead, so the
+      // map behind it doesn't relayout/resize every time the keyboard
+      // opens or closes.
+      resizeToAvoidBottomInset: false,
       body: FutureBuilder<List<GalleryPhoto>>(
         future: _photosFuture,
         builder: (context, snapshot) {
@@ -235,7 +231,7 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
                         ? _fallbackCenter
                         : locationMarkers.first.point))
               : clusters.first.point;
-          final cities = _matchingCities;
+          final cities = _allCities;
 
           final fitKey = clusters
               .map(
@@ -699,110 +695,133 @@ class _LocationSheetState extends State<_LocationSheet>
     final expandedHeight = _expandedHeight(context);
     final collapsedHeight = _collapsedHeight * tabletScale(context);
     final range = expandedHeight - collapsedHeight;
+    // Kept as a separate, non-animated outer layer so the keyboard inset
+    // (which changes independently of the expand/collapse gesture) never
+    // drives the same AnimatedPadding that BackdropFilter's clip/blur
+    // geometry depends on — combining the two caused the sheet to render
+    // blank right as the keyboard opened.
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        final t = _controller.value;
-        final height = collapsedHeight + range * t;
-        final horizontalMargin = lerpDouble(12, 0, t)!;
-        final bottomMargin = lerpDouble(14, 0, t)!;
-        final radius = lerpDouble(28, 24, t)!;
+    return Padding(
+      padding: EdgeInsets.only(bottom: keyboardInset),
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          final t = _controller.value;
+          final height = collapsedHeight + range * t;
+          final horizontalMargin = lerpDouble(12, 0, t)!;
+          final bottomMargin = lerpDouble(14, 0, t)!;
+          final radius = lerpDouble(28, 24, t)!;
 
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            horizontalMargin,
-            0,
-            horizontalMargin,
-            bottomMargin,
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(radius)),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
-              child: Container(
-                height: height,
-                padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
-                decoration: BoxDecoration(
-                  color: Colors.white.withAlpha(188),
-                  borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(radius),
-                  ),
-                  border: Border.all(color: Colors.white.withAlpha(220)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(42),
-                      blurRadius: 34,
-                      offset: const Offset(0, 18),
+          return AnimatedPadding(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            padding: EdgeInsets.fromLTRB(
+              horizontalMargin,
+              0,
+              horizontalMargin,
+              bottomMargin,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(radius)),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
+                child: Container(
+                  height: height,
+                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withAlpha(188),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(radius),
                     ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: _toggle,
-                      onVerticalDragUpdate: (details) =>
-                          _onHandleDragUpdate(details, range),
-                      onVerticalDragEnd: _onHandleDragEnd,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        child: Container(
-                          width: 42,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Colors.black.withAlpha(35),
-                            borderRadius: BorderRadius.circular(99),
+                    border: Border.all(color: Colors.white.withAlpha(220)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(42),
+                        blurRadius: 34,
+                        offset: const Offset(0, 18),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _toggle,
+                        onVerticalDragUpdate: (details) =>
+                            _onHandleDragUpdate(details, range),
+                        onVerticalDragEnd: _onHandleDragEnd,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: Container(
+                            width: 42,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: Colors.black.withAlpha(35),
+                              borderRadius: BorderRadius.circular(99),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    _CitySearchField(controller: widget.controller),
-                    const SizedBox(height: 12),
-                    Expanded(
-                      child: Stack(
-                        children: [
-                          Opacity(
-                            opacity: (1 - t * 1.6).clamp(0.0, 1.0),
-                            child: IgnorePointer(
-                              ignoring: t > 0.35,
-                              child: _CityChipRow(
-                                cities: widget.cities,
-                                activeCard: widget.activeCard,
-                                cityScrollController:
-                                    widget.cityScrollController,
-                                onCityTap: widget.onCityTap,
-                              ),
-                            ),
-                          ),
-                          Opacity(
-                            opacity: ((t - 0.35) / 0.65).clamp(0.0, 1.0),
-                            child: IgnorePointer(
-                              ignoring: t < 0.35,
-                              child: _CityListView(
-                                cities: widget.cities,
-                                activeCard: widget.activeCard,
-                                onCityTap: (city) {
-                                  widget.onCityTap(city);
-                                  _controller.animateTo(
-                                    0,
-                                    curve: Curves.easeOutCubic,
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                        ],
+                      _CitySearchField(controller: widget.controller),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: ListenableBuilder(
+                          listenable: widget.controller,
+                          builder: (context, _) {
+                            final query = widget.controller.text
+                                .trim()
+                                .toLowerCase();
+                            final filteredCities = _filterCities(
+                              widget.cities,
+                              query,
+                            );
+                            return Stack(
+                              children: [
+                                Opacity(
+                                  opacity: (1 - t * 1.6).clamp(0.0, 1.0),
+                                  child: IgnorePointer(
+                                    ignoring: t > 0.35,
+                                    child: _CityChipRow(
+                                      cities: filteredCities,
+                                      activeCard: widget.activeCard,
+                                      cityScrollController:
+                                          widget.cityScrollController,
+                                      onCityTap: widget.onCityTap,
+                                    ),
+                                  ),
+                                ),
+                                Opacity(
+                                  opacity: ((t - 0.35) / 0.65).clamp(0.0, 1.0),
+                                  child: IgnorePointer(
+                                    ignoring: t < 0.35,
+                                    child: _CityListView(
+                                      cities: filteredCities,
+                                      activeCard: widget.activeCard,
+                                      onCityTap: (city) {
+                                        widget.onCityTap(city);
+                                        _controller.animateTo(
+                                          0,
+                                          curve: Curves.easeOutCubic,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                    SizedBox(height: lerpDouble(14, 10, t)),
-                  ],
+                      SizedBox(height: lerpDouble(14, 10, t)),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

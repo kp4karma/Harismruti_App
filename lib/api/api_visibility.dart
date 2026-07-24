@@ -42,3 +42,23 @@ dynamic filterIgnoredApiItems(dynamic value) {
   }
   return value;
 }
+
+/// Sums the length of every list found anywhere in [value], recursing into
+/// nested maps/lists. Used to compare raw vs. ignore-filtered item counts.
+int countApiListItems(dynamic value) {
+  if (value is List) {
+    var count = value.length;
+    for (final item in value) {
+      count += countApiListItems(item);
+    }
+    return count;
+  }
+  if (value is Map) {
+    var count = 0;
+    for (final item in value.values) {
+      count += countApiListItems(item);
+    }
+    return count;
+  }
+  return 0;
+}

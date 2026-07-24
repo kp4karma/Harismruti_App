@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/api_endpoints.dart';
@@ -372,6 +372,7 @@ class MyPhotosController extends GetxController {
 
   Future<void> refreshSmrutiFlow() async {
     if (!StorageHelper.isLogin() || isCheckingMapping.value) return;
+    if (kDebugMode) _debugProbeMyLibrary();
     isCheckingMapping.value = true;
     try {
       if (await _loadPhoneMapping()) return;
@@ -391,17 +392,77 @@ class MyPhotosController extends GetxController {
     }
   }
 
+  /// Debug-only: probes /me/library independently of which flow the account
+  /// actually uses, purely to compare counts. Never touches matchedPhotos.
+  Future<void> _debugProbeMyLibrary() async {
+    try {
+      final library = await _repository.getMyLibrary();
+      final rawPhotos = library['photos'] is List
+          ? (library['photos'] as List).length
+          : 0;
+      final mappedCount = library['photos'] is List
+          ? (library['photos'] as List)
+                .map(GalleryPhoto.fromJson)
+                .where((photo) => photo.id > 0)
+                .length
+          : 0;
+      debugPrint(
+        'DEBUG_PROBE /me/library: raw_photos=$rawPhotos '
+        'id_filtered=$mappedCount',
+      );
+    } catch (error) {
+      debugPrint('DEBUG_PROBE /me/library failed: $error');
+    }
+  }
+
+  // Backend paginates /me/smruti via offset+limit and reports `total`.
+  static const int _mySmrutiPageSize = 50;
+  // Safety cap on pages fetched, in case `total` is wrong or the backend
+  // keeps echoing the same data (would otherwise loop forever).
+  static const int _maxMySmrutiPages = 50;
+
   Future<bool> _loadPhoneMapping() async {
-    final result = await _repository.getMySmruti();
-    if (result['found'] != true) {
+    final firstPage = await _repository.getMySmruti(
+      offset: 0,
+      limit: _mySmrutiPageSize,
+    );
+    if (firstPage['found'] != true) {
       hasPhoneMapping.value = false;
       return false;
     }
-    final mapped =
-        (result['photos'] is List ? result['photos'] as List : const [])
-            .map(GalleryPhoto.fromJson)
-            .where((photo) => photo.id > 0)
-            .toList();
+
+    final seenIds = <int>{};
+    final mapped = <GalleryPhoto>[];
+
+    void addPage(Map<String, dynamic> result) {
+      final pagePhotos =
+          (result['photos'] is List ? result['photos'] as List : const [])
+              .map(GalleryPhoto.fromJson)
+              .where((photo) => photo.id > 0 && seenIds.add(photo.id))
+              .toList();
+      mapped.addAll(pagePhotos);
+    }
+
+    addPage(firstPage);
+    final total = int.tryParse('${firstPage['total']}') ?? mapped.length;
+    var offset = _mySmrutiPageSize;
+    var pagesFetched = 1;
+    while (mapped.length < total && pagesFetched < _maxMySmrutiPages) {
+      final beforeCount = mapped.length;
+      final nextPage = await _repository.getMySmruti(
+        offset: offset,
+        limit: _mySmrutiPageSize,
+      );
+      final nextPhotos = nextPage['photos'] is List
+          ? nextPage['photos'] as List
+          : const [];
+      if (nextPhotos.isEmpty) break;
+      addPage(nextPage);
+      pagesFetched++;
+      if (mapped.length == beforeCount) break; // no new photos, stop paging
+      offset += _mySmrutiPageSize;
+    }
+
     matchedPhotos.assignAll(mapped);
     hasPhoneMapping.value = true;
     faceSearchCompleted.value = true;
@@ -747,6 +808,11 @@ class MyPhotosController extends GetxController {
               .map(GalleryPhoto.fromJson)
               .where((photo) => photo.id > 0)
               .toList();
+      debugPrint(
+        'MyPhotosController._loadRemotePhotos: '
+        'raw_photos=${library['photos'] is List ? (library['photos'] as List).length : 0} '
+        'matched=${matched.length}',
+      );
       matchedPhotos.assignAll(matched);
       if (matched.isNotEmpty) {
         faceSearchCompleted.value = true;
@@ -789,6 +855,11 @@ class MyPhotosController extends GetxController {
               .map(GalleryPhoto.fromJson)
               .where((photo) => photo.id > 0)
               .toList();
+      debugPrint(
+        'MyPhotosController.fetchServerMatches: '
+        'raw_photos=${library['photos'] is List ? (library['photos'] as List).length : 0} '
+        'matched=${matched.length}',
+      );
       matchedPhotos.assignAll(matched);
       faceSearchCompleted.value = true;
       helperMessage.value = matched.isEmpty
