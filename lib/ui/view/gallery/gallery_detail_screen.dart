@@ -885,6 +885,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   bool _allowIgnore = false;
   bool _isIgnoring = false;
   Offset _lastDoubleTapPosition = Offset.zero;
+  int _gesturePointerCount = 1;
 
   @override
   void initState() {
@@ -1240,6 +1241,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   void _handleZoomInteractionStart(ScaleStartDetails details) {
     _zoomAnimationController.stop();
     _clearZoomAnimation();
+    _gesturePointerCount = details.pointerCount;
 
     if (details.pointerCount < 2 && !_isZoomed) return;
     if (_zoomModeActive && !_chromeVisible) return;
@@ -1251,6 +1253,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   }
 
   void _handleZoomInteractionUpdate(ScaleUpdateDetails details) {
+    _gesturePointerCount = details.pointerCount;
     final isZoomed = _transformationController.value.getMaxScaleOnAxis() > 1.05;
     if (!isZoomed || (_isZoomed && _zoomModeActive && !_chromeVisible)) {
       return;
@@ -1266,6 +1269,11 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   void _handleZoomInteractionEnd(ScaleEndDetails details) {
     final isZoomed = _transformationController.value.getMaxScaleOnAxis() > 1.05;
     if (!isZoomed) {
+      if (_gesturePointerCount <= 1 &&
+          details.velocity.pixelsPerSecond.dy > 360) {
+        Navigator.pop(context);
+        return;
+      }
       _resetZoom();
       return;
     }
@@ -1336,7 +1344,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     _zoomAnimationController.forward(from: 0);
   }
 
-  void _resetZoom({bool animated = true}) {
+  void _resetZoom({bool animated = true, bool restoreChrome = true}) {
     if (animated) {
       _animateZoomTo(Matrix4.identity(), isZoomed: false);
     } else {
@@ -1344,7 +1352,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       _transformationController.value = Matrix4.identity();
       _isZoomed = false;
       _zoomModeActive = false;
-      _chromeVisible = true;
+      if (restoreChrome) _chromeVisible = true;
     }
   }
 
@@ -1511,7 +1519,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
               onPageChanged: (value) {
                 setState(() {
                   _index = value;
-                  _resetZoom(animated: false);
+                  _resetZoom(animated: false, restoreChrome: false);
                 });
                 _precacheAround(value);
                 _centerThumbnail(value);
@@ -1524,14 +1532,6 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                   onTap: _toggleChrome,
                   onDoubleTapDown: _rememberDoubleTapPosition,
                   onDoubleTap: _toggleZoom,
-                  onVerticalDragEnd: _zoomModeActive
-                      ? null
-                      : (details) {
-                          final velocity = details.primaryVelocity ?? 0;
-                          if (velocity > 360) {
-                            Navigator.pop(context);
-                          }
-                        },
                   child: InteractiveViewer(
                     transformationController: _transformationController,
                     minScale: 1,
@@ -2032,6 +2032,8 @@ class _FullscreenImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.sizeOf(context);
+    final verticalPadding = chromeVisible ? 96 + 132 : 0;
     return AnimatedPadding(
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOutCubic,
@@ -2041,29 +2043,28 @@ class _FullscreenImage extends StatelessWidget {
         0,
         chromeVisible ? 132 : 0,
       ),
-      child: Center(
-        child: SizedBox(
-          width: double.infinity,
-          child: CachedNetworkImage(
-            imageUrl: photo.fullUrl,
+      child: SizedBox(
+        width: screenSize.width,
+        height: screenSize.height - verticalPadding,
+        child: CachedNetworkImage(
+          imageUrl: photo.fullUrl,
+          httpHeaders: headers,
+          fit: BoxFit.contain,
+          alignment: Alignment.center,
+          fadeInDuration: Duration.zero,
+          fadeOutDuration: Duration.zero,
+          placeholder: (context, url) => CachedNetworkImage(
+            imageUrl: photo.thumbnailUrl,
             httpHeaders: headers,
-            fit: BoxFit.fitWidth,
+            fit: BoxFit.contain,
             alignment: Alignment.center,
             fadeInDuration: Duration.zero,
             fadeOutDuration: Duration.zero,
-            placeholder: (context, url) => CachedNetworkImage(
-              imageUrl: photo.thumbnailUrl,
-              httpHeaders: headers,
-              fit: BoxFit.fitWidth,
-              alignment: Alignment.center,
-              fadeInDuration: Duration.zero,
-              fadeOutDuration: Duration.zero,
-              errorWidget: (_, __, ___) =>
-                  Icon(CupertinoIcons.photo, color: primaryColor, size: 42),
-            ),
             errorWidget: (_, __, ___) =>
                 Icon(CupertinoIcons.photo, color: primaryColor, size: 42),
           ),
+          errorWidget: (_, __, ___) =>
+              Icon(CupertinoIcons.photo, color: primaryColor, size: 42),
         ),
       ),
     );
@@ -2197,21 +2198,7 @@ class _ViewerTopBar extends StatelessWidget {
 
   String? _formatTopDateTime(DateTime? value) {
     if (value == null) return null;
-    final date = value.toLocal();
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final photoDay = DateTime(date.year, date.month, date.day);
-    final daysAgo = today.difference(photoDay).inDays;
-    final dayLabel = switch (daysAgo) {
-      0 => 'Today',
-      1 => 'Yesterday',
-      _ => _formatShortDate(date),
-    };
-    // Photos without a real capture time fall back to a date-only value
-    // (midnight), so showing a fabricated "12:00 AM" would be misleading.
-    final hasKnownTime = date.hour != 0 || date.minute != 0;
-    if (!hasKnownTime) return dayLabel;
-    return '$dayLabel  ${_formatTime(date)}';
+    return _formatShortDate(value.toLocal());
   }
 
   String _formatShortDate(DateTime date) {
@@ -2230,13 +2217,6 @@ class _ViewerTopBar extends StatelessWidget {
       'Dec',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
-  }
-
-  String _formatTime(DateTime date) {
-    final hour = date.hour == 0 || date.hour == 12 ? 12 : date.hour % 12;
-    final minute = date.minute.toString().padLeft(2, '0');
-    final period = date.hour >= 12 ? 'PM' : 'AM';
-    return '$hour:$minute $period';
   }
 }
 
@@ -2701,12 +2681,7 @@ class _InlineInfoPanel extends StatelessWidget {
       'Nov',
       'Dec',
     ];
-    final hour24 = date.hour;
-    final period = hour24 >= 12 ? 'PM' : 'AM';
-    final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
-    final minute = date.minute.toString().padLeft(2, '0');
-    return '${date.day} ${months[date.month - 1]} ${date.year}, '
-        '$hour12:$minute $period';
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
   List<String> _mergedPhotoTags(List<String> baseTags, List<String> userTags) {
