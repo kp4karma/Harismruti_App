@@ -38,6 +38,7 @@ class ApiEndpoints {
   static String get verifyOtp => "/auth/verify-otp";
   static String get register => "/auth/register";
   static String get refresh => "/auth/refresh";
+  static String get verifyToken => "/auth/verify";
   static String get appVersionCheck => "/app-version/check";
   static String get appSections => "/app-sections";
   static String get myLibrary => "/me/library";

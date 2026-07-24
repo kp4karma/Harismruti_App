@@ -90,10 +90,16 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
   }
 
   List<GalleryFilterGroup> _availableGroups(List<GalleryFilterGroup> groups) {
-    return groups
+    final availableGroups = groups
         .map(_withAvailableOptions)
         .where((group) => group.options.isNotEmpty)
         .toList();
+    availableGroups.sort(
+      (first, second) => _filterGroupOrder(
+        first.slug,
+      ).compareTo(_filterGroupOrder(second.slug)),
+    );
+    return availableGroups;
   }
 
   GalleryFilterGroup _withAvailableOptions(GalleryFilterGroup group) {
@@ -107,14 +113,17 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
         optionsByValue.putIfAbsent(value, () => selectedOption);
       }
     }
+    final availableOptions =
+        optionsByValue.values
+            .where(
+              (option) => option.count > 0 || selected.contains(option.value),
+            )
+            .toList()
+          ..sort(_compareFilterOptions);
     return GalleryFilterGroup(
       slug: group.slug,
       title: group.title,
-      options: optionsByValue.values
-          .where(
-            (option) => option.count > 0 || selected.contains(option.value),
-          )
-          .toList(),
+      options: availableOptions,
     );
   }
 
@@ -321,6 +330,18 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
   }
 }
 
+int _compareFilterOptions(
+  GalleryFilterOption first,
+  GalleryFilterOption second,
+) {
+  final labelComparison = first.label.toLowerCase().compareTo(
+    second.label.toLowerCase(),
+  );
+  if (labelComparison != 0) return labelComparison;
+
+  return first.value.toLowerCase().compareTo(second.value.toLowerCase());
+}
+
 class _FilterCategoryTile extends StatelessWidget {
   final GalleryFilterGroup group;
   final bool selected;
@@ -389,10 +410,39 @@ class _FilterCategoryTile extends StatelessWidget {
 }
 
 String _filterGroupDisplayTitle(GalleryFilterGroup group) {
-  final title = group.title.trim();
-  if (title.toLowerCase() == 'location') return 'Place';
-  if (title.toLowerCase() == 'locations') return 'Places';
+  switch (group.slug.trim().toLowerCase()) {
+    case 'subject':
+      return 'Smruti';
+    case 'person':
+      return 'Darshan Of';
+    case 'with':
+      return 'Darshan With';
+    case 'album':
+      return 'Album';
+    case 'sub_location':
+      return 'Place';
+    case 'location':
+      return 'City';
+    case 'country':
+      return 'Country';
+    case 'duration':
+      return 'Year';
+  }
   return group.title;
+}
+
+int _filterGroupOrder(String slug) {
+  return switch (slug.trim().toLowerCase()) {
+    'subject' => 0,
+    'person' => 1,
+    'with' => 2,
+    'album' => 3,
+    'sub_location' => 4,
+    'location' => 5,
+    'country' => 6,
+    'duration' => 7,
+    _ => 8,
+  };
 }
 
 class _FilterOptionsList extends StatelessWidget {
@@ -502,46 +552,52 @@ class _FilterActionsBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
-        decoration: BoxDecoration(
-          color: Colors.white.withAlpha(245),
-          border: Border(top: BorderSide(color: Colors.black.withAlpha(14))),
-        ),
-        child: Row(
-          children: [
-            TextButton(
-              onPressed: selectedCount == 0 && !hasSearchQuery ? null : onClear,
-              child: const Text('Clear'),
+    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    return Container(
+      padding: EdgeInsets.fromLTRB(14, 10, 14, 12 + bottomInset),
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(245),
+        border: Border(top: BorderSide(color: Colors.black.withAlpha(14))),
+      ),
+      child: Row(
+        children: [
+          TextButton(
+            onPressed: selectedCount == 0 && !hasSearchQuery ? null : onClear,
+            style: TextButton.styleFrom(
+              minimumSize: const Size(52, 48),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: selectedCount == 0 ? null : onApply,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: Colors.black.withAlpha(22),
-                  disabledForegroundColor: Colors.black.withAlpha(95),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
-                  ),
+            child: const Text('Clear'),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: ElevatedButton(
+              onPressed: selectedCount == 0 ? null : onApply,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.black.withAlpha(22),
+                disabledForegroundColor: Colors.black.withAlpha(95),
+                minimumSize: const Size.fromHeight(48),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
                 ),
-                child: Text(
-                  selectedCount == 0
-                      ? 'Select filters'
-                      : 'Apply $selectedCount filters',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w900),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
                 ),
               ),
+              child: Text(
+                selectedCount == 0
+                    ? 'Select filters'
+                    : 'Apply $selectedCount filters',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

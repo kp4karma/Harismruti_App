@@ -1576,7 +1576,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                             ? _formatRecentViewerTitle(_photo)
                             : widget.title,
                         position: '${_index + 1} of ${_photosList.length}',
-                        takenAt: _photo.takenAt,
+                        takenAt: _photo.eventDate,
                         attributesFuture: _attributesFor(_photo.id),
                         onBack: () => Navigator.pop(context),
                         allowIgnore: _allowIgnore,
@@ -2037,11 +2037,10 @@ class _FullscreenImage extends StatelessWidget {
     // doesn't have to raster/scale a huge texture every frame. Sized with
     // headroom above the max pinch scale (5x) so zoomed-in detail still
     // looks sharp; only width is capped so aspect ratio is preserved.
-    final cacheWidth = (screenSize.width *
-            MediaQuery.devicePixelRatioOf(context) *
-            3)
-        .clamp(600, 3000)
-        .round();
+    final cacheWidth =
+        (screenSize.width * MediaQuery.devicePixelRatioOf(context) * 3)
+            .clamp(600, 3000)
+            .round();
     return AnimatedPadding(
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOutCubic,
@@ -2537,7 +2536,7 @@ class _InlineInfoPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  _formatDateTime(photo.takenAt) ?? 'Not available',
+                  _formatDateTime(photo.eventDate) ?? 'Not available',
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -2676,6 +2675,7 @@ class _InlineInfoPanel extends StatelessWidget {
 
   String? _formatDateTime(DateTime? date) {
     if (date == null) return null;
+    final localDate = date.toLocal();
     const months = [
       'Jan',
       'Feb',
@@ -2690,7 +2690,7 @@ class _InlineInfoPanel extends StatelessWidget {
       'Nov',
       'Dec',
     ];
-    return '${date.day} ${months[date.month - 1]} ${date.year}';
+    return '${localDate.day} ${months[localDate.month - 1]} ${localDate.year}';
   }
 
   List<String> _mergedPhotoTags(List<String> baseTags, List<String> userTags) {
@@ -2940,6 +2940,7 @@ class _InfoMapCard extends StatelessWidget {
       title: photo.title,
       subtitle: photo.subtitle,
       takenAt: photo.takenAt,
+      eventDate: photo.eventDate,
       width: photo.width,
       height: photo.height,
       fileSizeBytes: photo.fileSizeBytes,

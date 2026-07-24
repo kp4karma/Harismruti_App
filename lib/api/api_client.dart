@@ -19,6 +19,8 @@ class ApiClient {
   static final Map<String, _CachedGetResponse> _getCache = {};
   static final Map<String, Future<Response<dynamic>>> _pendingGets = {};
   static const Duration _defaultGetCacheDuration = Duration(minutes: 15);
+  static Future<String?>? _refreshFuture;
+  static bool _logoutInProgress = false;
   factory ApiClient() => _instance;
   static String currentAppVersion = '';
   ApiClient._internal();
@@ -165,10 +167,25 @@ DATA: $responseData
                   if (kDebugMode) {
                     print("401 Invalid Token Error: $responseData");
                   }
+                  if (await _shouldRetry(error)) {
+                    try {
+                      return handler.resolve(
+                        await _retry(error.requestOptions),
+                      );
+                    } on DioException {
+                      return handler.next(error);
+                    }
+                  }
                   break;
                 case 403:
                   if (await _shouldRetry(error)) {
-                    return handler.resolve(await _retry(error.requestOptions));
+                    try {
+                      return handler.resolve(
+                        await _retry(error.requestOptions),
+                      );
+                    } on DioException {
+                      return handler.next(error);
+                    }
                   }
                   break;
                 case 404:
@@ -204,29 +221,54 @@ DATA: $responseData
     String? newAccessToken = await _refreshToken();
     if (newAccessToken != null) {
       requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
+      requestOptions.extra['_authRetried'] = true;
       return _client!.fetch<dynamic>(requestOptions);
-    } else {
-      return Response(
-        requestOptions: requestOptions,
-        statusCode: 440, // Unauthorized
-        data: {"error": "Refresh token expired. Please re-login."},
-      );
     }
+    throw DioException(
+      requestOptions: requestOptions,
+      response: Response<dynamic>(
+        requestOptions: requestOptions,
+        statusCode: 401,
+        data: const {'message': 'Device changed. Please login again.'},
+      ),
+      type: DioExceptionType.badResponse,
+    );
   }
 
   static Future<String?> _refreshToken() async {
+    final pendingRefresh = _refreshFuture;
+    if (pendingRefresh != null) return pendingRefresh;
+
+    final refresh = _performTokenRefresh();
+    _refreshFuture = refresh;
+    try {
+      return await refresh;
+    } finally {
+      if (identical(_refreshFuture, refresh)) {
+        _refreshFuture = null;
+      }
+    }
+  }
+
+  static Future<String?> _performTokenRefresh() async {
     String? refreshToken = StorageHelper.getValue(
       key: StorageKeys.refreshToken,
     );
     if (refreshToken == null || refreshToken.isEmpty) {
-      _forceLogout();
+      _forceLogout('Please login again.');
       return null;
     }
 
     try {
       final response = await _client!.post(
         ApiEndpoints.refresh,
-        options: Options(headers: {'Content-Type': 'application/json'}),
+        options: Options(
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $refreshToken',
+          },
+          extra: {'_skipAuthRetry': true},
+        ),
         data: addExtraParameters({}),
       );
 
@@ -238,7 +280,7 @@ DATA: $responseData
         String newRefreshToken = newAccessToken;
 
         if (newAccessToken.isEmpty) {
-          _forceLogout();
+          _forceLogout('Please login again.');
           return null;
         }
 
@@ -267,26 +309,43 @@ DATA: $responseData
         if (kDebugMode) {
           print("🔴 Refresh token expired. Logging out...");
         }
-        _forceLogout(); // Call logout function
+        _forceLogout('Device changed. Please login again.');
       }
-    } catch (e) {
+    } on DioException catch (e) {
       if (kDebugMode) {
         print("🔴 Token refresh failed: $e");
       }
-      _forceLogout();
+      if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+        _forceLogout(
+          _extractErrorMessage(e.response?.data),
+          deviceChanged: true,
+        );
+      }
     }
 
     return null;
   }
 
-  static void _forceLogout() {
+  static void _forceLogout(String message, {bool deviceChanged = false}) {
     if (kDebugMode) {
       print("🔴 Logging out user...");
     }
 
+    if (_logoutInProgress) return;
+    _logoutInProgress = true;
     StorageHelper.setValue(key: StorageKeys.accessToken, value: "");
     StorageHelper.setValue(key: StorageKeys.refreshToken, value: "");
-    get_x.Get.offAllNamed(AppRoutes.home);
+    StorageHelper.removeValue(StorageKeys.tokenExpiresAt);
+    StorageHelper.removeValue(StorageKeys.currentDeviceId);
+    StorageHelper.removeValue(StorageKeys.userProfile);
+    clearGetCache();
+    TopNotification.error(
+      deviceChanged ? 'Device changed. Please login again.' : message,
+    );
+    get_x.Get.offAllNamed(AppRoutes.login);
+    Future<void>.delayed(const Duration(milliseconds: 500), () {
+      _logoutInProgress = false;
+    });
   }
 
   static Future<String?> _getAccessToken() async {
@@ -311,34 +370,36 @@ DATA: $responseData
   }
 
   static Future<bool> _shouldRetry(DioException error) async {
-    if (error.response?.data['detail'].toString() ==
-        "Authentication error: Invalid or expired token.") {
-      String? refreshToken = StorageHelper.getValue(
-        key: StorageKeys.refreshToken,
-      );
-      if (refreshToken != null && refreshToken.isNotEmpty) {
-        if (kDebugMode) {
-          print("🔄 Should retry: 403 detected & refresh token is available.");
-        }
-        return true;
-      } else {
-        if (kDebugMode) {
-          print("🔴 Should NOT retry: No valid refresh token found.");
-        }
-        return false;
-      }
-    } else if (error.response?.data['detail'].toString() ==
-        "Authentication error: Please install latest app version") {
+    final responseData = error.response?.data;
+    if (responseData is Map &&
+        responseData['detail'].toString() ==
+            "Authentication error: Please install latest app version") {
       TopNotification.error(
-        error.response!.data['detail']
-            .toString()
-            .split(":")
-            .last
-            .trim()
-            .toString(),
+        responseData['detail'].toString().split(":").last.trim(),
       );
+      return false;
     }
-    return false;
+
+    final statusCode = error.response?.statusCode;
+    if (statusCode != 401 && statusCode != 403) return false;
+
+    final request = error.requestOptions;
+    if (request.extra['_authRetried'] == true ||
+        request.extra['_skipAuthRetry'] == true) {
+      return false;
+    }
+
+    final isAuthEndpoint = [...skipAuthEndpoints, ApiEndpoints.refresh].any(
+      (endpoint) =>
+          request.path.endsWith(endpoint) ||
+          request.uri.path.endsWith(endpoint),
+    );
+    if (isAuthEndpoint) return false;
+
+    final refreshToken = StorageHelper.getValue<String>(
+      key: StorageKeys.refreshToken,
+    );
+    return refreshToken != null && refreshToken.isNotEmpty;
   }
 
   static Future<Response<dynamic>> get(

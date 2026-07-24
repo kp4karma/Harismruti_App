@@ -7,11 +7,13 @@ import 'package:flutter/foundation.dart';
 import 'package:harismruti/api/models/app_version_info.dart';
 import 'package:harismruti/api/repositories/app_version_repository.dart';
 import 'package:harismruti/api/api_client.dart';
+import 'package:harismruti/api/api_endpoints.dart';
 import 'package:harismruti/helper/navigation_helper.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_images.dart';
 import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/responsive.dart';
+import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/widget/background/animated_words_background.dart';
 import 'package:harismruti/widget/internet_status_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -65,6 +67,26 @@ class SplashScreenState extends State<SplashScreen>
         if (kDebugMode) {
           debugPrint('App version check failed: $error');
         }
+      }
+    }
+
+    if (hasInternet && StorageHelper.isLogin()) {
+      try {
+        await ApiClient.get(
+          ApiEndpoints.verifyToken,
+          forceRefresh: true,
+          cacheDuration: Duration.zero,
+        );
+      } catch (error) {
+        if (kDebugMode) {
+          debugPrint('Stored login verification failed: $error');
+        }
+      }
+      if (!StorageHelper.isLogin()) {
+        await splashDelay;
+        if (!mounted) return;
+        NavigationHelper.navigateAndRemoveAll(AppRoutes.login);
+        return;
       }
     }
 

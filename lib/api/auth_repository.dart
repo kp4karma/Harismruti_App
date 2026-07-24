@@ -24,6 +24,14 @@ class AuthRepository {
     );
   }
 
+  Future<Response<dynamic>> verifyToken() {
+    return ApiClient.get(
+      ApiEndpoints.verifyToken,
+      forceRefresh: true,
+      cacheDuration: Duration.zero,
+    );
+  }
+
   Future<Response<dynamic>> register({
     required String fullName,
     required String mobile,

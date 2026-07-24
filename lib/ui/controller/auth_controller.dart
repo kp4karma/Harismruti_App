@@ -110,6 +110,16 @@ class AuthController extends GetxController {
         return false;
       }
       _persistLogin(response.data);
+      final verification = await _repository.verifyToken();
+      if (!_isSuccessfulResponse(verification.data)) {
+        StorageHelper.removeValue(StorageKeys.accessToken);
+        StorageHelper.removeValue(StorageKeys.refreshToken);
+        _showServerError(
+          verification.data,
+          fallback: 'Login verification failed',
+        );
+        return false;
+      }
       NavigationHelper.navigateAndRemoveAll(AppRoutes.home);
       return true;
     });

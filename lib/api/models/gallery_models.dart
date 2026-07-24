@@ -104,6 +104,7 @@ class GalleryPhoto {
   final String? title;
   final String? subtitle;
   final DateTime? takenAt;
+  final DateTime? eventDate;
   final int? width;
   final int? height;
   final int? fileSizeBytes;
@@ -120,6 +121,7 @@ class GalleryPhoto {
     this.title,
     this.subtitle,
     this.takenAt,
+    this.eventDate,
     this.width,
     this.height,
     this.fileSizeBytes,
@@ -157,16 +159,10 @@ class GalleryPhoto {
       thumbnailUrl: _absoluteUrl(thumb, id, fullSize: false),
       fullUrl: _absoluteUrl(full, id, fullSize: true),
       title: _readString(json, const ['title', 'name', 'caption']),
-      subtitle: _readString(json, const ['subtitle', 'taken_at', 'date']),
-      takenAt: DateTime.tryParse(
-        _readString(json, const [
-              'taken_at',
-              'inferred_date',
-              'event_date',
-              'created_at',
-              'date',
-            ]) ??
-            '',
+      subtitle: _readString(json, const ['subtitle']),
+      takenAt: DateTime.tryParse(_readString(json, const ['event_date']) ?? ''),
+      eventDate: DateTime.tryParse(
+        _readString(json, const ['event_date']) ?? '',
       ),
       width: _readInt(json, const ['width', 'image_width', 'imageWidth', 'w']),
       height: _readInt(json, const [
@@ -221,7 +217,7 @@ class GalleryPhoto {
       'full_url': fullUrl,
       if (title != null) 'title': title,
       if (subtitle != null) 'subtitle': subtitle,
-      if (takenAt != null) 'taken_at': takenAt!.toIso8601String(),
+      if (eventDate != null) 'event_date': eventDate!.toIso8601String(),
       if (width != null) 'width': width,
       if (height != null) 'height': height,
       if (fileSizeBytes != null) 'file_size_bytes': fileSizeBytes,
@@ -282,6 +278,14 @@ class GalleryCard {
     final id =
         _readInt(json, const ['id', 'group_id', 'person_group_id', 'year']) ??
         0;
+    // An empty attribute value is a valid backend bucket (for example the
+    // "with" bucket containing photos whose value is blank). Preserve it so
+    // the detail request sends `value=` instead of filtering by the fallback
+    // display title "Smruti".
+    final hasExplicitValue = json.containsKey('value');
+    final explicitValue = hasExplicitValue
+        ? json['value']?.toString().trim() ?? ''
+        : null;
     final title =
         _readString(json, const [
           'title',
@@ -322,7 +326,9 @@ class GalleryCard {
       type:
           _readString(json, const ['type', 'slug', 'category']) ?? fallbackType,
       value:
-          _readString(json, const ['value', 'name', 'title', 'year']) ?? title,
+          explicitValue ??
+          _readString(json, const ['name', 'title', 'year']) ??
+          title,
       count: count,
       locationCount: _readInt(json, const [
         'location_count',
