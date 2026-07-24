@@ -643,6 +643,7 @@ class _LocationSheetState extends State<_LocationSheet>
   static const double _flingVelocity = 260;
 
   late final AnimationController _controller;
+  late final FocusNode _searchFocusNode;
 
   @override
   void initState() {
@@ -652,16 +653,31 @@ class _LocationSheetState extends State<_LocationSheet>
       duration: const Duration(milliseconds: 260),
       value: 0,
     );
+    _searchFocusNode = FocusNode()..addListener(_handleSearchFocus);
+    widget.controller.addListener(_handleSearchText);
   }
 
   @override
   void dispose() {
+    widget.controller.removeListener(_handleSearchText);
+    _searchFocusNode
+      ..removeListener(_handleSearchFocus)
+      ..dispose();
     _controller.dispose();
     super.dispose();
   }
 
-  double _expandedHeight(BuildContext context) =>
-      MediaQuery.of(context).size.height * _expandedFraction;
+  void _handleSearchFocus() {
+    if (_searchFocusNode.hasFocus) {
+      _controller.animateTo(1, curve: Curves.easeOutCubic);
+    }
+  }
+
+  void _handleSearchText() {
+    if (widget.controller.text.trim().isNotEmpty && _controller.value < 1) {
+      _controller.animateTo(1, curve: Curves.easeOutCubic);
+    }
+  }
 
   void _onHandleDragUpdate(DragUpdateDetails details, double range) {
     if (range <= 0) return;
@@ -692,16 +708,20 @@ class _LocationSheetState extends State<_LocationSheet>
 
   @override
   Widget build(BuildContext context) {
-    final expandedHeight = _expandedHeight(context);
-    final collapsedHeight = _collapsedHeight * tabletScale(context);
+    final mediaQuery = MediaQuery.of(context);
+    final keyboardInset = mediaQuery.viewInsets.bottom;
+    final visibleHeight = mediaQuery.size.height - keyboardInset;
+    final expandedHeight = visibleHeight * _expandedFraction;
+    final collapsedHeight = (_collapsedHeight * tabletScale(context)).clamp(
+      0.0,
+      expandedHeight,
+    );
     final range = expandedHeight - collapsedHeight;
     // Kept as a separate, non-animated outer layer so the keyboard inset
     // (which changes independently of the expand/collapse gesture) never
     // drives the same AnimatedPadding that BackdropFilter's clip/blur
     // geometry depends on — combining the two caused the sheet to render
     // blank right as the keyboard opened.
-    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
-
     return Padding(
       padding: EdgeInsets.only(bottom: keyboardInset),
       child: AnimatedBuilder(
@@ -763,7 +783,10 @@ class _LocationSheetState extends State<_LocationSheet>
                           ),
                         ),
                       ),
-                      _CitySearchField(controller: widget.controller),
+                      _CitySearchField(
+                        controller: widget.controller,
+                        focusNode: _searchFocusNode,
+                      ),
                       const SizedBox(height: 12),
                       Expanded(
                         child: ListenableBuilder(
@@ -776,39 +799,17 @@ class _LocationSheetState extends State<_LocationSheet>
                               widget.cities,
                               query,
                             );
-                            return Stack(
-                              children: [
-                                Opacity(
-                                  opacity: (1 - t * 1.6).clamp(0.0, 1.0),
-                                  child: IgnorePointer(
-                                    ignoring: t > 0.35,
-                                    child: _CityChipRow(
-                                      cities: filteredCities,
-                                      activeCard: widget.activeCard,
-                                      cityScrollController:
-                                          widget.cityScrollController,
-                                      onCityTap: widget.onCityTap,
-                                    ),
-                                  ),
-                                ),
-                                Opacity(
-                                  opacity: ((t - 0.35) / 0.65).clamp(0.0, 1.0),
-                                  child: IgnorePointer(
-                                    ignoring: t < 0.35,
-                                    child: _CityListView(
-                                      cities: filteredCities,
-                                      activeCard: widget.activeCard,
-                                      onCityTap: (city) {
-                                        widget.onCityTap(city);
-                                        _controller.animateTo(
-                                          0,
-                                          curve: Curves.easeOutCubic,
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ),
-                              ],
+                            return _CityListView(
+                              cities: filteredCities,
+                              activeCard: widget.activeCard,
+                              onCityTap: (city) {
+                                widget.onCityTap(city);
+                                _searchFocusNode.unfocus();
+                                _controller.animateTo(
+                                  0,
+                                  curve: Curves.easeOutCubic,
+                                );
+                              },
                             );
                           },
                         ),
@@ -822,52 +823,6 @@ class _LocationSheetState extends State<_LocationSheet>
           );
         },
       ),
-    );
-  }
-}
-
-class _CityChipRow extends StatelessWidget {
-  final List<GalleryCard> cities;
-  final GalleryCard activeCard;
-  final ScrollController cityScrollController;
-  final ValueChanged<GalleryCard> onCityTap;
-
-  const _CityChipRow({
-    required this.cities,
-    required this.activeCard,
-    required this.cityScrollController,
-    required this.onCityTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (cities.isEmpty) {
-      return Center(
-        child: Text(
-          'No place found',
-          style: TextStyle(
-            color: Colors.black.withAlpha(130),
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      );
-    }
-    return ListView.separated(
-      controller: cityScrollController,
-      scrollDirection: Axis.horizontal,
-      physics: const BouncingScrollPhysics(),
-      itemCount: cities.length,
-      separatorBuilder: (_, __) => const SizedBox(width: 10),
-      itemBuilder: (context, index) {
-        final city = cities[index];
-        final selected =
-            city.id == activeCard.id && city.value == activeCard.value;
-        return _CityPhotoChip(
-          card: city,
-          selected: selected,
-          onTap: () => onCityTap(city),
-        );
-      },
     );
   }
 }
@@ -1073,8 +1028,9 @@ class _MapFallbackPainter extends CustomPainter {
 
 class _CitySearchField extends StatelessWidget {
   final TextEditingController controller;
+  final FocusNode focusNode;
 
-  const _CitySearchField({required this.controller});
+  const _CitySearchField({required this.controller, required this.focusNode});
 
   @override
   Widget build(BuildContext context) {
@@ -1082,6 +1038,7 @@ class _CitySearchField extends StatelessWidget {
       height: 48 * tabletScale(context),
       child: TextField(
         controller: controller,
+        focusNode: focusNode,
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
           hintText: 'Search city or country',
@@ -1101,94 +1058,6 @@ class _CitySearchField extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide(color: Colors.white.withAlpha(190)),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CityPhotoChip extends StatelessWidget {
-  final GalleryCard card;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _CityPhotoChip({
-    required this.card,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(selected ? 20 : 16);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        width: (selected ? 156 : 132) * tabletScale(context),
-        margin: EdgeInsets.symmetric(vertical: selected ? 0 : 8),
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          borderRadius: radius,
-          border: Border.all(color: Colors.white, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(selected ? 34 : 18),
-              blurRadius: selected ? 16 : 10,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            NetworkImageWithLoader(
-              imageUrl: card.coverUrl,
-              title: card.title,
-              headers: Get.find<GalleryController>().imageHeaders,
-            ),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withAlpha(155)],
-                ),
-              ),
-            ),
-            Positioned(
-              left: 10,
-              right: 10,
-              bottom: 8,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    card.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 13,
-                    ),
-                  ),
-                  Text(
-                    '${card.count ?? card.photos.length} Photos',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.white.withAlpha(220),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ),
       ),
     );

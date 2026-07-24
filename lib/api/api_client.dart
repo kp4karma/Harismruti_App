@@ -550,6 +550,12 @@ DATA: $responseData
             print("🛑 Error $statusCode: $message");
           }
           return Exception(message);
+        case 409:
+          return ApiRequestException(
+            statusCode: 409,
+            message: message,
+            data: errorData,
+          );
         default:
           return Exception("⚠️ Error: $errorData");
       }
@@ -626,6 +632,21 @@ DATA: $responseData
         return 'Fuchsia';
     }
   }
+}
+
+class ApiRequestException implements Exception {
+  const ApiRequestException({
+    required this.statusCode,
+    required this.message,
+    this.data,
+  });
+
+  final int statusCode;
+  final String message;
+  final dynamic data;
+
+  @override
+  String toString() => message;
 }
 
 class _CachedGetResponse {

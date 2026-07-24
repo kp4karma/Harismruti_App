@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:harismruti/helper/auth_redirect_helper.dart';
 import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
+import 'package:harismruti/ui/controller/my_photos_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_filter_sheet.dart';
 import 'package:harismruti/ui/view/home/home_section_detail_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
@@ -28,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen>
   final SmrutiSectionController sectionController =
       Get.find<SmrutiSectionController>();
   final GalleryController galleryController = Get.find<GalleryController>();
+  final MyPhotosController myPhotosController = Get.find<MyPhotosController>();
 
   late AnimationController _appBarAnimationController;
   final StreamController<TiltStreamModel> streamController =
@@ -45,6 +47,9 @@ class _HomeScreenState extends State<HomeScreen>
       duration: const Duration(milliseconds: 300),
       value: 1.0,
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      myPhotosController.refreshSmrutiFlow();
+    });
     _scrollController.addListener(() {
       final offset = _scrollController.offset;
       final maxScroll = _scrollController.position.maxScrollExtent;
@@ -166,6 +171,7 @@ class _HomeScreenState extends State<HomeScreen>
     await Future.wait([
       galleryController.refreshHome(),
       sectionController.refreshGlobalVisibility(),
+      myPhotosController.refreshSmrutiFlow(),
     ]);
   }
 

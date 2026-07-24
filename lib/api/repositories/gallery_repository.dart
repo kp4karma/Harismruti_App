@@ -91,7 +91,10 @@ class GalleryRepository {
     return asJsonMap(response.data);
   }
 
-  Future<Map<String, dynamic>> getMySmruti({int offset = 0, int limit = 50}) async {
+  Future<Map<String, dynamic>> getMySmruti({
+    int offset = 0,
+    int limit = 50,
+  }) async {
     final mobile = currentPhoneNumber();
     if (mobile.isEmpty) {
       throw Exception('Mobile number is missing from profile.');
@@ -99,6 +102,7 @@ class GalleryRepository {
     final response = await ApiClient.get(
       ApiEndpoints.mySmruti,
       queryParams: {'mobile': mobile, 'offset': offset, 'limit': limit},
+      forceRefresh: true,
     );
     return asJsonMap(response.data);
   }

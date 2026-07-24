@@ -6,6 +6,7 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:harismruti/api/api_client.dart';
 import 'package:harismruti/api/api_endpoints.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
@@ -227,6 +228,7 @@ class MyPhotosController extends GetxController {
           overallReviewStatus == MyPhotoReviewStatus.rejected);
   bool get isRejected => overallReviewStatus == MyPhotoReviewStatus.rejected;
   bool get isPendingReview =>
+      !smrutiLookupFinished &&
       overallReviewStatus == MyPhotoReviewStatus.pending;
 
   bool get canEditUploads => !isVerified;
@@ -363,11 +365,58 @@ class MyPhotosController extends GetxController {
           'Selfie submitted. Verification is pending admin approval.';
       _savePhotos();
       if (requestId != null) await _refreshRequestStatus(requestId);
+    } on ApiRequestException catch (error) {
+      if (error.statusCode == 409) {
+        await _recoverFromSubmitConflict(error);
+      } else {
+        helperMessage.value = error.message;
+      }
     } catch (error) {
       helperMessage.value = error.toString().replaceFirst('Exception: ', '');
     } finally {
       isUploading.value = false;
     }
+  }
+
+  Future<void> _recoverFromSubmitConflict(ApiRequestException error) async {
+    final response = error.data;
+    final detail = response is Map ? response['detail'] : null;
+    final data = detail is Map ? detail : const <String, dynamic>{};
+    final errorCode = data['error_code']?.toString();
+
+    if (errorCode == 'PHONE_ALREADY_MAPPED') {
+      await refreshSmrutiFlow();
+      return;
+    }
+
+    final requestId = int.tryParse('${data['request_id']}');
+    if (errorCode != 'REQUEST_ALREADY_PENDING' || requestId == null) {
+      helperMessage.value = error.message;
+      return;
+    }
+
+    faceSearchRequestId.value = requestId;
+    StorageHelper.setValue(
+      key: StorageKeys.mySmrutiRequestId,
+      value: requestId,
+    );
+    final front = photoForPose(MyPhotoPose.front);
+    if (front != null) {
+      photos[photos.indexOf(front)] = MyPhotoItem(
+        id: front.id,
+        path: front.path,
+        pose: front.pose,
+        reviewStatus: MyPhotoReviewStatus.pending,
+        remoteUrl: front.remoteUrl,
+        note: front.note,
+      );
+      _sortPhotos();
+      _savePhotos();
+    }
+    helperMessage.value =
+        data['message']?.toString() ??
+        'Your existing Smruti request is still pending approval.';
+    await _refreshRequestStatus(requestId);
   }
 
   Future<void> refreshSmrutiFlow() async {
@@ -464,6 +513,7 @@ class MyPhotosController extends GetxController {
     }
 
     matchedPhotos.assignAll(mapped);
+    _statusTimer?.cancel();
     hasPhoneMapping.value = true;
     faceSearchCompleted.value = true;
     faceSearchRequestId.value = null;

@@ -181,6 +181,9 @@ class _MyPhoneGuideScreenState extends State<MyPhoneGuideScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.refreshSmrutiFlow();
+    });
     _showEditor = controller.canShowUploadSection;
     _photosWorker = ever<List<MyPhotoItem>>(controller.photos, (_) {
       if (!mounted || !_showEditor) return;
@@ -230,7 +233,8 @@ class _MyPhoneGuideScreenState extends State<MyPhoneGuideScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (controller.photos.isNotEmpty) ...[
+                    if (controller.photos.isNotEmpty &&
+                        !controller.smrutiLookupFinished) ...[
                       _ReviewStatePanel(controller: controller),
                       const SizedBox(height: 12),
                     ],

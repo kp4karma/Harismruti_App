@@ -48,9 +48,20 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
   @override
   void initState() {
     super.initState();
+    if (_isMySmrutiTitle(widget.title) &&
+        Get.isRegistered<MyPhotosController>()) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Get.find<MyPhotosController>().refreshSmrutiFlow();
+      });
+    }
     _searchFocusNode.addListener(() => setState(() {}));
     _scrollController.addListener(_maybeLoadMoreRecent);
   }
+
+  bool _isMySmrutiTitle(String title) =>
+      title == SmrutiSectionKeys.myPhotos ||
+      title == 'My Phone' ||
+      title == 'My Photos';
 
   @override
   void dispose() {
