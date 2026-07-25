@@ -129,6 +129,7 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
     final matches = <(String, String)>[];
     for (final group in _controller.filtersWithUserTags) {
       for (final option in group.options) {
+        if (option.count <= 0) continue;
         if (_normalizeSearchText(option.label) == query ||
             _normalizeSearchText(option.value) == query) {
           matches.add((group.slug, option.value));
@@ -749,6 +750,7 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
     if (widget.title == SmrutiSectionKeys.recent) {
       for (final group in _controller.filtersWithUserTags) {
         for (final option in group.options) {
+          if (option.count <= 0) continue;
           final searchable = _normalizeSearchText(option.label);
           if (query.isNotEmpty && !searchable.contains(query)) continue;
           suggestions.putIfAbsent(

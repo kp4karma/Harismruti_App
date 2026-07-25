@@ -9,6 +9,7 @@ import 'package:harismruti/api/api_endpoints.dart';
 import 'package:harismruti/api/api_visibility.dart';
 import 'package:harismruti/helper/log_helper.dart';
 import 'package:harismruti/helper/top_notification_helper.dart';
+import 'package:harismruti/ui/controller/ProfileController.dart';
 import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -338,6 +339,9 @@ DATA: $responseData
     StorageHelper.removeValue(StorageKeys.tokenExpiresAt);
     StorageHelper.removeValue(StorageKeys.currentDeviceId);
     StorageHelper.removeValue(StorageKeys.userProfile);
+    if (get_x.Get.isRegistered<ProfileController>()) {
+      get_x.Get.find<ProfileController>().clearProfile();
+    }
     clearGetCache();
     TopNotification.error(
       deviceChanged ? 'Device changed. Please login again.' : message,

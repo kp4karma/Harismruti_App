@@ -657,7 +657,6 @@ class _SelectedFilterChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(maxWidth: 112),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: primaryColor.withAlpha(20),
@@ -667,7 +666,6 @@ class _SelectedFilterChip extends StatelessWidget {
       child: Text(
         label,
         maxLines: 1,
-        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: primaryColor,
           fontSize: 11,
@@ -1522,7 +1520,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => ResponsiveCenter(
+      builder: (context) => ResponsiveBottomCenter(
         maxWidth: kSheetMaxWidth,
         child: _TextEntryBottomSheet(
           title: title,

@@ -67,3 +67,27 @@ class ResponsiveCenter extends StatelessWidget {
     );
   }
 }
+
+/// Caps [child] to [maxWidth], centers it horizontally, and keeps it attached
+/// to the bottom edge. Use this for modal bottom-sheet content.
+class ResponsiveBottomCenter extends StatelessWidget {
+  final double maxWidth;
+  final Widget child;
+
+  const ResponsiveBottomCenter({
+    super.key,
+    required this.maxWidth,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: child,
+      ),
+    );
+  }
+}

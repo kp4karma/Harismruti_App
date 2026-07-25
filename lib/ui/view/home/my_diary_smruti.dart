@@ -534,7 +534,7 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => ResponsiveCenter(
+      builder: (_) => ResponsiveBottomCenter(
         maxWidth: kSheetMaxWidth,
         child: _DiaryPhotoSelectionSheet(initialSelected: _images),
       ),
@@ -559,7 +559,7 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => ResponsiveCenter(
+      builder: (_) => ResponsiveBottomCenter(
         maxWidth: kSheetMaxWidth,
         child: _DiaryReusablePickerSheet(
           title: title,
@@ -634,7 +634,7 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => ResponsiveCenter(
+      builder: (_) => ResponsiveBottomCenter(
         maxWidth: kSheetMaxWidth,
         child: Padding(
           padding: EdgeInsets.fromLTRB(

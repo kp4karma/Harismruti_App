@@ -237,13 +237,14 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
               ),
               Expanded(
                 child: Obx(() {
+                  if (_controller.areFiltersLoading.value ||
+                      _controller.isMyLibraryLoading.value) {
+                    return const _FilterSheetLoading();
+                  }
                   final availableGroups = _availableGroups(
                     _controller.filtersWithUserTags,
                   );
                   if (availableGroups.isEmpty) {
-                    if (_controller.areFiltersLoading.value) {
-                      return const _FilterSheetLoading();
-                    }
                     if (_controller.filtersError.value.isNotEmpty) {
                       return _FilterSheetError(
                         message: _controller.filtersError.value,

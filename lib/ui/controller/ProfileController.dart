@@ -22,6 +22,7 @@ class ProfileController extends GetxController {
   }
 
   void loadStoredProfile() {
+    profile.clear();
     final profileJson = StorageHelper.getValue<String>(
       key: StorageKeys.userProfile,
     );
@@ -80,6 +81,7 @@ class ProfileController extends GetxController {
   }
 
   void loadUploadedProfileImageUrl() {
+    uploadedProfileImageUrl.value = '';
     final token = StorageHelper.getValue<String>(key: StorageKeys.accessToken);
     if (token == null || token.isEmpty) return;
     final params = {
@@ -91,6 +93,12 @@ class ProfileController extends GetxController {
     uploadedProfileImageUrl.value = Uri.parse(
       '${ApiEndpoints.mainDomain}${ApiEndpoints.myProfileImage}',
     ).replace(queryParameters: params).toString();
+  }
+
+  void clearProfile() {
+    profileImage.value = null;
+    profile.clear();
+    uploadedProfileImageUrl.value = '';
   }
 
   String _mobileUserKey() {

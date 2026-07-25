@@ -86,6 +86,7 @@ class GalleryController extends GetxController {
   final RxList<GalleryCard> wallpapers = <GalleryCard>[].obs;
   final RxList<GalleryFilterGroup> filters = <GalleryFilterGroup>[].obs;
   final RxBool areFiltersLoading = false.obs;
+  final RxBool isMyLibraryLoading = false.obs;
   final RxString filtersError = ''.obs;
   final RxSet<int> favoritePhotoIds = <int>{}.obs;
   final RxMap<int, GalleryPhoto> savedPhotos = <int, GalleryPhoto>{}.obs;
@@ -239,6 +240,7 @@ class GalleryController extends GetxController {
       userCollections.clear();
       return;
     }
+    isMyLibraryLoading.value = true;
     try {
       final data = await _repository.getMyLibrary();
       if (selectedSwami.value != requestedSwami) return;
@@ -298,6 +300,8 @@ class GalleryController extends GetxController {
       userTags.clear();
       userTagNames.clear();
       userCollections.clear();
+    } finally {
+      isMyLibraryLoading.value = false;
     }
   }
 
@@ -321,46 +325,24 @@ class GalleryController extends GetxController {
     if (!StorageHelper.isLogin()) return false;
     final normalized = tag.trim();
     if (normalized.isEmpty) return false;
-    _rememberPhoto(photo);
-    final current = [...tagsForPhoto(photo.id)];
-    final exists = current.any(
-      (value) => value.toLowerCase() == normalized.toLowerCase(),
-    );
+    final exists = tagsForPhoto(
+      photo.id,
+    ).any((value) => value.toLowerCase() == normalized.toLowerCase());
     if (exists) return false;
-
-    current.add(normalized);
-    userTags[photo.id] = current;
-    userTagNames.assignAll(_uniqueSorted([...userTagNames, normalized]));
-    userTags.refresh();
 
     try {
       await _repository.addTag(photoId: photo.id, tag: normalized);
+      await loadMyLibrary();
       return true;
     } catch (_) {
-      current.removeWhere(
-        (value) => value.toLowerCase() == normalized.toLowerCase(),
-      );
-      if (current.isEmpty) {
-        userTags.remove(photo.id);
-      } else {
-        userTags[photo.id] = current;
-      }
-      userTags.refresh();
       return false;
     }
   }
 
-  void removeTagFromPhoto(int photoId, String tag) {
+  Future<void> removeTagFromPhoto(int photoId, String tag) async {
     if (!StorageHelper.isLogin()) return;
-    final current = [...tagsForPhoto(photoId)];
-    current.removeWhere((value) => value.toLowerCase() == tag.toLowerCase());
-    if (current.isEmpty) {
-      userTags.remove(photoId);
-    } else {
-      userTags[photoId] = current;
-    }
-    userTags.refresh();
-    _repository.removeTag(photoId: photoId, tag: tag);
+    await _repository.removeTag(photoId: photoId, tag: tag);
+    await loadMyLibrary();
   }
 
   Future<bool> addPhotoToCollection(
@@ -626,7 +608,7 @@ class GalleryController extends GetxController {
   Future<void> resetFiltersForSheet() async {
     filters.assignAll(_filterSnapshots[selectedSwami.value] ?? const []);
     filtersError.value = '';
-    await loadFilters(force: true);
+    await Future.wait([loadFilters(force: true), loadMyLibrary()]);
   }
 
   Future<List<GalleryPhoto>> loadPhotosForCard(
@@ -682,6 +664,17 @@ class GalleryController extends GetxController {
     required Map<String, List<String>> selected,
     int page = 1,
   }) {
+    if (selected.length == 1) {
+      final entry = selected.entries.first;
+      if (entry.key != _userTagFilterSlug && entry.value.length == 1) {
+        return loadPhotosForFilter(
+          slug: entry.key,
+          value: entry.value.first,
+          page: page,
+        );
+      }
+    }
+
     final selectedUserTags = selected[_userTagFilterSlug] ?? const <String>[];
     if (selectedUserTags.isNotEmpty) {
       return _loadPhotosForUserTags(

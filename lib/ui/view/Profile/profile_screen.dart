@@ -99,6 +99,7 @@ class ProfileScreen extends StatelessWidget {
 
   void _logout() {
     StorageHelper.clearStorage();
+    profileController.clearProfile();
     ApiClient.clearGetCache();
     TopNotification.success('Logged out successfully.');
     NavigationHelper.navigateAndRemoveAll(AppRoutes.home);
@@ -128,6 +129,8 @@ class ProfileScreen extends StatelessWidget {
     );
     if (confirmed != true) return;
     StorageHelper.clearStorage();
+    profileController.clearProfile();
+    ApiClient.clearGetCache();
     NavigationHelper.navigateAndRemoveAll(AppRoutes.home);
   }
 }

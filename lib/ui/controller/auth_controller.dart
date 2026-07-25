@@ -178,7 +178,9 @@ class AuthController extends GetxController {
         value: jsonEncode(data['profile']),
       );
       if (Get.isRegistered<ProfileController>()) {
-        Get.find<ProfileController>().loadStoredProfile();
+        final profileController = Get.find<ProfileController>();
+        profileController.loadStoredProfile();
+        profileController.loadUploadedProfileImageUrl();
       }
     }
   }

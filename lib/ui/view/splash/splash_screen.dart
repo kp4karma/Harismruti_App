@@ -105,7 +105,7 @@ class SplashScreenState extends State<SplashScreen>
       builder: (context) {
         return PopScope(
           canPop: false,
-          child: ResponsiveCenter(
+          child: ResponsiveBottomCenter(
             maxWidth: kSheetMaxWidth,
             child: Container(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),

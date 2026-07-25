@@ -66,7 +66,7 @@ class GalleryRepository {
   }) async {
     final queryParams = _latestQueryParams({'limit': limit});
     selected.forEach((slug, values) {
-      if (values.isNotEmpty) queryParams[slug] = values.join(',');
+      if (values.isNotEmpty) queryParams[slug] = values;
     });
     final response = await ApiClient.get(
       ApiEndpoints.filters,
@@ -351,7 +351,7 @@ class GalleryRepository {
   }) async {
     final queryParams = _latestQueryParams({'page': page, 'per_page': perPage});
     selected.forEach((slug, values) {
-      if (values.isNotEmpty) queryParams[slug] = values.join(',');
+      if (values.isNotEmpty) queryParams[slug] = values;
     });
     final response = await ApiClient.get(
       ApiEndpoints.filteredPhotos,

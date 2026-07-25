@@ -93,7 +93,7 @@ class MyCollectionScreen extends StatelessWidget {
     final remove = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => ResponsiveCenter(
+      builder: (context) => ResponsiveBottomCenter(
         maxWidth: kSheetMaxWidth,
         child: _RemoveCollectionSheet(collectionName: collectionName),
       ),

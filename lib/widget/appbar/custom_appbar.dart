@@ -136,18 +136,26 @@ class _ProfileAppbarButton extends StatelessWidget {
         ? Get.find<ProfileController>()
         : Get.put(ProfileController());
     return Obx(() {
+      final isLoggedIn = StorageHelper.isLogin();
       final image = controller.profileImage.value;
       final avatarUrl = controller.avatarUrl;
 
       Widget avatarChild;
-      if (image != null) {
+      if (!isLoggedIn) {
+        avatarChild = Icon(
+          CupertinoIcons.person,
+          color: primaryColor,
+          size: 22,
+        );
+      } else if (image != null) {
         avatarChild = ClipOval(
           child: Image.file(
             image,
             width: 44,
             height: 44,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => _AppbarInitial(controller: controller),
+            errorBuilder: (_, __, ___) =>
+                _AppbarInitial(controller: controller),
           ),
         );
       } else if (avatarUrl.isNotEmpty) {
@@ -157,7 +165,8 @@ class _ProfileAppbarButton extends StatelessWidget {
             width: 44,
             height: 44,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => _AppbarInitial(controller: controller),
+            errorBuilder: (_, __, ___) =>
+                _AppbarInitial(controller: controller),
             loadingBuilder: (context, child, loadingProgress) {
               if (loadingProgress == null) return child;
               return _AppbarInitial(controller: controller);
