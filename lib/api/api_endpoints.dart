@@ -74,6 +74,8 @@ class ApiEndpoints {
   static String myImage(int imageId) => "$mainDomain/me/images/$imageId";
   static String myFaceSearchStatus(int requestId) =>
       "/me/face-search/$requestId";
+  static String myFaceSearchSelfie(int requestId) =>
+      "$mainDomain/me/face-search/$requestId/selfie";
   static String faceThumbnail(int faceId) =>
       "$mainDomain/faces/$faceId/thumbnail";
   static String photoThumbnail(int photoId) =>

@@ -758,7 +758,12 @@ class _MyPhotoImage extends StatelessWidget {
       return Image.file(File(item.path), fit: BoxFit.cover);
     }
     if (item.hasRemoteImage) {
-      return NetworkImageWithLoader(imageUrl: item.remoteUrl!, title: '');
+      final controller = Get.find<MyPhotosController>();
+      return NetworkImageWithLoader(
+        imageUrl: item.remoteUrl!,
+        title: '',
+        headers: controller.imageHeaders,
+      );
     }
     return Container(
       color: primaryColor.withAlpha(14),
@@ -948,6 +953,9 @@ class _ReviewStatePanel extends StatelessWidget {
         'Complete your front face live selfie, then submit for approval.',
     };
     final color = status.color;
+    final pendingSelfie = status == MyPhotoReviewStatus.pending
+        ? controller.photoForPose(MyPhotoPose.front)
+        : null;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -958,8 +966,24 @@ class _ReviewStatePanel extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(status.icon, color: color, size: 24),
-          const SizedBox(width: 10),
+          if (pendingSelfie != null)
+            Container(
+              width: 64,
+              height: 64,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: color.withAlpha(12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: color.withAlpha(75)),
+              ),
+              child: _MyPhotoImage(item: pendingSelfie),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Icon(status.icon, color: color, size: 24),
+            ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

@@ -24,8 +24,15 @@ class GalleryRepository {
   static GallerySwami activeSwami = GallerySwami.prabodh;
 
   Map<String, String> get imageHeaders {
-    if (ApiEndpoints.mobileApiKey.isEmpty) return const {};
-    return {'X-API-Key': ApiEndpoints.mobileApiKey};
+    final headers = <String, String>{};
+    if (ApiEndpoints.mobileApiKey.isNotEmpty) {
+      headers['X-API-Key'] = ApiEndpoints.mobileApiKey;
+    }
+    final token = StorageHelper.getValue<String>(key: StorageKeys.accessToken);
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    return headers;
   }
 
   Future<GalleryHomeBundle> getHomeBundle({

@@ -219,8 +219,9 @@ class MyPhotosController extends GetxController {
 
   bool get isVerified => overallReviewStatus == MyPhotoReviewStatus.verified;
   bool get hasMatchedSmruti => matchedPhotos.isNotEmpty;
-  bool get smrutiLookupFinished =>
-      hasPhoneMapping.value || faceSearchCompleted.value;
+  // A phone mapping can exist before its matched photos have finished
+  // processing. Do not turn that transient state into "Smruti not found".
+  bool get smrutiLookupFinished => faceSearchCompleted.value;
   bool get canShowMatchedSmruti => hasMatchedSmruti;
   bool get canShowUploadSection =>
       !smrutiLookupFinished &&
@@ -232,6 +233,7 @@ class MyPhotosController extends GetxController {
       overallReviewStatus == MyPhotoReviewStatus.pending;
 
   bool get canEditUploads => !isVerified;
+  Map<String, String> get imageHeaders => _repository.imageHeaders;
 
   @override
   void onInit() {
@@ -279,11 +281,12 @@ class MyPhotosController extends GetxController {
           'Selfie captured. It will be verified after upload.';
     }
 
+    final persistedPath = await _persistPhotoFile(preparedPath);
     photos.removeWhere((photo) => photo.pose == pose);
     photos.insert(
       0,
       MyPhotoItem(
-        path: preparedPath,
+        path: persistedPath,
         pose: pose,
         reviewStatus: MyPhotoReviewStatus.draft,
       ),
@@ -515,26 +518,32 @@ class MyPhotosController extends GetxController {
     matchedPhotos.assignAll(mapped);
     _statusTimer?.cancel();
     hasPhoneMapping.value = true;
-    faceSearchCompleted.value = true;
-    faceSearchRequestId.value = null;
-    StorageHelper.removeValue(StorageKeys.mySmrutiRequestId);
-    helperMessage.value = mapped.isEmpty
-        ? 'Smruti not found.'
-        : 'Your Smruti photos are ready.';
+    faceSearchCompleted.value = mapped.isNotEmpty;
+    if (mapped.isNotEmpty) {
+      faceSearchRequestId.value = null;
+      StorageHelper.removeValue(StorageKeys.mySmrutiRequestId);
+      helperMessage.value = 'Your Smruti photos are ready.';
+    } else {
+      helperMessage.value =
+          'Your selfie is saved. We are still fetching your Smruti photos.';
+    }
     return true;
   }
 
   Future<void> _refreshRequestStatus(int requestId) async {
     final result = await _repository.getMySmrutiRequestStatus(requestId);
+    _restorePendingSelfie(requestId, result);
     switch (result['status']?.toString()) {
       case 'accepted':
         _statusTimer?.cancel();
-        faceSearchCompleted.value = true;
         _markFrontPhotoVerified();
         final found = await _loadPhoneMapping();
-        if (!found) {
+        if (!found || !hasMatchedSmruti) {
           matchedPhotos.clear();
-          helperMessage.value = 'Smruti not found.';
+          faceSearchCompleted.value = false;
+          helperMessage.value =
+              'Selfie verified. We are fetching your Smruti photos.';
+          _startStatusPolling(requestId);
         }
         return;
       case 'rejected':
@@ -561,6 +570,40 @@ class MyPhotosController extends GetxController {
         _startStatusPolling(requestId);
         return;
     }
+  }
+
+  void _restorePendingSelfie(int requestId, Map<String, dynamic> status) {
+    final current = photoForPose(MyPhotoPose.front);
+    final rawUrl = status['selfie_url']?.toString().trim();
+    final hasServerSelfie = rawUrl != null && rawUrl.isNotEmpty;
+
+    // The server URL belongs to this exact request and is authoritative.
+    // A valid local file can still be from an older recovered request.
+    if (!hasServerSelfie &&
+        (current?.hasLocalFile == true || current?.hasRemoteImage == true)) {
+      return;
+    }
+    final remoteUrl = _normalizeRemoteImageUrl(
+      !hasServerSelfie ? ApiEndpoints.myFaceSearchSelfie(requestId) : rawUrl,
+    );
+    if (remoteUrl == null) return;
+    if (current?.remoteUrl == remoteUrl && current?.hasLocalFile != true) {
+      return;
+    }
+
+    photos.removeWhere((photo) => photo.pose == MyPhotoPose.front);
+    photos.insert(
+      0,
+      MyPhotoItem(
+        id: requestId,
+        path: '',
+        pose: MyPhotoPose.front,
+        reviewStatus: MyPhotoReviewStatus.pending,
+        remoteUrl: remoteUrl,
+      ),
+    );
+    _sortPhotos();
+    _savePhotos();
   }
 
   void _startStatusPolling(int requestId) {
@@ -787,6 +830,31 @@ class MyPhotosController extends GetxController {
       return fallback.path;
     }
     return bestPath ?? path;
+  }
+
+  /// Moves the accepted selfie out of the OS cache before its path is saved.
+  /// Cache files may disappear between app launches, which previously made an
+  /// uploaded selfie revert to the upload prompt after a reload.
+  Future<String> _persistPhotoFile(String path) async {
+    final source = File(path);
+    if (!source.existsSync()) return path;
+
+    final documents = await getApplicationDocumentsDirectory();
+    final directory = Directory(
+      '${documents.path}${Platform.pathSeparator}my_smruti',
+    );
+    if (!directory.existsSync()) {
+      await directory.create(recursive: true);
+    }
+    final extension = source.path.toLowerCase().endsWith('.png')
+        ? '.png'
+        : '.jpg';
+    final target = File(
+      '${directory.path}${Platform.pathSeparator}'
+      'front-${DateTime.now().microsecondsSinceEpoch}$extension',
+    );
+    await source.copy(target.path);
+    return target.path;
   }
 
   Future<void> _deleteStaleTempFiles(List<String> paths) async {
