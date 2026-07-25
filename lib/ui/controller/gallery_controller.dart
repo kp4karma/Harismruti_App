@@ -97,6 +97,7 @@ class GalleryController extends GetxController {
   DateTime? _lastLoadedAt;
   Future<void>? _inFlightLoad;
   int _recentPage = 1;
+  int _favoriteMutationVersion = 0;
   final Map<GallerySwami, _GalleryTabSnapshot> _tabSnapshots = {};
   final Map<GallerySwami, List<GalleryFilterGroup>> _filterSnapshots = {};
   int _filtersRequestId = 0;
@@ -162,22 +163,7 @@ class GalleryController extends GetxController {
     final groups = filters.toList();
     final customTagGroup = _buildUserTagFilterGroup();
     if (customTagGroup == null) return groups;
-
-    final tagGroupIndex = groups.indexWhere(
-      (group) => _tagFilterSlugs.contains(group.slug.toLowerCase()),
-    );
-    if (tagGroupIndex == -1) return [customTagGroup, ...groups];
-
-    final existing = groups[tagGroupIndex];
-    groups.removeAt(tagGroupIndex);
-    return [
-      GalleryFilterGroup(
-        slug: existing.slug,
-        title: 'MyTag',
-        options: _mergeFilterOptions(existing.options, customTagGroup.options),
-      ),
-      ...groups,
-    ];
+    return [customTagGroup, ...groups];
   }
 
   List<String> get allUserCollectionNames {
@@ -245,6 +231,7 @@ class GalleryController extends GetxController {
 
   Future<void> loadMyLibrary() async {
     final requestedSwami = selectedSwami.value;
+    final favoriteVersionAtRequest = _favoriteMutationVersion;
     if (!StorageHelper.isLogin()) {
       favoritePhotoIds.clear();
       userTags.clear();
@@ -288,7 +275,11 @@ class GalleryController extends GetxController {
             data['custom_collections'],
       );
 
-      favoritePhotoIds.assignAll(favoriteIds);
+      // Do not let an older library response undo a favorite the user changed
+      // while this request was in flight.
+      if (_favoriteMutationVersion == favoriteVersionAtRequest) {
+        favoritePhotoIds.assignAll(favoriteIds);
+      }
       userTags.assignAll(parsedTags);
       userTagNames.assignAll(
         _uniqueSorted([
@@ -313,14 +304,17 @@ class GalleryController extends GetxController {
   void toggleFavorite(GalleryPhoto photo) {
     if (!StorageHelper.isLogin()) return;
     _rememberPhoto(photo);
+    _favoriteMutationVersion++;
+    final updatedIds = favoritePhotoIds.toSet();
     if (favoritePhotoIds.contains(photo.id)) {
-      favoritePhotoIds.remove(photo.id);
+      updatedIds.remove(photo.id);
+      favoritePhotoIds.assignAll(updatedIds);
       _repository.removeFavorite(photo.id);
     } else {
-      favoritePhotoIds.add(photo.id);
+      updatedIds.add(photo.id);
+      favoritePhotoIds.assignAll(updatedIds);
       _repository.addFavorite(photo.id);
     }
-    favoritePhotoIds.refresh();
   }
 
   Future<bool> addTagToPhoto(GalleryPhoto photo, String tag) async {
@@ -604,15 +598,19 @@ class GalleryController extends GetxController {
     Map<String, List<String>> selected = const {},
     bool force = false,
   }) async {
-    if (!force && selected.isEmpty && filters.isNotEmpty) return;
+    final serverSelected = Map<String, List<String>>.from(selected)
+      ..remove(_userTagFilterSlug);
+    if (!force && serverSelected.isEmpty && filters.isNotEmpty) return;
     final requestId = ++_filtersRequestId;
     areFiltersLoading.value = true;
     filtersError.value = '';
     try {
-      final loadedFilters = await _repository.getFilters(selected: selected);
+      final loadedFilters = await _repository.getFilters(
+        selected: serverSelected,
+      );
       if (requestId != _filtersRequestId) return;
       filters.assignAll(loadedFilters);
-      if (selected.isEmpty) {
+      if (serverSelected.isEmpty) {
         _filterSnapshots[selectedSwami.value] = loadedFilters;
       }
     } catch (error) {
@@ -684,11 +682,78 @@ class GalleryController extends GetxController {
     required Map<String, List<String>> selected,
     int page = 1,
   }) {
+    final selectedUserTags = selected[_userTagFilterSlug] ?? const <String>[];
+    if (selectedUserTags.isNotEmpty) {
+      return _loadPhotosForUserTags(
+        selected: selected,
+        selectedUserTags: selectedUserTags,
+        page: page,
+        perPage: 120,
+      );
+    }
     return _repository.getFilteredPhotos(
       selected: selected,
       page: page,
       perPage: 120,
     );
+  }
+
+  Future<List<GalleryPhoto>> _loadPhotosForUserTags({
+    required Map<String, List<String>> selected,
+    required List<String> selectedUserTags,
+    required int page,
+    required int perPage,
+  }) async {
+    final wantedTags = selectedUserTags
+        .map((tag) => tag.trim().toLowerCase())
+        .where((tag) => tag.isNotEmpty)
+        .toSet();
+    final matchingIds = userTags.entries
+        .where(
+          (entry) => entry.value.any(
+            (tag) => wantedTags.contains(tag.trim().toLowerCase()),
+          ),
+        )
+        .map((entry) => entry.key)
+        .toSet();
+    if (matchingIds.isEmpty) return const [];
+
+    final serverSelected = Map<String, List<String>>.from(selected)
+      ..remove(_userTagFilterSlug);
+    List<GalleryPhoto> matches;
+    if (serverSelected.isEmpty) {
+      matches = matchingIds
+          .map((id) => savedPhotos[id])
+          .whereType<GalleryPhoto>()
+          .where(isPhotoInSelectedSwami)
+          .toList();
+    } else {
+      matches = [];
+      var serverPage = 1;
+      const serverPageSize = 200;
+      while (true) {
+        final photos = await _repository.getFilteredPhotos(
+          selected: serverSelected,
+          page: serverPage,
+          perPage: serverPageSize,
+        );
+        matches.addAll(photos.where((photo) => matchingIds.contains(photo.id)));
+        if (photos.length < serverPageSize) break;
+        serverPage++;
+      }
+    }
+    matches.sort((a, b) {
+      final first = a.eventDate ?? a.takenAt;
+      final second = b.eventDate ?? b.takenAt;
+      if (first == null) return second == null ? 0 : 1;
+      if (second == null) return -1;
+      return second.compareTo(first);
+    });
+
+    final start = (page - 1) * perPage;
+    if (start >= matches.length) return const [];
+    final end = min(start + perPage, matches.length);
+    return matches.sublist(start, end);
   }
 
   Future<GalleryPhotoAttributes> loadPhotoAttributes(int photoId) {
@@ -915,14 +980,7 @@ class GalleryController extends GetxController {
     savedPhotos.refresh();
   }
 
-  static const Set<String> _tagFilterSlugs = {
-    'tag',
-    'tags',
-    'user_tag',
-    'user_tags',
-    'custom_tag',
-    'custom_tags',
-  };
+  static const String _userTagFilterSlug = 'user_tag';
 
   GalleryFilterGroup? _buildUserTagFilterGroup() {
     final tags = allUserTags;
@@ -938,7 +996,7 @@ class GalleryController extends GetxController {
     }
 
     return GalleryFilterGroup(
-      slug: 'tag',
+      slug: _userTagFilterSlug,
       title: 'MyTag',
       options: tags
           .map(
@@ -950,23 +1008,5 @@ class GalleryController extends GetxController {
           )
           .toList(),
     );
-  }
-
-  List<GalleryFilterOption> _mergeFilterOptions(
-    List<GalleryFilterOption> existing,
-    List<GalleryFilterOption> custom,
-  ) {
-    final byValue = <String, GalleryFilterOption>{};
-    for (final option in existing) {
-      byValue[option.value.toLowerCase()] = option;
-    }
-    for (final option in custom) {
-      byValue.putIfAbsent(option.value.toLowerCase(), () => option);
-    }
-    final merged = byValue.values.toList();
-    merged.sort(
-      (a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()),
-    );
-    return merged;
   }
 }

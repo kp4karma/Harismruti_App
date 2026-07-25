@@ -45,6 +45,7 @@ class GalleryDetailScreen extends StatefulWidget {
   final Future<List<GalleryPhoto>> Function() loader;
   final Future<List<GalleryPhoto>> Function(int page)? loadMore;
   final bool showRecentPhotoMetadata;
+  final List<String> filterLabels;
 
   const GalleryDetailScreen({
     super.key,
@@ -54,6 +55,7 @@ class GalleryDetailScreen extends StatefulWidget {
     this.loadMore,
     this.coverUrl,
     this.showRecentPhotoMetadata = false,
+    this.filterLabels = const [],
   });
 
   factory GalleryDetailScreen.fromCard(GalleryCard card) {
@@ -87,11 +89,13 @@ class GalleryDetailScreen extends StatefulWidget {
     required String title,
     required String subtitle,
     required Map<String, List<String>> selected,
+    required List<String> filterLabels,
   }) {
     final controller = Get.find<GalleryController>();
     return GalleryDetailScreen(
       title: title,
       subtitle: subtitle,
+      filterLabels: filterLabels,
       loader: () => controller.loadPhotosForFilters(selected: selected),
       loadMore: (page) =>
           controller.loadPhotosForFilters(selected: selected, page: page),
@@ -328,6 +332,7 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
           _MusicStyleHeader(
             title: widget.title,
             subtitle: widget.subtitle,
+            filterLabels: widget.filterLabels,
             coverUrl: cover,
             headers: _galleryController.imageHeaders,
             allowIgnore: _allowIgnore,
@@ -383,6 +388,7 @@ class _MusicStyleHeader extends StatelessWidget {
   final String title;
   final String subtitle;
   final String coverUrl;
+  final List<String> filterLabels;
   final Map<String, String>? headers;
   final bool allowIgnore;
   final bool selectionMode;
@@ -394,6 +400,7 @@ class _MusicStyleHeader extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.coverUrl,
+    required this.filterLabels,
     required this.headers,
     required this.allowIgnore,
     required this.selectionMode,
@@ -486,6 +493,7 @@ class _MusicStyleHeader extends StatelessWidget {
                     child: _ExpandedHeroHeaderContent(
                       title: title,
                       subtitle: subtitle,
+                      filterLabels: filterLabels,
                       coverUrl: coverUrl,
                       headers: headers,
                     ),
@@ -558,12 +566,14 @@ class _ExpandedHeroHeaderContent extends StatelessWidget {
   final String title;
   final String subtitle;
   final String coverUrl;
+  final List<String> filterLabels;
   final Map<String, String>? headers;
 
   const _ExpandedHeroHeaderContent({
     required this.title,
     required this.subtitle,
     required this.coverUrl,
+    required this.filterLabels,
     required this.headers,
   });
 
@@ -607,17 +617,63 @@ class _ExpandedHeroHeaderContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        Text(
-          subtitle,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: primaryColor,
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
+        if (filterLabels.isEmpty)
+          Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: primaryColor,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          )
+        else
+          SizedBox(
+            height: 26,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: [
+                  for (final label in filterLabels) ...[
+                    _SelectedFilterChip(label: label),
+                    const SizedBox(width: 5),
+                  ],
+                ],
+              ),
+            ),
           ),
-        ),
       ],
+    );
+  }
+}
+
+class _SelectedFilterChip extends StatelessWidget {
+  final String label;
+
+  const _SelectedFilterChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 112),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: primaryColor.withAlpha(20),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: primaryColor.withAlpha(55)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: primaryColor,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }

@@ -14,11 +14,14 @@ Future<void> showGalleryFilterSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    useSafeArea: true,
+    useSafeArea: false,
     backgroundColor: Colors.transparent,
-    builder: (_) => const ResponsiveCenter(
-      maxWidth: kSheetMaxWidth,
-      child: GalleryFilterSheet(),
+    builder: (_) => Align(
+      alignment: Alignment.bottomCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: kSheetMaxWidth),
+        child: const GalleryFilterSheet(),
+      ),
     ),
   );
 }
@@ -68,6 +71,11 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
     0,
     (total, values) => total + values.length,
   );
+
+  List<String> get _selectedFilterLabels => _selectedOptions.values
+      .expand((options) => options.values)
+      .map((option) => option.label)
+      .toList();
 
   void _toggleOption(GalleryFilterGroup group, GalleryFilterOption option) {
     setState(() {
@@ -157,9 +165,10 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
     Navigator.pop(context);
     Get.to(
       () => GalleryDetailScreen.fromFilters(
-        title: 'Filtered Smruti',
-        subtitle: '$_selectedCount selected filters',
+        title: 'Filtered Smruti ($_selectedCount)',
+        subtitle: '',
         selected: selected,
+        filterLabels: _selectedFilterLabels,
       ),
     );
   }
@@ -433,6 +442,7 @@ String _filterGroupDisplayTitle(GalleryFilterGroup group) {
 
 int _filterGroupOrder(String slug) {
   return switch (slug.trim().toLowerCase()) {
+    'user_tag' => -1,
     'subject' => 0,
     'person' => 1,
     'with' => 2,

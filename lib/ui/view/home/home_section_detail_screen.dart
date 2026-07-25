@@ -29,6 +29,28 @@ double _galleryPhotoAspectRatio(GalleryPhoto photo) {
   return (width / height).clamp(0.72, 1.5);
 }
 
+String _galleryPhotoTitle(
+  GalleryPhoto photo, {
+  Iterable<String> additionalTags = const [],
+  String fallback = 'Smruti',
+}) {
+  final title = photo.title?.trim();
+  if (title?.isNotEmpty == true) return title!;
+
+  final tags = [
+    ...photo.tags,
+    ...additionalTags,
+  ].map((tag) => tag.trim()).where((tag) => tag.isNotEmpty).toSet();
+  return tags.isNotEmpty ? tags.join(', ') : fallback;
+}
+
+String _normalizeSearchText(String value) => value
+    .trim()
+    .toLowerCase()
+    .replaceAll(RegExp(r'[^a-z0-9\u0080-\uFFFF]+'), ' ')
+    .replaceAll(RegExp(r'\s+'), ' ')
+    .trim();
+
 class HomeSectionDetailScreen extends StatefulWidget {
   final String title;
 
@@ -44,6 +66,10 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  bool _isLoadingRecentSearchPages = false;
+  bool _isSearchingRecentTag = false;
+  List<GalleryPhoto>? _recentTagSearchResults;
+  int _recentTagSearchRequest = 0;
 
   @override
   void initState() {
@@ -54,7 +80,9 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
         Get.find<MyPhotosController>().refreshSmrutiFlow();
       });
     }
+    _controller.loadFilters();
     _searchFocusNode.addListener(() => setState(() {}));
+    _searchController.addListener(_handleSearchChanged);
     _scrollController.addListener(_maybeLoadMoreRecent);
   }
 
@@ -66,9 +94,112 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchController.removeListener(_handleSearchChanged);
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  void _handleSearchChanged() {
+    _loadRemainingRecentPhotosForSearch();
+    _searchRecentByFilterValue();
+  }
+
+  Future<void> _searchRecentByFilterValue() async {
+    if (widget.title != SmrutiSectionKeys.recent) return;
+    final query = _query;
+    final request = ++_recentTagSearchRequest;
+    if (query.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _isSearchingRecentTag = false;
+          _recentTagSearchResults = null;
+        });
+      }
+      return;
+    }
+
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    if (!mounted || request != _recentTagSearchRequest) return;
+    if (_controller.filters.isEmpty) {
+      await _controller.loadFilters(force: true);
+      if (!mounted || request != _recentTagSearchRequest) return;
+    }
+
+    final matches = <(String, String)>[];
+    for (final group in _controller.filtersWithUserTags) {
+      for (final option in group.options) {
+        if (_normalizeSearchText(option.label) == query ||
+            _normalizeSearchText(option.value) == query) {
+          matches.add((group.slug, option.value));
+        }
+      }
+    }
+    if (matches.isEmpty) {
+      if (mounted && request == _recentTagSearchRequest) {
+        setState(() {
+          _isSearchingRecentTag = false;
+          _recentTagSearchResults = null;
+        });
+      }
+      return;
+    }
+
+    setState(() => _isSearchingRecentTag = true);
+    try {
+      final responses = await Future.wait(
+        matches.map(
+          (match) => _controller.loadPhotosForFilters(
+            selected: {
+              match.$1: [match.$2],
+            },
+          ),
+        ),
+      );
+      if (!mounted || request != _recentTagSearchRequest) return;
+
+      final unique = <int, GalleryPhoto>{};
+      for (final photo in responses.expand((photos) => photos)) {
+        unique[photo.id] = photo;
+      }
+      setState(() {
+        _recentTagSearchResults = unique.values.toList(growable: false);
+      });
+    } catch (_) {
+      if (mounted && request == _recentTagSearchRequest) {
+        setState(() => _recentTagSearchResults = const []);
+      }
+    } finally {
+      if (mounted && request == _recentTagSearchRequest) {
+        setState(() => _isSearchingRecentTag = false);
+      }
+    }
+  }
+
+  Future<void> _loadRemainingRecentPhotosForSearch() async {
+    if (widget.title != SmrutiSectionKeys.recent ||
+        _query.isEmpty ||
+        _isLoadingRecentSearchPages) {
+      return;
+    }
+
+    _isLoadingRecentSearchPages = true;
+    try {
+      while (mounted &&
+          _query.isNotEmpty &&
+          _controller.hasMoreRecentPhotos.value) {
+        if (_controller.isRecentPageLoading.value) {
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+          continue;
+        }
+
+        final countBeforeLoad = _controller.recentPhotos.length;
+        await _controller.loadMoreRecentPhotos();
+        if (_controller.recentPhotos.length == countBeforeLoad) break;
+      }
+    } finally {
+      _isLoadingRecentSearchPages = false;
+    }
   }
 
   @override
@@ -80,7 +211,12 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
         listenable: _searchController,
         builder: (context, _) => Obx(() {
           final items = _itemsForTitle(widget.title);
-          final visibleItems = _filterItems(items);
+          final visibleItems =
+              widget.title == SmrutiSectionKeys.recent &&
+                  _query.isNotEmpty &&
+                  _recentTagSearchResults != null
+              ? _recentTagSearchResults!.cast<Object>()
+              : _filterItems(items);
           final suggestions = _suggestionsForItems(items);
 
           return Stack(
@@ -93,7 +229,11 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
                     onFilterTap: () => showGalleryFilterSheet(context),
                   ),
                   Expanded(
-                    child: visibleItems.isEmpty
+                    child: _isSearchingRecentTag
+                        ? const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2.4),
+                          )
+                        : visibleItems.isEmpty
                         ? const GalleryEmptyState(
                             height: 260,
                             message: 'No smruti found',
@@ -499,7 +639,10 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
 
         final photo = item as GalleryPhoto;
         return _SectionCardTile(
-          title: photo.title ?? 'Smruti',
+          title: _galleryPhotoTitle(
+            photo,
+            additionalTags: _controller.tagsForPhoto(photo.id),
+          ),
           subtitle: photo.subtitle ?? _formatDate(photo.takenAt),
           imageUrl: photo.thumbnailUrl,
           headers: _controller.imageHeaders,
@@ -569,7 +712,16 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
     }
   }
 
-  String get _query => _searchController.text.trim().toLowerCase();
+  String get _query => _normalizeSearchText(_searchController.text);
+
+  List<String> _photoTags(GalleryPhoto photo) {
+    final tags = <String, String>{};
+    for (final tag in [...photo.tags, ..._controller.tagsForPhoto(photo.id)]) {
+      final clean = tag.trim();
+      if (clean.isNotEmpty) tags.putIfAbsent(clean.toLowerCase(), () => clean);
+    }
+    return tags.values.toList(growable: false);
+  }
 
   List<Object> _filterItems(List<Object> items) {
     final query = _query;
@@ -578,12 +730,14 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
         .where((item) {
           final text = switch (item) {
             GalleryCard() => '${item.title} ${item.subtitle}',
-            GalleryPhoto() => '${item.title ?? ''} ${item.subtitle ?? ''}',
+            GalleryPhoto() =>
+              '${item.title ?? ''} ${item.subtitle ?? ''} '
+                  '${_photoTags(item).join(' ')}',
             _UserCollectionItem() => item.title,
             DiaryEntry() => '${item.title} ${item.note} ${item.tags.join(' ')}',
             _ => '',
           };
-          return text.toLowerCase().contains(query);
+          return _normalizeSearchText(text).contains(query);
         })
         .toList(growable: false);
   }
@@ -592,16 +746,50 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
     final query = _query;
     final suggestions = <String, _SearchSuggestion>{};
 
+    if (widget.title == SmrutiSectionKeys.recent) {
+      for (final group in _controller.filtersWithUserTags) {
+        for (final option in group.options) {
+          final searchable = _normalizeSearchText(option.label);
+          if (query.isNotEmpty && !searchable.contains(query)) continue;
+          suggestions.putIfAbsent(
+            searchable,
+            () => _SearchSuggestion(
+              title: option.label,
+              subtitle: group.title,
+              icon: CupertinoIcons.tag,
+            ),
+          );
+        }
+      }
+      return suggestions.values.toList(growable: false);
+    }
+
     for (final item in items) {
+      if (item is GalleryPhoto) {
+        for (final tag in _photoTags(item)) {
+          final searchable = _normalizeSearchText(tag);
+          if (query.isNotEmpty && !searchable.contains(query)) continue;
+          suggestions.putIfAbsent(
+            searchable,
+            () => _SearchSuggestion(
+              title: tag,
+              subtitle: 'Tag',
+              icon: CupertinoIcons.tag,
+            ),
+          );
+        }
+        continue;
+      }
+
       final suggestion = _suggestionForItem(item);
       if (suggestion == null) continue;
-      final searchable = '${suggestion.title} ${suggestion.subtitle}'
-          .toLowerCase();
+      final searchable = _normalizeSearchText(
+        '${suggestion.title} ${suggestion.subtitle}',
+      );
       if (query.isNotEmpty && !searchable.contains(query)) continue;
 
       final key = suggestion.title.toLowerCase();
       suggestions.putIfAbsent(key, () => suggestion);
-      if (suggestions.length >= 8) break;
     }
 
     return suggestions.values.toList(growable: false);
@@ -616,11 +804,7 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
             : '${item.count ?? item.photos.length} Photos',
         icon: CupertinoIcons.photo_on_rectangle,
       ),
-      GalleryPhoto() => _SearchSuggestion(
-        title: item.title ?? 'Smruti',
-        subtitle: item.subtitle ?? _formatDate(item.takenAt),
-        icon: CupertinoIcons.photo,
-      ),
+      GalleryPhoto() => null,
       _UserCollectionItem() => _SearchSuggestion(
         title: item.title,
         subtitle: '${item.photos.length} Photos',
@@ -1342,7 +1526,7 @@ class _PhotoPosterCard extends StatelessWidget {
                 right: 10,
                 bottom: 10,
                 child: Text(
-                  photo.title ?? 'Smruti',
+                  _galleryPhotoTitle(photo),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -1373,9 +1557,7 @@ class _RecentGalleryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = photo.title?.trim().isNotEmpty == true
-        ? photo.title!.trim()
-        : 'Recent Smruti';
+    final title = _galleryPhotoTitle(photo, fallback: 'Recent Smruti');
 
     return GestureDetector(
       onTap: onTap,

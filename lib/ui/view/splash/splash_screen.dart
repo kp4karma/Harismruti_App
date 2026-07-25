@@ -83,9 +83,8 @@ class SplashScreenState extends State<SplashScreen>
         }
       }
       if (!StorageHelper.isLogin()) {
-        await splashDelay;
-        if (!mounted) return;
-        NavigationHelper.navigateAndRemoveAll(AppRoutes.login);
+        // ApiClient already chose the correct destination: public Home for a
+        // device change, or the auth flow for other session failures.
         return;
       }
     }

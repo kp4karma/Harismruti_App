@@ -3,7 +3,9 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:harismruti/api/api_client.dart';
 import 'package:harismruti/helper/navigation_helper.dart';
+import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:harismruti/ui/controller/ProfileController.dart';
 import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
 import 'package:harismruti/ui/view/Profile/smruti_section_setting.dart';
@@ -59,10 +61,7 @@ class ProfileScreen extends StatelessWidget {
                       _ProfileOption(
                         icon: Icons.logout,
                         label: 'Logout',
-                        onTap: () {
-                          StorageHelper.clearStorage();
-                          NavigationHelper.navigateAndRemoveAll(AppRoutes.home);
-                        },
+                        onTap: _logout,
                       ),
                       const SizedBox(height: 12),
                       _ProfileOption(
@@ -96,6 +95,13 @@ class ProfileScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _logout() {
+    StorageHelper.clearStorage();
+    ApiClient.clearGetCache();
+    TopNotification.success('Logged out successfully.');
+    NavigationHelper.navigateAndRemoveAll(AppRoutes.home);
   }
 
   Future<void> _confirmDeleteAccount(BuildContext context) async {

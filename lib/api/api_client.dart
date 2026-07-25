@@ -342,7 +342,7 @@ DATA: $responseData
     TopNotification.error(
       deviceChanged ? 'Device changed. Please login again.' : message,
     );
-    get_x.Get.offAllNamed(AppRoutes.login);
+    get_x.Get.offAllNamed(deviceChanged ? AppRoutes.home : AppRoutes.login);
     Future<void>.delayed(const Duration(milliseconds: 500), () {
       _logoutInProgress = false;
     });
