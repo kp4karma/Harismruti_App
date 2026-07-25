@@ -40,7 +40,7 @@ List<String> _readTags(Map<String, dynamic> json) {
       return;
     }
     final text = value.toString().trim();
-    if (text.isNotEmpty && text != 'null') tags.add(text);
+    if (text.isNotEmpty && text.toLowerCase() != 'null') tags.add(text);
   }
 
   for (final key in const ['tags', 'tag', 'labels', 'keywords']) {
@@ -278,10 +278,8 @@ class GalleryCard {
     final id =
         _readInt(json, const ['id', 'group_id', 'person_group_id', 'year']) ??
         0;
-    // An empty attribute value is a valid backend bucket (for example the
-    // "with" bucket containing photos whose value is blank). Preserve it so
-    // the detail request sends `value=` instead of filtering by the fallback
-    // display title "Smruti".
+    // Preserve the backend value here. Repository list parsing removes blank
+    // attribute buckets before they reach any section UI.
     final hasExplicitValue = json.containsKey('value');
     final explicitValue = hasExplicitValue
         ? json['value']?.toString().trim() ?? ''
@@ -367,6 +365,11 @@ class GalleryCard {
       .map((photo) => photo.thumbnailUrl)
       .where((url) => url.isNotEmpty)
       .toList();
+
+  bool get hasValue {
+    final normalized = value.trim().toLowerCase();
+    return normalized.isNotEmpty && normalized != 'null';
+  }
 
   Map<String, dynamic> toJson() {
     return {
@@ -665,9 +668,10 @@ class GalleryHomeBundle {
       if (source is Map && source[type] != null) {
         source = source[type];
       }
-      return _readList(source, const [
-        'items',
-      ]).map((item) => GalleryCard.fromJson(item, fallbackType: type)).toList();
+      return _readList(source, const ['items'])
+          .map((item) => GalleryCard.fromJson(item, fallbackType: type))
+          .where((card) => card.hasValue)
+          .toList();
     }
 
     return GalleryHomeBundle(

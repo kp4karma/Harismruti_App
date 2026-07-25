@@ -414,7 +414,7 @@ class GalleryController extends GetxController {
       if (photoId <= 0) return;
       final clean = tags
           .map((tag) => tag.toString().trim())
-          .where((tag) => tag.isNotEmpty)
+          .where((tag) => tag.isNotEmpty && tag.toLowerCase() != 'null')
           .toList();
       if (clean.isEmpty) return;
       result[photoId] = _uniqueSorted([
@@ -454,7 +454,7 @@ class GalleryController extends GetxController {
     final names = <String>[];
     void add(dynamic value) {
       final name = value?.toString().trim() ?? '';
-      if (name.isNotEmpty) names.add(name);
+      if (name.isNotEmpty && name.toLowerCase() != 'null') names.add(name);
     }
 
     if (raw is List) {

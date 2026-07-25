@@ -62,7 +62,10 @@ class DiaryEntry {
       tags:
           (json['tags'] as List?)
               ?.map((tag) => tag.toString())
-              .where((tag) => tag.trim().isNotEmpty)
+              .where(
+                (tag) =>
+                    tag.trim().isNotEmpty && tag.trim().toLowerCase() != 'null',
+              )
               .toList() ??
           const [],
       collections:

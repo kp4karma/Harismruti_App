@@ -473,7 +473,7 @@ class GalleryRepository {
   }
 
   List<GalleryCard> _sortCardsNewestFirst(List<GalleryCard> cards) {
-    final sorted = cards.toList();
+    final sorted = cards.where((card) => card.hasValue).toList();
     sorted.sort((a, b) {
       final dateCompare = _cardDateMillis(b).compareTo(_cardDateMillis(a));
       if (dateCompare != 0) return dateCompare;
