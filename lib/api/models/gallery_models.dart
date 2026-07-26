@@ -112,6 +112,11 @@ class GalleryPhoto {
   final String? fileName;
   final double? latitude;
   final double? longitude;
+  final String? location;
+  final String? subLocation;
+  final String? smrutiWith;
+  final String? darshanOf;
+  final String? smrutiOf;
   final List<String> tags;
 
   const GalleryPhoto({
@@ -129,6 +134,11 @@ class GalleryPhoto {
     this.fileName,
     this.latitude,
     this.longitude,
+    this.location,
+    this.subLocation,
+    this.smrutiWith,
+    this.darshanOf,
+    this.smrutiOf,
     this.tags = const [],
   });
 
@@ -215,6 +225,20 @@ class GalleryPhoto {
         'gps_longitude',
         'gpsLongitude',
       ]),
+      location: _readString(json, const ['location', 'city']),
+      subLocation: _readString(json, const [
+        'sub_location',
+        'subLocation',
+        'place',
+      ]),
+      smrutiWith: _readString(json, const [
+        'smruti_with',
+        'smrutiWith',
+        'with',
+        'with_attr',
+      ]),
+      darshanOf: _readString(json, const ['darshan_of', 'darshanOf', 'person']),
+      smrutiOf: _readString(json, const ['smruti_of', 'smrutiOf', 'subject']),
       tags: _readTags(json),
     );
   }
@@ -234,6 +258,11 @@ class GalleryPhoto {
       if (fileName != null) 'filename': fileName,
       if (latitude != null) 'latitude': latitude,
       if (longitude != null) 'longitude': longitude,
+      if (location != null) 'location': location,
+      if (subLocation != null) 'sub_location': subLocation,
+      if (smrutiWith != null) 'smruti_with': smrutiWith,
+      if (darshanOf != null) 'darshan_of': darshanOf,
+      if (smrutiOf != null) 'smruti_of': smrutiOf,
       if (tags.isNotEmpty) 'tags': tags,
     };
   }

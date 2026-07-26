@@ -67,6 +67,15 @@ class GalleryRepository {
     return GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items;
   }
 
+  Future<List<GalleryPhoto>> getOnThisDay({int limit = 60}) async {
+    final response = await ApiClient.get(
+      ApiEndpoints.onThisDay,
+      queryParams: _scopedQueryParams({'limit': limit}),
+      forceRefresh: true,
+    );
+    return GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items;
+  }
+
   Future<List<GalleryFilterGroup>> getFilters({
     int limit = 200,
     Map<String, List<String>> selected = const {},
@@ -280,12 +289,10 @@ class GalleryRepository {
       ApiEndpoints.collections,
       queryParams: _latestQueryParams({'samples': samples}),
     );
-    return _sortCardsNewestFirst(
-      GalleryPage.fromJson(
-        response.data,
-        (raw) => GalleryCard.fromJson(raw, fallbackType: 'collection'),
-      ).items,
-    );
+    return GalleryPage.fromJson(
+      response.data,
+      (raw) => GalleryCard.fromJson(raw, fallbackType: 'collection'),
+    ).items.where((card) => card.hasValue).toList();
   }
 
   Future<List<GalleryCard>> getSmrutiOf({
@@ -460,7 +467,7 @@ class GalleryRepository {
   GalleryHomeBundle _sortHomeBundleNewestFirst(GalleryHomeBundle bundle) {
     return GalleryHomeBundle(
       recent: bundle.recent,
-      collections: _sortCardsNewestFirst(bundle.collections),
+      collections: bundle.collections.where((card) => card.hasValue).toList(),
       smrutiWith: _sortCardsNewestFirst(bundle.smrutiWith),
       smrutiOf: _sortCardsNewestFirst(bundle.smrutiOf),
       locations: _sortCardsNewestFirst(bundle.locations),

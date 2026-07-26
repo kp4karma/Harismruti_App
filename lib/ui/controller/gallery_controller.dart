@@ -77,6 +77,7 @@ class GalleryController extends GetxController {
   final Rx<GallerySwami> selectedSwami = GallerySwami.prabodh.obs;
 
   final RxList<GalleryPhoto> recentPhotos = <GalleryPhoto>[].obs;
+  final RxList<GalleryPhoto> onThisDayPhotos = <GalleryPhoto>[].obs;
   final RxList<GalleryCard> collections = <GalleryCard>[].obs;
   final RxList<GalleryCard> smrutiWith = <GalleryCard>[].obs;
   final RxList<GalleryCard> smrutiOf = <GalleryCard>[].obs;
@@ -109,6 +110,7 @@ class GalleryController extends GetxController {
   Map<String, String> get imageHeaders => _repository.imageHeaders;
   bool get hasAnyData =>
       recentPhotos.isNotEmpty ||
+      onThisDayPhotos.isNotEmpty ||
       collections.isNotEmpty ||
       smrutiWith.isNotEmpty ||
       smrutiOf.isNotEmpty ||
@@ -991,6 +993,12 @@ class GalleryController extends GetxController {
       );
       if (selectedSwami.value != requestedSwami) return;
       _applyBundle(bundle);
+      try {
+        onThisDayPhotos.assignAll(await _repository.getOnThisDay());
+      } catch (error) {
+        onThisDayPhotos.clear();
+        debugPrint('On This Day load failed: $error');
+      }
       _recentPage = 1;
       hasMoreRecentPhotos.value = bundle.recent.length >= _recentPerPage;
       _lastLoadedAt = DateTime.now();
@@ -1005,6 +1013,7 @@ class GalleryController extends GetxController {
 
   void _clearGallerySections() {
     recentPhotos.clear();
+    onThisDayPhotos.clear();
     collections.clear();
     smrutiWith.clear();
     smrutiOf.clear();
@@ -1029,7 +1038,7 @@ class GalleryController extends GetxController {
 
   void _applyBundle(GalleryHomeBundle bundle) {
     recentPhotos.assignAll(bundle.recent);
-    collections.assignAll(_shuffled(bundle.collections));
+    collections.assignAll(_randomizedYearCollectionImages(bundle.collections));
     smrutiWith.assignAll(_shuffled(bundle.smrutiWith));
     smrutiOf.assignAll(_shuffled(bundle.smrutiOf));
     locations.assignAll(_shuffled(bundle.locations));
@@ -1041,6 +1050,24 @@ class GalleryController extends GetxController {
 
   List<T> _shuffled<T>(List<T> items) {
     return items.toList()..shuffle(Random());
+  }
+
+  List<GalleryCard> _randomizedYearCollectionImages(List<GalleryCard> items) {
+    return items.map((card) {
+      final randomizedPhotos = card.photos.toList()..shuffle(Random());
+      return GalleryCard(
+        id: card.id,
+        title: card.title,
+        subtitle: card.subtitle,
+        type: card.type,
+        value: card.value,
+        count: card.count,
+        locationCount: card.locationCount,
+        tagCount: card.tagCount,
+        faceId: card.faceId,
+        photos: randomizedPhotos,
+      );
+    }).toList();
   }
 
   void _saveCurrentSnapshot() {

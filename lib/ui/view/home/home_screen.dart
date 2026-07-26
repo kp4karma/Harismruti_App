@@ -321,6 +321,9 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   bool _hasHomeSectionContent(String title) {
+    if (title == SmrutiSectionKeys.onThisDay) {
+      return galleryController.onThisDayPhotos.isNotEmpty;
+    }
     if (title == SmrutiSectionKeys.myFavorite ||
         title == 'My Favot' ||
         title == 'My Favorites') {

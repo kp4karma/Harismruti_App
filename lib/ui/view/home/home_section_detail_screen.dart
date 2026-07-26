@@ -339,6 +339,7 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
             ),
           ),
         );
+      case SmrutiSectionKeys.onThisDay:
       case SmrutiSectionKeys.myFavorite:
       case 'My Favot':
       case 'My Favorites':
@@ -364,15 +365,7 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
             child: _PhotoPosterCard(
               photo: photos[index],
               headers: _controller.imageHeaders,
-              showTitle: showMySmrutiMetadata,
-              title: showMySmrutiMetadata
-                  ? _galleryPhotoTitle(
-                      photos[index],
-                      additionalTags: _controller.tagsForPhoto(
-                        photos[index].id,
-                      ),
-                    )
-                  : null,
+              showTitle: false,
               dateLabel: showMySmrutiMetadata
                   ? _formatDate(
                       photos[index].eventDate ?? photos[index].takenAt,
@@ -687,6 +680,8 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
 
   List<Object> _itemsForTitle(String title) {
     switch (title) {
+      case SmrutiSectionKeys.onThisDay:
+        return _controller.onThisDayPhotos.toList(growable: false);
       case SmrutiSectionKeys.recent:
         return _controller.recentPhotos.toList(growable: false);
       case SmrutiSectionKeys.yearCollection:
@@ -1512,7 +1507,6 @@ class _PhotoPosterCard extends StatelessWidget {
   final GalleryPhoto photo;
   final Map<String, String>? headers;
   final bool showTitle;
-  final String? title;
   final String? dateLabel;
   final VoidCallback onTap;
 
@@ -1520,7 +1514,6 @@ class _PhotoPosterCard extends StatelessWidget {
     required this.photo,
     required this.headers,
     this.showTitle = true,
-    this.title,
     this.dateLabel,
     required this.onTap,
   });
@@ -1550,7 +1543,7 @@ class _PhotoPosterCard extends StatelessWidget {
               title: '',
               headers: headers,
             ),
-            if (showTitle) ...[
+            if (showTitle || dateLabel != null) ...[
               DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -1573,18 +1566,20 @@ class _PhotoPosterCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      title ?? _galleryPhotoTitle(photo),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 13,
+                    if (showTitle)
+                      Text(
+                        _galleryPhotoTitle(photo),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 13,
+                        ),
                       ),
-                    ),
-                    if (dateLabel != null) ...[
+                    if (showTitle && dateLabel != null)
                       const SizedBox(height: 3),
+                    if (dateLabel != null)
                       Text(
                         dateLabel!,
                         maxLines: 1,
@@ -1595,7 +1590,6 @@ class _PhotoPosterCard extends StatelessWidget {
                           fontSize: 10,
                         ),
                       ),
-                    ],
                   ],
                 ),
               ),

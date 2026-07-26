@@ -34,6 +34,7 @@ class ApiEndpoints {
 
   static String get home => "/home";
   static String get recent => "/recent";
+  static String get onThisDay => "/on-this-day";
   static String get collections => "/collections";
   static String get attributes => "/attributes";
   static String get filters => "/filters";
