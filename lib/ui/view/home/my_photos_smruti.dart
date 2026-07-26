@@ -11,6 +11,7 @@ import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/bootstrap.dart';
 import 'package:harismruti/helper/auth_redirect_helper.dart';
+import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:harismruti/ui/controller/my_photos_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
@@ -58,6 +59,7 @@ class MyPhotosSmruti extends StatelessWidget {
                         photos: matchedPhotos.toList(growable: false),
                         initialIndex: index,
                         title: 'My Smruti',
+                        isMySmruti: true,
                       ),
                     ),
                   );
@@ -1006,10 +1008,24 @@ class _MatchedPhotosSection extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Expanded(
-              child: Text(
-                'Found photos',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Found photos',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                  ),
+                  if (controller.allowIgnorePhotos.value)
+                    Text(
+                      'Tick any photo that is not you.',
+                      style: TextStyle(
+                        color: Colors.black.withAlpha(130),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                ],
               ),
             ),
             _StatusPill(
@@ -1030,13 +1046,136 @@ class _MatchedPhotosSection extends StatelessWidget {
           mainAxisSpacing: 10,
           itemBuilder: (context, index) {
             final item = photos[index];
-            return AspectRatio(
-              aspectRatio: _galleryPhotoAspectRatio(item),
-              child: _MatchedPhotoTile(photo: item),
+            final isSelected = controller.selectedIrrelevantPhotoIds.contains(
+              item.id,
+            );
+            return GestureDetector(
+              onTap: controller.allowIgnorePhotos.value
+                  ? () {
+                      HapticFeedback.selectionClick();
+                      controller.toggleIrrelevantPhoto(item.id);
+                    }
+                  : null,
+              child: AspectRatio(
+                aspectRatio: _galleryPhotoAspectRatio(item),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _MatchedPhotoTile(photo: item),
+                    if (controller.allowIgnorePhotos.value)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: _IrrelevantPhotoTick(isSelected: isSelected),
+                      ),
+                    if (isSelected)
+                      IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withAlpha(45),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: primaryColor, width: 3),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             );
           },
         ),
+        if (controller.selectedIrrelevantPhotoIds.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: controller.isIgnoringPhotos.value
+                  ? null
+                  : () => _confirmAndIgnore(context),
+              icon: controller.isIgnoringPhotos.value
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(CupertinoIcons.eye_slash_fill),
+              label: Text(
+                'Not relevant to me (${controller.selectedIrrelevantPhotoIds.length})',
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+          ),
+        ],
       ],
+    );
+  }
+
+  Future<void> _confirmAndIgnore(BuildContext context) async {
+    final count = controller.selectedIrrelevantPhotoIds.length;
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: const Text('Not relevant to you?'),
+        content: Text(
+          '$count selected ${count == 1 ? 'photo' : 'photos'} will be hidden from your Smruti.',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Hide'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      final ignoredCount = await controller.ignoreSelectedPhotos();
+      if (ignoredCount > 0) {
+        TopNotification.success(
+          '$ignoredCount ${ignoredCount == 1 ? 'photo' : 'photos'} hidden',
+        );
+      }
+    } catch (error) {
+      TopNotification.error(error.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+}
+
+class _IrrelevantPhotoTick extends StatelessWidget {
+  final bool isSelected;
+
+  const _IrrelevantPhotoTick({required this.isSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      height: 30,
+      width: 30,
+      decoration: BoxDecoration(
+        color: isSelected ? primaryColor : Colors.black.withAlpha(105),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2),
+      ),
+      child: Icon(
+        isSelected ? CupertinoIcons.checkmark : CupertinoIcons.circle,
+        color: Colors.white,
+        size: 18,
+      ),
     );
   }
 }

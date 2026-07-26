@@ -16,6 +16,7 @@ import 'package:harismruti/api/repositories/gallery_repository.dart';
 import 'package:harismruti/helper/auth_redirect_helper.dart';
 import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
+import 'package:harismruti/ui/controller/my_photos_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_location_screen.dart';
 import 'package:harismruti/ui/view/home/my_diary_smruti.dart';
 import 'package:harismruti/utils/app_color.dart';
@@ -813,6 +814,7 @@ class GalleryFullscreenViewer extends StatefulWidget {
   final String title;
   final bool showRecentPhotoMetadata;
   final bool isRecentFeed;
+  final bool isMySmruti;
 
   const GalleryFullscreenViewer({
     super.key,
@@ -821,6 +823,7 @@ class GalleryFullscreenViewer extends StatefulWidget {
     required this.title,
     this.showRecentPhotoMetadata = false,
     this.isRecentFeed = false,
+    this.isMySmruti = false,
   });
 
   @override
@@ -854,12 +857,15 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   int _gesturePointerCount = 1;
   final Set<int> _activeViewerPointers = <int>{};
   late final List<GalleryPhoto> _localPhotos;
+  bool get _isMySmruti =>
+      widget.isMySmruti || widget.title.trim().toLowerCase() == 'my smruti';
 
   @override
   void initState() {
     super.initState();
     _localPhotos = List<GalleryPhoto>.of(widget.photos);
     _index = widget.initialIndex;
+    _allowIgnore = _isMySmruti;
     _loadIgnoreFeature();
     _pageController = PageController(initialPage: widget.initialIndex);
     _thumbnailScrollController = ScrollController();
@@ -1132,6 +1138,10 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   }
 
   Future<void> _loadIgnoreFeature() async {
+    if (_isMySmruti) {
+      if (mounted) setState(() => _allowIgnore = true);
+      return;
+    }
     try {
       final features = await _repository.getMobileFeatures();
       if (!mounted) return;
@@ -1147,7 +1157,11 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       context: context,
       builder: (context) => CupertinoAlertDialog(
         title: const Text('Ignore this photo?'),
-        content: const Text('This photo will be hidden from your gallery.'),
+        content: Text(
+          _isMySmruti
+              ? 'This photo will be hidden only from your My Smruti section.'
+              : 'This photo will be hidden from your gallery.',
+        ),
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.pop(context, false),
@@ -1171,7 +1185,14 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
         TopNotification.error('Unable to ignore this photo');
         return;
       }
-      TopNotification.success('Photo ignored');
+      if (_isMySmruti && Get.isRegistered<MyPhotosController>()) {
+        Get.find<MyPhotosController>().matchedPhotos.removeWhere(
+          (photo) => ignored.contains(photo.id),
+        );
+      }
+      TopNotification.success(
+        _isMySmruti ? 'Photo hidden from your My Smruti' : 'Photo ignored',
+      );
       final list = _photosList;
       final removedIndex = list.indexWhere((photo) => photo.id == photoId);
       if (removedIndex != -1) {

@@ -138,21 +138,6 @@ class _FavoritePhotoCard extends StatelessWidget {
                 ),
               ),
             ),
-            Positioned(
-              left: 10,
-              right: 10,
-              bottom: 10,
-              child: Text(
-                photo.title ?? 'Favorite Smruti',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 13,
-                ),
-              ),
-            ),
           ],
         ),
       ),

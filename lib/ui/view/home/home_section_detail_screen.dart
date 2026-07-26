@@ -348,10 +348,6 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
         final photos = visibleItems.whereType<GalleryPhoto>().toList(
           growable: false,
         );
-        final showPhotoTitles =
-            widget.title == SmrutiSectionKeys.myFavorite ||
-            widget.title == 'My Favot' ||
-            widget.title == 'My Favorites';
         final showMySmrutiMetadata =
             widget.title == SmrutiSectionKeys.myPhotos ||
             widget.title == 'My Phone' ||
@@ -368,7 +364,7 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
             child: _PhotoPosterCard(
               photo: photos[index],
               headers: _controller.imageHeaders,
-              showTitle: showPhotoTitles || showMySmrutiMetadata,
+              showTitle: showMySmrutiMetadata,
               title: showMySmrutiMetadata
                   ? _galleryPhotoTitle(
                       photos[index],
@@ -927,6 +923,7 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
           title: widget.title,
           isRecentFeed:
               widget.title == SmrutiSectionKeys.recent && _query.isEmpty,
+          isMySmruti: _isMySmrutiTitle(widget.title),
         ),
       ),
     );

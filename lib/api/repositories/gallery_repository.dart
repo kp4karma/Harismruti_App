@@ -137,12 +137,14 @@ class GalleryRepository {
     return asJsonMap(response.data);
   }
 
-  Future<Map<String, dynamic>> getMobileFeatures() async {
+  Future<Map<String, dynamic>> getMobileFeatures({
+    bool forMySmruti = false,
+  }) async {
     final mobile = currentPhoneNumber();
     if (mobile.isEmpty) return const {'allow_ignore': false};
     final response = await ApiClient.get(
       ApiEndpoints.mobileFeatures,
-      queryParams: {'mobile': mobile},
+      queryParams: {'mobile': mobile, if (forMySmruti) 'context': 'my_smruti'},
     );
     return asJsonMap(response.data);
   }

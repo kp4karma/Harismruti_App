@@ -160,6 +160,9 @@ class MyPhotosController extends GetxController {
   final RxBool isFlowInitialized = false.obs;
   final RxBool hasPhoneMapping = false.obs;
   final RxBool isServerPendingSmruti = false.obs;
+  final RxBool allowIgnorePhotos = true.obs;
+  final RxBool isIgnoringPhotos = false.obs;
+  final RxSet<int> selectedIrrelevantPhotoIds = <int>{}.obs;
   final RxBool faceSearchCompleted = false.obs;
   final RxnInt faceSearchRequestId = RxnInt();
   final RxString helperMessage = ''.obs;
@@ -439,6 +442,7 @@ class MyPhotosController extends GetxController {
     isCheckingMapping.value = true;
     isFlowInitialized.value = false;
     try {
+      await _loadIgnoreFeature();
       if (await _loadPhoneMapping()) return;
       final storedId = StorageHelper.getValue<int>(
         key: StorageKeys.mySmrutiRequestId,
@@ -454,6 +458,56 @@ class MyPhotosController extends GetxController {
     } finally {
       isCheckingMapping.value = false;
       isFlowInitialized.value = true;
+    }
+  }
+
+  Future<void> _loadIgnoreFeature() async {
+    try {
+      final features = await _repository.getMobileFeatures(forMySmruti: true);
+      allowIgnorePhotos.value = true;
+      final ignoredIds =
+          (features['ignored_photo_ids'] is List
+                  ? features['ignored_photo_ids'] as List
+                  : const [])
+              .map((value) => int.tryParse('$value'))
+              .whereType<int>()
+              .toSet();
+      if (ignoredIds.isNotEmpty) {
+        matchedPhotos.removeWhere((photo) => ignoredIds.contains(photo.id));
+      }
+    } catch (_) {
+      // This is a standard My Smruti action for every signed-in user.
+      // Keep the UI available if the optional feature metadata cannot load.
+      allowIgnorePhotos.value = true;
+    }
+    selectedIrrelevantPhotoIds.clear();
+  }
+
+  void toggleIrrelevantPhoto(int photoId) {
+    if (!allowIgnorePhotos.value || photoId <= 0 || isIgnoringPhotos.value) {
+      return;
+    }
+    if (!selectedIrrelevantPhotoIds.add(photoId)) {
+      selectedIrrelevantPhotoIds.remove(photoId);
+    }
+  }
+
+  void clearIrrelevantSelection() {
+    selectedIrrelevantPhotoIds.clear();
+  }
+
+  Future<int> ignoreSelectedPhotos() async {
+    if (selectedIrrelevantPhotoIds.isEmpty || isIgnoringPhotos.value) return 0;
+    isIgnoringPhotos.value = true;
+    try {
+      final ignored = await _repository.ignorePhotos(
+        selectedIrrelevantPhotoIds,
+      );
+      matchedPhotos.removeWhere((photo) => ignored.contains(photo.id));
+      selectedIrrelevantPhotoIds.clear();
+      return ignored.length;
+    } finally {
+      isIgnoringPhotos.value = false;
     }
   }
 
