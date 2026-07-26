@@ -11,6 +11,7 @@ import 'package:harismruti/api/api_endpoints.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:harismruti/api/repositories/gallery_repository.dart';
+import 'package:harismruti/services/analytics_service.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/controller/ProfileController.dart';
 import 'package:harismruti/utils/storage_helper.dart';
@@ -371,6 +372,10 @@ class MyPhotosController extends GetxController {
       helperMessage.value =
           result['message']?.toString() ??
           'Selfie submitted. Verification is pending admin approval.';
+      AnalyticsService.instance.track(
+        'Selfie Submitted',
+        properties: {'request_created': requestId != null},
+      );
       _savePhotos();
       if (requestId != null) await _refreshRequestStatus(requestId);
     } on ApiRequestException catch (error) {

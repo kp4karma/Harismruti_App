@@ -198,6 +198,7 @@ class _CollectionCard extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
+                  settings: const RouteSettings(name: 'My Collection Detail'),
                   builder: (_) => GalleryDetailScreen(
                     title: collection.name,
                     subtitle: '${photos.length} Photos',

@@ -75,6 +75,7 @@ class _FavoritePhotoCard extends StatelessWidget {
         Navigator.push(
           context,
           CupertinoPageRoute(
+            settings: const RouteSettings(name: 'Favorite Photo Viewer'),
             builder: (_) => GalleryFullscreenViewer(
               photos: photos,
               initialIndex: index,

@@ -113,7 +113,7 @@ class _TopNotificationCard extends StatelessWidget {
                 ],
               ),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Container(
                     width: 36,
@@ -128,7 +128,7 @@ class _TopNotificationCard extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if ((title ?? '').trim().isNotEmpty) ...[
@@ -136,6 +136,7 @@ class _TopNotificationCard extends StatelessWidget {
                             title!.trim(),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
                             style: const TextStyle(
                               color: Color(0xFF241A17),
                               fontSize: 13,
@@ -148,6 +149,7 @@ class _TopNotificationCard extends StatelessWidget {
                           message,
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.left,
                           style: TextStyle(
                             color: Colors.black.withAlpha(176),
                             fontSize: 12,

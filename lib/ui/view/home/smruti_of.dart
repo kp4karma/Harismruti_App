@@ -63,7 +63,10 @@ class _SmrutiOfGlowCard extends StatelessWidget {
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => GalleryDetailScreen.fromCard(card)),
+        MaterialPageRoute(
+          settings: const RouteSettings(name: 'Gallery Detail'),
+          builder: (_) => GalleryDetailScreen.fromCard(card),
+        ),
       ),
       child: Container(
         width: width,

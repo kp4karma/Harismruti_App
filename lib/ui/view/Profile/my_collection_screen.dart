@@ -256,6 +256,7 @@ class _PhotoGrid extends StatelessWidget {
             Navigator.push(
               context,
               CupertinoPageRoute(
+                settings: const RouteSettings(name: 'Photo Viewer'),
                 builder: (_) => GalleryFullscreenViewer(
                   photos: photos,
                   initialIndex: index,
@@ -306,6 +307,7 @@ class _CollectionCard extends StatelessWidget {
                     Navigator.push(
                       context,
                       CupertinoPageRoute(
+                        settings: const RouteSettings(name: 'Photo Viewer'),
                         builder: (_) => GalleryFullscreenViewer(
                           photos: photos,
                           initialIndex: 0,

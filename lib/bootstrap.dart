@@ -7,6 +7,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:harismruti/api/api_client.dart';
 import 'package:harismruti/healper_service/notification_service.dart';
+import 'package:harismruti/services/analytics_service.dart';
 import 'package:harismruti/utils/firebase_options.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 
@@ -19,6 +20,7 @@ Future<void> bootstrap() async {
 
   await StorageHelper.init();
   await ApiClient.init();
+  await AnalyticsService.instance.initialize();
 
   final firebaseOptions = DefaultFirebaseOptions.currentPlatform;
   final hasFirebaseConfig =

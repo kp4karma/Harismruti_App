@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/api/repositories/gallery_repository.dart';
+import 'package:harismruti/services/analytics_service.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 
 const bool kShowFavoriteCountOnImages = false;
@@ -208,6 +209,10 @@ class GalleryController extends GetxController {
       key: StorageKeys.selectedSwami,
       value: next.apiValue,
     );
+    AnalyticsService.instance.track(
+      'Gallery Persona Selected',
+      properties: {'persona': next.apiValue},
+    );
 
     final snapshot = _tabSnapshots[next];
     if (snapshot != null) {
@@ -310,7 +315,8 @@ class GalleryController extends GetxController {
     _rememberPhoto(photo);
     _favoriteMutationVersion++;
     final updatedIds = favoritePhotoIds.toSet();
-    if (favoritePhotoIds.contains(photo.id)) {
+    final wasFavorite = favoritePhotoIds.contains(photo.id);
+    if (wasFavorite) {
       updatedIds.remove(photo.id);
       favoritePhotoIds.assignAll(updatedIds);
       _repository.removeFavorite(photo.id);
@@ -319,6 +325,13 @@ class GalleryController extends GetxController {
       favoritePhotoIds.assignAll(updatedIds);
       _repository.addFavorite(photo.id);
     }
+    AnalyticsService.instance.track(
+      wasFavorite ? 'Photo Unfavorited' : 'Photo Favorited',
+      properties: {
+        'photo_id': photo.id,
+        'persona': selectedSwami.value.apiValue,
+      },
+    );
   }
 
   Future<bool> addTagToPhoto(GalleryPhoto photo, String tag) async {
@@ -333,6 +346,10 @@ class GalleryController extends GetxController {
     try {
       await _repository.addTag(photoId: photo.id, tag: normalized);
       await loadMyLibrary();
+      AnalyticsService.instance.track(
+        'Photo Tagged',
+        properties: {'photo_id': photo.id},
+      );
       return true;
     } catch (_) {
       return false;

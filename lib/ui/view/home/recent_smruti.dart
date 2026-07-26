@@ -143,6 +143,7 @@ class _AutoSwapRecentStackState extends State<_AutoSwapRecentStack> {
     Navigator.push(
       context,
       MaterialPageRoute(
+        settings: const RouteSettings(name: 'Photo Viewer'),
         builder: (_) => GalleryFullscreenViewer(
           photos: galleryController.recentPhotos.toList(growable: false),
           initialIndex: rawIndex >= 0 ? rawIndex : 0,

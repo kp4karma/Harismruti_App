@@ -12,6 +12,12 @@ class ApiEndpoints {
     "API_BASE_URL",
     defaultValue: "",
   );
+  static const String _defaultVrundApiBaseUrl =
+      "https://staging-admin.suhrad.digital/api/v1";
+  static const String _vrundApiBaseUrl = String.fromEnvironment(
+    "VRUND_API_BASE_URL",
+    defaultValue: _defaultVrundApiBaseUrl,
+  );
   static final String mobileApiKey = String.fromEnvironment(
     "MOBILE_API_KEY",
     defaultValue:
@@ -52,6 +58,7 @@ class ApiEndpoints {
   static String get mobileFeatures => "/features";
   static String get ignoredPhotos => "/features/ignored-photos";
   static String get myDiary => "/me/diary";
+  static String get liveStream => "$_vrundApiBaseUrl/livestream";
 
   static String collectionMonths(int year) => "/collections/$year/months";
   static String collectionDays(int year, int month) =>

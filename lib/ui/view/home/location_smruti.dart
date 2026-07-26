@@ -112,7 +112,7 @@ class _LocationSmrutiState extends State<LocationSmruti>
                 headers: galleryController.imageHeaders,
                 aspectRatio: 1,
                 fillParent: true,
-                imageFit: BoxFit.fill,
+                imageFit: BoxFit.cover,
               );
               final smallRow = Row(
                 children: [
@@ -123,7 +123,7 @@ class _LocationSmrutiState extends State<LocationSmruti>
                         headers: galleryController.imageHeaders,
                         aspectRatio: 1,
                         fillParent: true,
-                        imageFit: BoxFit.fill,
+                        imageFit: BoxFit.cover,
                       ),
                     ),
                     if (item != bottomCards.length - 1)

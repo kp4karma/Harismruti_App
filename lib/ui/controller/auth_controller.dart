@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:harismruti/api/auth_repository.dart';
 import 'package:harismruti/helper/navigation_helper.dart';
 import 'package:harismruti/helper/top_notification_helper.dart';
+import 'package:harismruti/services/analytics_service.dart';
 import 'package:harismruti/ui/controller/ProfileController.dart';
 import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/storage_helper.dart';
@@ -43,6 +44,10 @@ class AuthController extends GetxController {
       lastMobile.value = formattedMobile;
       lastEmail.value = _extractEmail(response.data);
       lastValidationMethod.value = validationMethod;
+      AnalyticsService.instance.track(
+        'Login OTP Requested',
+        properties: {'validation_method': validationMethod},
+      );
       _showServerMessage(response.data, fallback: 'OTP sent successfully');
       return true;
     });
@@ -81,6 +86,13 @@ class AuthController extends GetxController {
       }
       lastMobile.value = formattedMobile;
       lastValidationMethod.value = validationMethod;
+      AnalyticsService.instance.track(
+        'Registration Submitted',
+        properties: {
+          'validation_method': validationMethod,
+          'city_provided': city.trim().isNotEmpty,
+        },
+      );
       _showServerMessage(
         response.data,
         fallback: 'User registered successfully',
@@ -110,6 +122,11 @@ class AuthController extends GetxController {
         return false;
       }
       _persistLogin(response.data);
+      await AnalyticsService.instance.identifyStoredUser();
+      AnalyticsService.instance.track(
+        'Login Completed',
+        properties: {'validation_method': lastValidationMethod.value},
+      );
       final verification = await _repository.verifyToken();
       if (!_isSuccessfulResponse(verification.data)) {
         StorageHelper.removeValue(StorageKeys.accessToken);

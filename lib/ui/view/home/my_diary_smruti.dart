@@ -129,7 +129,10 @@ class MyDiarySmruti extends StatelessWidget {
     if (!AuthRedirectHelper.ensureLoggedIn()) return;
     Navigator.push(
       context,
-      CupertinoPageRoute(builder: (_) => const MyDiaryScreen()),
+      CupertinoPageRoute(
+        settings: const RouteSettings(name: 'My Diary'),
+        builder: (_) => const MyDiaryScreen(),
+      ),
     );
   }
 
@@ -137,7 +140,10 @@ class MyDiarySmruti extends StatelessWidget {
     if (!AuthRedirectHelper.ensureLoggedIn()) return;
     Navigator.push(
       context,
-      CupertinoPageRoute(builder: (_) => DiaryEntryDetailScreen(date: date)),
+      CupertinoPageRoute(
+        settings: const RouteSettings(name: 'Diary Entry Detail'),
+        builder: (_) => DiaryEntryDetailScreen(date: date),
+      ),
     );
   }
 }
@@ -254,7 +260,10 @@ class MyDiaryScreen extends StatelessWidget {
     controller.selectDate(date);
     Navigator.push(
       context,
-      CupertinoPageRoute(builder: (_) => DiaryEntryDetailScreen(date: date)),
+      CupertinoPageRoute(
+        settings: const RouteSettings(name: 'Diary Entry Detail'),
+        builder: (_) => DiaryEntryDetailScreen(date: date),
+      ),
     );
   }
 }
@@ -364,7 +373,10 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
               icon: CupertinoIcons.calendar,
               onTap: () => Navigator.push(
                 context,
-                CupertinoPageRoute(builder: (_) => const MyDiaryScreen()),
+                CupertinoPageRoute(
+                  settings: const RouteSettings(name: 'My Diary'),
+                  builder: (_) => const MyDiaryScreen(),
+                ),
               ),
             ),
             if (entry != null)
@@ -1250,10 +1262,9 @@ class _DiaryPhotoSelectionSheetState extends State<_DiaryPhotoSelectionSheet> {
                                 24,
                               ),
                               itemCount: photos.length,
-                              crossAxisCount:
-                                  MediaQuery.sizeOf(context).width >= 680
-                                  ? 3
-                                  : 2,
+                              crossAxisCount: responsiveImageColumnCount(
+                                context,
+                              ),
                               mainAxisSpacing: 6,
                               crossAxisSpacing: 6,
                               itemBuilder: (context, index) {

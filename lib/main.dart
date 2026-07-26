@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/bootstrap.dart';
 import 'package:harismruti/services/shorebird_update_service.dart';
+import 'package:harismruti/services/analytics_service.dart';
 import 'package:harismruti/ui/controller/global_binding.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_routes.dart';
@@ -70,6 +71,7 @@ class _MyAppState extends State<MyApp> {
 
             initialRoute: AppRoutes.splash,
             getPages: AppRoutes.routes,
+            navigatorObservers: [AnalyticsRouteObserver()],
             theme: ThemeData(
               scaffoldBackgroundColor: Colors.transparent,
               useMaterial3: true,

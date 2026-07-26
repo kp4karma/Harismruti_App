@@ -107,6 +107,7 @@ class CustomAppbar extends StatelessWidget implements PreferredSizeWidget {
                         Navigator.push(
                           context,
                           CupertinoPageRoute(
+                            settings: const RouteSettings(name: 'Profile'),
                             builder: (context) => ProfileScreen(),
                           ),
                         );

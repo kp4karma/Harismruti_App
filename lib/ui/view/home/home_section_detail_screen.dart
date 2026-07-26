@@ -15,6 +15,7 @@ import 'package:harismruti/ui/view/gallery/gallery_timeline_screen.dart';
 import 'package:harismruti/ui/view/home/my_diary_smruti.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_string.dart';
+import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/widget/appbar/detail_appbar.dart';
 import 'package:harismruti/widget/gallery/gallery_card_widgets.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
@@ -267,13 +268,12 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
       case SmrutiSectionKeys.recent:
         return _buildRecentPhotoGallery(visibleItems);
       case SmrutiSectionKeys.withSmruti:
-        return ListView.separated(
+        return GridView.builder(
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           itemCount: cards.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          gridDelegate: _cardGridDelegate(context, 255),
           itemBuilder: (context, index) => SizedBox(
-            height: 255,
             child: GalleryWithFeatureCard(
               card: cards[index],
               headers: _controller.imageHeaders,
@@ -282,13 +282,12 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
           ),
         );
       case SmrutiSectionKeys.ofSmruti:
-        return ListView.separated(
+        return GridView.builder(
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
           itemCount: cards.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 14),
+          gridDelegate: _cardGridDelegate(context, 248),
           itemBuilder: (context, index) => SizedBox(
-            height: 248,
             child: _SubjectRibbonDetailCard(
               card: cards[index],
               headers: _controller.imageHeaders,
@@ -296,13 +295,12 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
           ),
         );
       case SmrutiSectionKeys.ofDarshan:
-        return ListView.separated(
+        return GridView.builder(
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
           itemCount: cards.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 14),
+          gridDelegate: _cardGridDelegate(context, 235),
           itemBuilder: (context, index) => SizedBox(
-            height: 235,
             child: _SmrutiOfGlowDetailCard(
               card: cards[index],
               headers: _controller.imageHeaders,
@@ -312,13 +310,12 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
       case SmrutiSectionKeys.location:
         return _buildLocationDetailGroups(cards);
       case SmrutiSectionKeys.album:
-        return ListView.separated(
+        return GridView.builder(
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           itemCount: cards.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          gridDelegate: _cardGridDelegate(context, 255),
           itemBuilder: (context, index) => SizedBox(
-            height: 255,
             child: GalleryMosaicCard(
               card: cards[index],
               headers: _controller.imageHeaders,
@@ -328,17 +325,17 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
         );
       case SmrutiSectionKeys.yearCollection:
       case 'Collection':
-        return ListView.separated(
+        return GridView.builder(
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           itemCount: cards.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          gridDelegate: _cardGridDelegate(context, 255),
           itemBuilder: (context, index) => SizedBox(
-            height: 255,
             child: GalleryMosaicCard(
               card: cards[index],
               headers: _controller.imageHeaders,
               width: double.infinity,
+              overlappingTitle: true,
             ),
           ),
         );
@@ -363,7 +360,7 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           itemCount: photos.length,
-          crossAxisCount: MediaQuery.sizeOf(context).width >= 680 ? 3 : 2,
+          crossAxisCount: responsiveImageColumnCount(context),
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
           itemBuilder: (context, index) => AspectRatio(
@@ -394,11 +391,11 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
         final collections = visibleItems
             .whereType<_UserCollectionItem>()
             .toList(growable: false);
-        return ListView.separated(
+        return GridView.builder(
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           itemCount: collections.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          gridDelegate: _cardGridDelegate(context, 230),
           itemBuilder: (context, index) => _UserCollectionPosterCard(
             item: collections[index],
             headers: _controller.imageHeaders,
@@ -410,11 +407,11 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
         final entries = visibleItems.whereType<DiaryEntry>().toList(
           growable: false,
         );
-        return ListView.separated(
+        return GridView.builder(
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           itemCount: entries.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          gridDelegate: _cardGridDelegate(context, 230),
           itemBuilder: (context, index) => _DiaryEntryPosterCard(
             entry: entries[index],
             headers: _controller.imageHeaders,
@@ -426,13 +423,29 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
     }
   }
 
+  SliverGridDelegate _cardGridDelegate(
+    BuildContext context,
+    double phoneHeight,
+  ) {
+    final columns = responsiveCardColumnCount(context);
+    final width = MediaQuery.sizeOf(context).width;
+    final itemWidth = (width - 32 - ((columns - 1) * 12)) / columns;
+    return SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: columns,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: itemWidth / phoneHeight,
+    );
+  }
+
   Widget _buildLocationDetailGroups(List<GalleryCard> cards) {
     final groupCount = (cards.length / 3).ceil();
 
-    return ListView.builder(
+    return GridView.builder(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
       itemCount: groupCount,
+      gridDelegate: _cardGridDelegate(context, 310),
       itemBuilder: (context, index) {
         final firstIndex = index * 3;
         final secondIndex = firstIndex + 1;
@@ -446,7 +459,7 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
           headers: _controller.imageHeaders,
           aspectRatio: 1,
           fillParent: true,
-          imageFit: BoxFit.fill,
+          imageFit: BoxFit.cover,
         );
         final smallRow = Row(
           children: [
@@ -457,7 +470,7 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
                   headers: _controller.imageHeaders,
                   aspectRatio: 1,
                   fillParent: true,
-                  imageFit: BoxFit.fill,
+                  imageFit: BoxFit.cover,
                 ),
               ),
               if (item != bottomCards.length - 1) const SizedBox(width: 6),
@@ -465,24 +478,18 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
           ],
         );
 
-        return SizedBox(
-          height: 310,
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Column(
-              children: index.isEven
-                  ? [
-                      Expanded(flex: 6, child: bigCard),
-                      const SizedBox(height: 6),
-                      Expanded(flex: 4, child: smallRow),
-                    ]
-                  : [
-                      Expanded(flex: 4, child: smallRow),
-                      const SizedBox(height: 6),
-                      Expanded(flex: 6, child: bigCard),
-                    ],
-            ),
-          ),
+        return Column(
+          children: index.isEven
+              ? [
+                  Expanded(flex: 6, child: bigCard),
+                  const SizedBox(height: 6),
+                  Expanded(flex: 4, child: smallRow),
+                ]
+              : [
+                  Expanded(flex: 4, child: smallRow),
+                  const SizedBox(height: 6),
+                  Expanded(flex: 6, child: bigCard),
+                ],
         );
       },
     );
@@ -493,36 +500,35 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
       growable: false,
     );
     final showFooter = _controller.isRecentPageLoading.value;
-    final groupCount = (photos.length / 3).ceil();
-
-    return ListView.builder(
+    return MasonryGridView.count(
       controller: _scrollController,
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      itemCount: groupCount + (showFooter ? 1 : 0),
+      crossAxisCount: responsiveImageColumnCount(context),
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      itemCount: photos.length + (showFooter ? 1 : 0),
       itemBuilder: (context, index) {
-        if (index >= groupCount) {
+        if (index >= photos.length) {
           return const Padding(
             padding: EdgeInsets.symmetric(vertical: 18),
             child: Center(child: CircularProgressIndicator(strokeWidth: 2.4)),
           );
         }
-
-        final start = index * 3;
-        final groupPhotos = photos.skip(start).take(3).toList(growable: false);
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: _buildRecentGalleryGroup(
-            groupPhotos,
-            start,
-            index.isOdd,
-            photos,
+        return AspectRatio(
+          aspectRatio: _galleryPhotoAspectRatio(photos[index]),
+          child: _RecentGalleryTile(
+            photo: photos[index],
+            headers: _controller.imageHeaders,
+            onTap: () => _openPhotoGallery(photos, index),
           ),
         );
       },
     );
   }
 
+  // Retained as the compact phone mosaic option for future layout variants.
+  // ignore: unused_element
   Widget _buildRecentGalleryGroup(
     List<GalleryPhoto> groupPhotos,
     int startIndex,
@@ -618,11 +624,11 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
   }
 
   Widget _buildSimpleCardList(List<Object> visibleItems) {
-    return ListView.separated(
+    return GridView.builder(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       itemCount: visibleItems.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      gridDelegate: _cardGridDelegate(context, 92),
       itemBuilder: (context, index) {
         final item = visibleItems[index];
         if (item is GalleryCard) {
@@ -851,7 +857,10 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
       final year = int.tryParse(card.value) ?? card.id;
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => GalleryTimelineScreen(year: year)),
+        MaterialPageRoute(
+          settings: const RouteSettings(name: 'Gallery Timeline'),
+          builder: (_) => GalleryTimelineScreen(year: year),
+        ),
       );
       return;
     }
@@ -859,14 +868,20 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
     if (card.type == 'location') {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => GalleryLocationScreen(card: card)),
+        MaterialPageRoute(
+          settings: const RouteSettings(name: 'Gallery Location'),
+          builder: (_) => GalleryLocationScreen(card: card),
+        ),
       );
       return;
     }
 
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => GalleryDetailScreen.fromCard(card)),
+      MaterialPageRoute(
+        settings: const RouteSettings(name: 'Gallery Detail'),
+        builder: (_) => GalleryDetailScreen.fromCard(card),
+      ),
     );
   }
 
@@ -874,6 +889,7 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
+        settings: const RouteSettings(name: 'Gallery Detail'),
         builder: (_) => GalleryDetailScreen(
           title: item.title,
           subtitle: '${item.photos.length} Photos',
@@ -888,6 +904,7 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
     Navigator.push(
       context,
       CupertinoPageRoute(
+        settings: const RouteSettings(name: 'Diary Entry Detail'),
         builder: (_) =>
             DiaryEntryDetailScreen(date: entry.date, entryId: entry.id),
       ),
@@ -903,6 +920,7 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
     Navigator.push(
       context,
       CupertinoPageRoute(
+        settings: const RouteSettings(name: 'Photo Viewer'),
         builder: (_) => GalleryFullscreenViewer(
           photos: photos,
           initialIndex: initialIndex,
@@ -1161,7 +1179,10 @@ class _SubjectRibbonDetailCard extends StatelessWidget {
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => GalleryDetailScreen.fromCard(card)),
+        MaterialPageRoute(
+          settings: const RouteSettings(name: 'Gallery Detail'),
+          builder: (_) => GalleryDetailScreen.fromCard(card),
+        ),
       ),
       child: Container(
         clipBehavior: Clip.antiAlias,
@@ -1259,7 +1280,10 @@ class _SmrutiOfGlowDetailCard extends StatelessWidget {
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => GalleryDetailScreen.fromCard(card)),
+        MaterialPageRoute(
+          settings: const RouteSettings(name: 'Gallery Detail'),
+          builder: (_) => GalleryDetailScreen.fromCard(card),
+        ),
       ),
       child: Stack(
         clipBehavior: Clip.none,

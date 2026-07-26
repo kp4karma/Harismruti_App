@@ -35,6 +35,7 @@ class NotificationService {
   static AndroidNotificationChannel? _channel;
   static bool _initialised = false;
   static bool _foregroundListenerAttached = false;
+  static bool _tokenRefreshListenerAttached = false;
 
   @pragma('vm:entry-point')
   static Future<void> firebaseBackgroundHandler(RemoteMessage message) async {
@@ -72,38 +73,42 @@ class NotificationService {
     // On Apple devices FCM cannot create a token or subscribe to topics until
     // APNs has registered the app. Registration may complete shortly after the
     // permission prompt, so give it a small bounded wait.
+    var appleRegistrationReady = true;
     if (Platform.isIOS || Platform.isMacOS) {
       String? apnsToken;
-      for (var attempt = 0; attempt < 10 && apnsToken == null; attempt++) {
+      for (var attempt = 0; attempt < 20 && apnsToken == null; attempt++) {
         apnsToken = await FirebaseMessaging.instance.getAPNSToken();
         if (apnsToken == null) {
           await Future<void>.delayed(const Duration(milliseconds: 500));
         }
       }
+      appleRegistrationReady = apnsToken != null;
       if (apnsToken == null) {
         debugPrint(
-          'APNs token is not available yet; FCM setup will retry next launch.',
+          'APNs token is not available yet. Topic subscription will retry '
+          'when FCM issues a token.',
         );
       }
     }
 
-    // getToken() returns the FCM registration token on both Android and iOS.
-    // getAPNSToken() is an Apple transport token and must not be sent to FCM.
-    try {
-      final fcmToken = await FirebaseMessaging.instance.getToken();
-      debugPrint('FCM token: $fcmToken');
-    } catch (error) {
-      debugPrint('Could not obtain FCM token: $error');
+    if (!_tokenRefreshListenerAttached) {
+      FirebaseMessaging.instance.onTokenRefresh.listen((fcmToken) async {
+        debugPrint('FCM token refreshed: $fcmToken');
+        await _subscribeToTopics();
+      });
+      _tokenRefreshListenerAttached = true;
     }
 
-    for (final topic in topics) {
+    if (appleRegistrationReady) {
+      // getToken() returns the FCM registration token on both Android and iOS.
+      // getAPNSToken() is an Apple transport token and must not be sent to FCM.
       try {
-        await FirebaseMessaging.instance.subscribeToTopic(topic);
+        final fcmToken = await FirebaseMessaging.instance.getToken();
+        debugPrint('FCM token: $fcmToken');
       } catch (error) {
-        // One transient subscription failure must not disable all notification
-        // listeners and foreground presentation.
-        debugPrint('Could not subscribe to FCM topic "$topic": $error');
+        debugPrint('Could not obtain FCM token: $error');
       }
+      await _subscribeToTopics();
     }
 
     await FirebaseMessaging.instance
@@ -114,6 +119,18 @@ class NotificationService {
         );
 
     _initialised = true;
+  }
+
+  static Future<void> _subscribeToTopics() async {
+    for (final topic in topics) {
+      try {
+        await FirebaseMessaging.instance.subscribeToTopic(topic);
+      } catch (error) {
+        // One transient subscription failure must not disable the remaining
+        // notification topics.
+        debugPrint('Could not subscribe to FCM topic "$topic": $error');
+      }
+    }
   }
 
   static Future<void> attachForegroundListener() async {

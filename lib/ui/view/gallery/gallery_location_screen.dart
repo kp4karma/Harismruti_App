@@ -128,7 +128,10 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
   void _openCityDetail(GalleryCard card) {
     Navigator.push(
       context,
-      CupertinoPageRoute(builder: (_) => GalleryDetailScreen.fromCard(card)),
+      CupertinoPageRoute(
+        settings: const RouteSettings(name: 'Gallery Detail'),
+        builder: (_) => GalleryDetailScreen.fromCard(card),
+      ),
     );
   }
 

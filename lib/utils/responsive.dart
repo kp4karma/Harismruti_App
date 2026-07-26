@@ -43,6 +43,27 @@ double tabletScale(BuildContext context) {
   return 1.0;
 }
 
+/// Number of columns for full information cards. Phones keep the original
+/// single-column layout while tablets and desktop-sized windows use the
+/// available horizontal space.
+int responsiveCardColumnCount(BuildContext context) {
+  final width = MediaQuery.sizeOf(context).width;
+  if (width >= 1400) return 4;
+  if (width >= 1000) return 3;
+  if (width >= kTabletBreakpoint) return 2;
+  return 1;
+}
+
+/// Number of columns for image-first masonry galleries.
+int responsiveImageColumnCount(BuildContext context) {
+  final width = MediaQuery.sizeOf(context).width;
+  if (width >= 1400) return 6;
+  if (width >= 1100) return 5;
+  if (width >= kLargeTabletBreakpoint) return 4;
+  if (width >= kTabletBreakpoint) return 3;
+  return 2;
+}
+
 /// Caps [child] to [maxWidth] and centers it. A no-op on phone widths (the
 /// constraint never binds), so phone layout is byte-for-byte unchanged;
 /// on tablet it keeps phone-shaped content (forms, sheets, settings rows)

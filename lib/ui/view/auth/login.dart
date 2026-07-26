@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/ui/controller/auth_controller.dart';
 import 'package:harismruti/ui/view/auth/otp_screen.dart';
@@ -174,12 +175,22 @@ class _LoginScreenState extends State<LoginScreen> {
                                           controller: _mobileController,
                                           focusNode: _mobileFocusNode,
                                           keyboardType: TextInputType.phone,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter
+                                                .digitsOnly,
+                                          ],
                                           style: const TextStyle(
                                             color: Color(0xFF322318),
                                             fontSize: 15,
                                             fontWeight: FontWeight.w700,
                                           ),
                                           decoration: const InputDecoration(
+                                            hintText: 'Enter Mobile Number',
+                                            hintStyle: TextStyle(
+                                              color: Color(0xFF8A817C),
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w400,
+                                            ),
                                             border: InputBorder.none,
                                             isCollapsed: true,
                                             contentPadding:
@@ -276,6 +287,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                     Navigator.push(
                                       context,
                                       CupertinoPageRoute(
+                                        settings: const RouteSettings(
+                                          name: 'OTP Verification',
+                                        ),
                                         builder: (context) => const OTPScreen(),
                                       ),
                                     );

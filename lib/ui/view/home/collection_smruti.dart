@@ -23,7 +23,7 @@ class CollectionSmruti extends StatelessWidget {
 
       final scale = tabletScale(context);
       return SizedBox(
-        height: 255 * scale,
+        height: 280 * scale,
         child: ListView.builder(
           physics: const BouncingScrollPhysics(),
           scrollDirection: Axis.horizontal,
@@ -32,7 +32,8 @@ class CollectionSmruti extends StatelessWidget {
           itemBuilder: (context, index) => GalleryMosaicCard(
             card: collections[index],
             headers: galleryController.imageHeaders,
-            width: 230 * scale,
+            width: 310 * scale,
+            overlappingTitle: true,
           ),
         ),
       );

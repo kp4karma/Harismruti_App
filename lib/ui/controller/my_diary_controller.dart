@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 import 'package:harismruti/api/repositories/diary_repository.dart';
+import 'package:harismruti/services/analytics_service.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 
 class DiaryEntry {
@@ -324,6 +325,16 @@ class MyDiaryController extends GetxController {
     }
     entries.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     _persist();
+    AnalyticsService.instance.track(
+      existingIndex == -1 ? 'Diary Entry Created' : 'Diary Entry Updated',
+      properties: {
+        'tag_count': cleanTags.length,
+        'collection_count': cleanCollections.length,
+        'image_count': cleanImages.length,
+        'has_location': latitude != null && longitude != null,
+        'note_length': cleanNote.length,
+      },
+    );
     try {
       final saved = await _repository.saveEntry(entry);
       if (saved != null) {
@@ -343,6 +354,7 @@ class MyDiaryController extends GetxController {
     final entry = entries.firstWhereOrNull((entry) => entry.id == id);
     entries.removeWhere((entry) => entry.id == id);
     _persist();
+    AnalyticsService.instance.track('Diary Entry Deleted');
     if (entry == null) return;
     try {
       await _repository.deleteEntry(entry.id);

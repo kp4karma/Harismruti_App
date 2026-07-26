@@ -47,6 +47,7 @@ class _LoginHomeScreenState extends State<LoginHomeScreen> {
                             Navigator.push(
                               context,
                               CupertinoPageRoute(
+                                settings: const RouteSettings(name: 'Login'),
                                 builder: (context) => LoginScreen(),
                               ),
                             );
@@ -59,6 +60,7 @@ class _LoginHomeScreenState extends State<LoginHomeScreen> {
                             Navigator.push(
                               context,
                               CupertinoPageRoute(
+                                settings: const RouteSettings(name: 'Register'),
                                 builder: (context) => RegisterScreen(),
                               ),
                             );

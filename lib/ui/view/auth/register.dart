@@ -237,6 +237,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     Navigator.push(
                                       context,
                                       CupertinoPageRoute(
+                                        settings: const RouteSettings(
+                                          name: 'OTP Verification',
+                                        ),
                                         builder: (context) => const OTPScreen(),
                                       ),
                                     );

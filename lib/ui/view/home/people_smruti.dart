@@ -57,7 +57,10 @@ class _PersonWiseCard extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => GalleryDetailScreen.fromCard(card)),
+        MaterialPageRoute(
+          settings: const RouteSettings(name: 'Gallery Detail'),
+          builder: (_) => GalleryDetailScreen.fromCard(card),
+        ),
       ),
       child: SizedBox(
         width: 210 * tabletScale(context),

@@ -700,7 +700,7 @@ class _MosaicPhotoSliver extends StatelessWidget {
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       sliver: SliverMasonryGrid.count(
-        crossAxisCount: isTablet(context) ? 3 : 2,
+        crossAxisCount: responsiveImageColumnCount(context),
         mainAxisSpacing: 8,
         crossAxisSpacing: 8,
         childCount: photos.length,
@@ -757,6 +757,7 @@ class _MosaicTile extends StatelessWidget {
         Navigator.push(
           context,
           CupertinoPageRoute(
+            settings: const RouteSettings(name: 'Photo Viewer'),
             builder: (_) => GalleryFullscreenViewer(
               photos: allPhotos,
               initialIndex: index,
@@ -1425,6 +1426,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
               Navigator.push(
                 context,
                 CupertinoPageRoute(
+                  settings: const RouteSettings(name: 'Diary Entry Detail'),
                   builder: (_) => DiaryEntryDetailScreen(
                     date: DateTime.now(),
                     initialImages: [_photo.fullUrl],
@@ -2913,6 +2915,7 @@ class _InfoMapCard extends StatelessWidget {
     navigator.pop();
     navigator.push(
       CupertinoPageRoute(
+        settings: const RouteSettings(name: 'Gallery Location'),
         builder: (_) => GalleryLocationScreen(card: _locationCard()),
       ),
     );

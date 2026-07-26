@@ -51,6 +51,9 @@ class ProfileScreen extends StatelessWidget {
                           Navigator.push(
                             context,
                             CupertinoPageRoute(
+                              settings: const RouteSettings(
+                                name: 'Smruti Section Settings',
+                              ),
                               builder: (context) =>
                                   SmrutiSectionSettingsScreen(),
                             ),

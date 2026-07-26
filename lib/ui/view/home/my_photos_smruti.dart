@@ -14,6 +14,7 @@ import 'package:harismruti/helper/auth_redirect_helper.dart';
 import 'package:harismruti/ui/controller/my_photos_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
 
@@ -52,6 +53,7 @@ class MyPhotosSmruti extends StatelessWidget {
                   Navigator.push(
                     context,
                     CupertinoPageRoute(
+                      settings: const RouteSettings(name: 'My Photo Viewer'),
                       builder: (_) => GalleryFullscreenViewer(
                         photos: matchedPhotos.toList(growable: false),
                         initialIndex: index,
@@ -92,7 +94,10 @@ class MyPhotosSmruti extends StatelessWidget {
           if (!AuthRedirectHelper.ensureLoggedIn()) return;
           Navigator.push(
             context,
-            CupertinoPageRoute(builder: (_) => const MyPhoneGuideScreen()),
+            CupertinoPageRoute(
+              settings: const RouteSettings(name: 'My Smruti Guide'),
+              builder: (_) => const MyPhoneGuideScreen(),
+            ),
           );
         },
         child: Container(
@@ -232,9 +237,7 @@ class _MyPhoneGuideScreenState extends State<MyPhoneGuideScreen> {
         if (!controller.isFlowInitialized.value &&
             controller.photos.isEmpty &&
             controller.matchedPhotos.isEmpty) {
-          return Center(
-            child: CircularProgressIndicator(color: primaryColor),
-          );
+          return Center(child: CircularProgressIndicator(color: primaryColor));
         }
 
         return CustomScrollView(
@@ -478,6 +481,10 @@ class _GuideStep {
 
 */
 class _FrontSelfieCard extends StatelessWidget {
+  static const _sampleImageUrl =
+      'https://staging-admin.suhrad.digital/storage/hpf/'
+      'harismruti_user_images/sample.png';
+
   final MyPhotosController controller;
 
   const _FrontSelfieCard({required this.controller});
@@ -537,11 +544,33 @@ class _FrontSelfieCard extends StatelessWidget {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
                 ),
               ),
-              _StatusPill(
-                label: statusLabel,
-                color: statusColor,
-                background: statusColor.withAlpha(14),
-              ),
+              if (hasPhoto)
+                _StatusPill(
+                  label: statusLabel,
+                  color: statusColor,
+                  background: statusColor.withAlpha(14),
+                )
+              else
+                TextButton.icon(
+                  onPressed: () => _showSample(context),
+                  icon: const Icon(CupertinoIcons.eye, size: 15),
+                  label: const Text('View Sample'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: primaryColor,
+                    backgroundColor: primaryColor.withAlpha(14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 7,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    textStyle: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                    shape: const StadiumBorder(),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 20),
@@ -624,7 +653,67 @@ class _FrontSelfieCard extends StatelessWidget {
     Navigator.push(
       context,
       CupertinoPageRoute(
+        settings: const RouteSettings(name: 'Selfie Capture'),
         builder: (_) => const MyPhoneCaptureScreen(pose: pose),
+      ),
+    );
+  }
+
+  void _showSample(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        clipBehavior: Clip.antiAlias,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 14, 8, 10),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Selfie Sample',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Close',
+                      onPressed: () => Navigator.pop(dialogContext),
+                      icon: const Icon(CupertinoIcons.xmark_circle_fill),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(
+                height: (MediaQuery.sizeOf(context).height * 0.58).clamp(
+                  280.0,
+                  540.0,
+                ),
+                width: double.infinity,
+                child: ColoredBox(
+                  color: const Color(0xFFF4F1EE),
+                  child: InteractiveViewer(
+                    minScale: 1,
+                    maxScale: 4,
+                    child: NetworkImageWithLoader(
+                      imageUrl: _sampleImageUrl,
+                      title: 'Selfie Sample',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -898,7 +987,8 @@ class _MatchedPhotosSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!controller.smrutiLookupFinished || !controller.isFlowInitialized.value) {
+    if (!controller.smrutiLookupFinished ||
+        !controller.isFlowInitialized.value) {
       return const SizedBox.shrink();
     }
     final photos = controller.matchedPhotos;
@@ -935,7 +1025,7 @@ class _MatchedPhotosSection extends StatelessWidget {
           primary: false,
           padding: EdgeInsets.zero,
           itemCount: photos.length,
-          crossAxisCount: MediaQuery.sizeOf(context).width >= 680 ? 3 : 2,
+          crossAxisCount: responsiveImageColumnCount(context),
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
           itemBuilder: (context, index) {
@@ -956,7 +1046,8 @@ bool _shouldHideHelperMessage(MyPhotosController controller) {
   if (controller.hasMatchedSmruti) return true;
   final status = controller.overallReviewStatus;
   if (status == MyPhotoReviewStatus.pending) return true;
-  if (status == MyPhotoReviewStatus.verified && !controller.smrutiLookupFinished) {
+  if (status == MyPhotoReviewStatus.verified &&
+      !controller.smrutiLookupFinished) {
     return true;
   }
   return false;

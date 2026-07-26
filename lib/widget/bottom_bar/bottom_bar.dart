@@ -25,31 +25,56 @@ class SwamiTabBar extends StatefulWidget {
 class _SwamiTabBarState extends State<SwamiTabBar> {
   late int selectedIndex;
   final ScrollController _scrollController = ScrollController();
-
-  final double itemPadding = 4;
-  final double itemWidth = 200;
+  late List<GlobalKey> _tabKeys;
 
   @override
   void initState() {
     super.initState();
-    selectedIndex = widget.initialIndex;
+    selectedIndex = _safeIndex(widget.initialIndex);
+    _tabKeys = List.generate(widget.tabs.length, (_) => GlobalKey());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToIndex(selectedIndex, animate: false);
+    });
   }
 
-  void scrollToIndex(int index) {
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final double itemCenterOffset =
-        index * (itemWidth + itemPadding * 2) + itemWidth / 2;
-    final double targetOffset = itemCenterOffset - screenWidth / 2;
+  @override
+  void didUpdateWidget(covariant SwamiTabBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
 
-    final double clampedOffset = targetOffset.clamp(
-      0.0,
-      _scrollController.position.maxScrollExtent,
-    );
+    final tabsChanged =
+        oldWidget.tabs.length != widget.tabs.length ||
+        Iterable<int>.generate(
+          widget.tabs.length,
+        ).any((index) => oldWidget.tabs[index] != widget.tabs[index]);
+    if (tabsChanged) {
+      _tabKeys = List.generate(widget.tabs.length, (_) => GlobalKey());
+    }
 
-    _scrollController.animateTo(
-      clampedOffset,
-      duration: const Duration(milliseconds: 300),
+    final nextIndex = _safeIndex(widget.initialIndex);
+    if (nextIndex != selectedIndex || tabsChanged) {
+      selectedIndex = nextIndex;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToIndex(selectedIndex, animate: false);
+      });
+    }
+  }
+
+  int _safeIndex(int index) {
+    if (widget.tabs.isEmpty) return 0;
+    return index.clamp(0, widget.tabs.length - 1);
+  }
+
+  void _scrollToIndex(int index, {bool animate = true}) {
+    if (!mounted || index < 0 || index >= _tabKeys.length) return;
+    final tabContext = _tabKeys[index].currentContext;
+    if (tabContext == null) return;
+
+    Scrollable.ensureVisible(
+      tabContext,
+      alignment: 0.5,
+      duration: animate ? const Duration(milliseconds: 300) : Duration.zero,
       curve: Curves.easeInOut,
+      alignmentPolicy: ScrollPositionAlignmentPolicy.explicit,
     );
   }
 
@@ -95,13 +120,14 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: SafeArea(
-            minimum: const EdgeInsets.only(bottom: 8),
+            minimum: const EdgeInsets.only(bottom: 2),
             child: Row(
               children: [
                 // Tab Bar
                 Expanded(
                   child: Card(
-                    elevation: 200,
+                    margin: const EdgeInsets.symmetric(vertical: 2),
+                    elevation: 12,
                     shadowColor: Colors.black54,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
@@ -119,7 +145,10 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
                                   minWidth: constraints.maxWidth,
                                 ),
                                 child: Padding(
-                                  padding: const EdgeInsets.all(8.0),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
                                   child: Center(
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -130,11 +159,15 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
                                           final isSelected =
                                               selectedIndex == index;
                                           return GestureDetector(
+                                            key: _tabKeys[index],
                                             onTap: () {
                                               setState(
                                                 () => selectedIndex = index,
                                               );
-                                              scrollToIndex(index);
+                                              WidgetsBinding.instance
+                                                  .addPostFrameCallback((_) {
+                                                    _scrollToIndex(index);
+                                                  });
                                               if (widget.onTabSelected !=
                                                   null) {
                                                 widget.onTabSelected!(index);
@@ -151,7 +184,7 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
                                               padding:
                                                   const EdgeInsets.symmetric(
                                                     horizontal: 16,
-                                                    vertical: 10,
+                                                    vertical: 6,
                                                   ),
                                               decoration: BoxDecoration(
                                                 color: isSelected
@@ -265,8 +298,8 @@ class _BottomActionButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 48,
-        width: 48,
+        height: 40,
+        width: 40,
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
           color: Color(0xFF823D3D),

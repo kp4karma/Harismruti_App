@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
@@ -84,6 +85,7 @@ class _GalleryTimelineScreenState extends State<GalleryTimelineScreen> {
     Navigator.push(
       context,
       CupertinoPageRoute(
+        settings: const RouteSettings(name: 'Gallery Detail'),
         builder: (_) => GalleryDetailScreen(
           title: '${picked.day} ${_monthLabel(picked.month)} ${picked.year}',
           subtitle: 'Selected Date',
@@ -217,6 +219,7 @@ class _GalleryTimelineScreenState extends State<GalleryTimelineScreen> {
                     Navigator.push(
                       context,
                       CupertinoPageRoute(
+                        settings: const RouteSettings(name: 'Gallery Detail'),
                         builder: (_) => GalleryDetailScreen(
                           title: '${bucket.day} ${_monthLabel(_month!)} $_year',
                           subtitle: '${bucket.count} Photos',
@@ -453,11 +456,12 @@ class _YearBoxList extends StatelessWidget {
                 card: yearCard,
                 headers: headers,
                 width: double.infinity,
+                overlappingTitle: true,
                 onTap: () =>
                     onYearSelected(int.tryParse(yearCard.value) ?? yearCard.id),
               ),
             ),
-            if (yearCard != years.last) const SizedBox(height: 12),
+            if (yearCard != years.last) const SizedBox(height: 4),
           ],
         ],
       ),
@@ -503,7 +507,7 @@ class _BucketList extends StatelessWidget {
           final bucket = buckets[index];
           if (!compactTitle) {
             return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: 4),
               child: SizedBox(
                 height: 255,
                 child: GalleryMosaicCard(
@@ -520,6 +524,7 @@ class _BucketList extends StatelessWidget {
                   ),
                   headers: headers,
                   width: double.infinity,
+                  overlappingTitle: true,
                   onTap: () => onTap(bucket),
                 ),
               ),
@@ -564,15 +569,16 @@ class _TimelinePhotoSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visiblePhotos = photos;
-    final spacing = crossAxisCount <= 2 ? 3.0 : 1.5;
-    final aspectRatio = crossAxisCount == 1
-        ? 1.25
-        : crossAxisCount == 2
-        ? 0.92
-        : 1.0;
+    final compactPhone = MediaQuery.sizeOf(context).width < 600;
+    final effectiveColumns = visiblePhotos.isEmpty
+        ? 1
+        : compactPhone
+        ? _compactTimelineColumns(visiblePhotos.length, crossAxisCount)
+        : crossAxisCount.clamp(1, visiblePhotos.length);
+    final spacing = effectiveColumns <= 2 ? 4.0 : 2.0;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -589,7 +595,7 @@ class _TimelinePhotoSection extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: Colors.black.withAlpha(230),
-                        fontSize: crossAxisCount <= 2 ? 28 : 20,
+                        fontSize: effectiveColumns <= 2 ? 24 : 20,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -615,26 +621,26 @@ class _TimelinePhotoSection extends StatelessWidget {
           if (visiblePhotos.isEmpty)
             const GalleryShimmerBox(height: 150, borderRadius: 0)
           else
-            GridView.builder(
+            MasonryGridView.count(
               shrinkWrap: true,
               primary: false,
               physics: const NeverScrollableScrollPhysics(),
               padding: EdgeInsets.zero,
               itemCount: visiblePhotos.length,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: crossAxisCount,
-                crossAxisSpacing: spacing,
-                mainAxisSpacing: spacing,
-                childAspectRatio: aspectRatio,
-              ),
+              crossAxisCount: effectiveColumns,
+              crossAxisSpacing: spacing,
+              mainAxisSpacing: spacing,
               itemBuilder: (context, index) {
                 final photo = visiblePhotos[index];
-                return GestureDetector(
-                  onTap: onPhotoTap,
-                  child: _TimelinePhotoTile(
-                    photo: photo,
-                    headers: headers,
-                    large: crossAxisCount <= 2,
+                return AspectRatio(
+                  aspectRatio: _timelinePhotoAspectRatio(photo, index),
+                  child: GestureDetector(
+                    onTap: onPhotoTap,
+                    child: _TimelinePhotoTile(
+                      photo: photo,
+                      headers: headers,
+                      large: effectiveColumns <= 2,
+                    ),
                   ),
                 );
               },
@@ -643,6 +649,13 @@ class _TimelinePhotoSection extends StatelessWidget {
       ),
     );
   }
+}
+
+int _compactTimelineColumns(int photoCount, int maximumColumns) {
+  if (photoCount <= 1) return 1;
+  if (photoCount == 3) return maximumColumns.clamp(1, 3);
+  if (photoCount <= 6) return maximumColumns.clamp(1, 2);
+  return maximumColumns.clamp(1, 3);
 }
 
 class _TimelinePhotoTile extends StatelessWidget {
@@ -666,11 +679,22 @@ class _TimelinePhotoTile extends StatelessWidget {
           imageUrl: photo.thumbnailUrl,
           title: photo.title ?? 'Smruti',
           headers: headers,
-          fit: BoxFit.contain,
+          fit: BoxFit.cover,
         ),
       ),
     );
   }
+}
+
+double _timelinePhotoAspectRatio(GalleryPhoto photo, int index) {
+  final width = photo.width;
+  final height = photo.height;
+  if (width != null && width > 0 && height != null && height > 0) {
+    return (width / height).clamp(0.68, 1.55);
+  }
+
+  const fallbackRatios = [0.78, 1.2, 0.92, 1.35, 0.72, 1.0];
+  return fallbackRatios[index % fallbackRatios.length];
 }
 
 class _TimelineShimmer extends StatelessWidget {
