@@ -119,48 +119,33 @@ class _StoryCircle extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: ClipOval(
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      NetworkImageWithLoader(
-                        imageUrl: group.photos.first.thumbnailUrl,
-                        title: group.label,
-                        headers: headers,
-                      ),
-                      Positioned(
-                        right: 3,
-                        bottom: 3,
-                        child: Container(
-                          width: 24 * scale,
-                          height: 24 * scale,
-                          decoration: BoxDecoration(
-                            color: primaryColor,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
-                          ),
-                          child: Icon(
-                            group.icon,
-                            color: Colors.white,
-                            size: 12 * scale,
-                          ),
-                        ),
-                      ),
-                    ],
+                  child: NetworkImageWithLoader(
+                    imageUrl: group.photos.first.thumbnailUrl,
+                    title: group.label,
+                    headers: headers,
                   ),
                 ),
               ),
             ),
             SizedBox(height: 7 * scale),
-            Text(
-              group.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: const Color(0xFF2B211B),
-                fontSize: 12 * scale,
-                fontWeight: FontWeight.w900,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(group.icon, color: primaryColor, size: 12 * scale),
+                SizedBox(width: 3 * scale),
+                Flexible(
+                  child: Text(
+                    group.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: const Color(0xFF2B211B),
+                      fontSize: 12 * scale,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -390,62 +375,101 @@ List<_StoryGroup> _buildStoryGroups({
   required Iterable<GalleryPhoto> publicPhotos,
   required Iterable<GalleryPhoto> mySmrutiPhotos,
 }) {
-  List<GalleryPhoto> takeTen(Iterable<GalleryPhoto> photos) =>
-      photos.take(10).toList(growable: false);
+  const storyLimit = 5;
+  final usedPhotoKeys = <String>{};
+  final groupsByType = <_StoryType, _StoryGroup>{};
 
-  final groups = <_StoryGroup>[];
-  final mine = takeTen(mySmrutiPhotos);
+  final mine = <GalleryPhoto>[];
+  for (final photo in mySmrutiPhotos) {
+    if (!usedPhotoKeys.add(_photoKey(photo))) continue;
+    mine.add(photo);
+    if (mine.length == storyLimit) break;
+  }
   if (mine.isNotEmpty) {
-    groups.add(
-      _StoryGroup(
-        type: _StoryType.mySmruti,
-        label: 'My Smruti',
-        icon: CupertinoIcons.person_crop_circle_fill,
-        photos: mine,
-      ),
+    groupsByType[_StoryType.mySmruti] = _StoryGroup(
+      type: _StoryType.mySmruti,
+      label: 'My Smruti',
+      icon: CupertinoIcons.person_crop_circle_fill,
+      photos: mine,
     );
   }
 
-  void addPublicGroup({
+  void buildDistinctPublicGroup({
     required _StoryType type,
     required String label,
     required IconData icon,
-    required bool Function(GalleryPhoto) include,
+    required String? Function(GalleryPhoto) valueFor,
+    bool requireDistinctValues = true,
   }) {
-    final photos = takeTen(publicPhotos.where(include));
-    if (photos.isEmpty) return;
-    groups.add(
-      _StoryGroup(type: type, label: label, icon: icon, photos: photos),
+    final seenValues = <String>{};
+    final selected = <GalleryPhoto>[];
+    for (final photo in publicPhotos) {
+      final value = valueFor(photo)?.trim() ?? '';
+      if (value.isEmpty) continue;
+      final valueKey = value.toLowerCase();
+      final photoKey = _photoKey(photo);
+      if ((requireDistinctValues && seenValues.contains(valueKey)) ||
+          usedPhotoKeys.contains(photoKey)) {
+        continue;
+      }
+      seenValues.add(valueKey);
+      usedPhotoKeys.add(photoKey);
+      selected.add(photo);
+      if (selected.length == storyLimit) break;
+    }
+    if (selected.isEmpty) return;
+    groupsByType[type] = _StoryGroup(
+      type: type,
+      label: label,
+      icon: icon,
+      photos: selected,
     );
   }
 
-  addPublicGroup(
-    type: _StoryType.location,
-    label: 'Location',
-    icon: CupertinoIcons.location_solid,
-    include: (photo) =>
-        _hasValue(photo.location) || _hasValue(photo.subLocation),
-  );
-  addPublicGroup(
+  // Specific metadata gets first choice. Location is the broad fallback,
+  // preventing it from consuming every image before the other stories.
+  buildDistinctPublicGroup(
     type: _StoryType.darshan,
     label: 'Darshan',
     icon: CupertinoIcons.person_2_fill,
-    include: (photo) => _hasValue(photo.darshanOf),
+    valueFor: (photo) => photo.darshanOf,
+    requireDistinctValues: false,
   );
-  addPublicGroup(
+  buildDistinctPublicGroup(
     type: _StoryType.withSmruti,
     label: 'With',
     icon: CupertinoIcons.person_3_fill,
-    include: (photo) => _hasValue(photo.smrutiWith),
+    valueFor: (photo) => photo.smrutiWith,
   );
-  addPublicGroup(
+  buildDistinctPublicGroup(
     type: _StoryType.smrutiOf,
     label: 'Smruti Of',
     icon: CupertinoIcons.sparkles,
-    include: (photo) => _hasValue(photo.smrutiOf),
+    valueFor: (photo) => photo.smrutiOf,
   );
-  return groups;
+  buildDistinctPublicGroup(
+    type: _StoryType.location,
+    label: 'Location',
+    icon: CupertinoIcons.location_solid,
+    valueFor: (photo) =>
+        _hasValue(photo.subLocation) ? photo.subLocation : photo.location,
+  );
+
+  const displayOrder = [
+    _StoryType.mySmruti,
+    _StoryType.location,
+    _StoryType.darshan,
+    _StoryType.withSmruti,
+    _StoryType.smrutiOf,
+  ];
+  return displayOrder
+      .map((type) => groupsByType[type])
+      .whereType<_StoryGroup>()
+      .toList(growable: false);
 }
+
+String _photoKey(GalleryPhoto photo) =>
+    photo.id > 0 ? 'id:${photo.id}' : photo.thumbnailUrl;
 
 bool _isOnThisDay(GalleryPhoto photo) {
   final date = photo.eventDate ?? photo.takenAt;
