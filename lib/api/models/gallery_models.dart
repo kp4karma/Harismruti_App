@@ -135,6 +135,17 @@ class GalleryPhoto {
   factory GalleryPhoto.fromJson(dynamic raw) {
     final json = asJsonMap(raw);
     final id = _readInt(json, const ['id', 'photo_id', 'photoId']) ?? 0;
+    // Most gallery endpoints expose `event_date`, while `/me/smruti` exposes
+    // the already-resolved best date as `photo_date`.
+    final displayDate = DateTime.tryParse(
+      _readString(json, const [
+            'event_date',
+            'eventDate',
+            'photo_date',
+            'photoDate',
+          ]) ??
+          '',
+    );
     final thumb = _readString(json, const [
       'thumbnail_url',
       'thumbnailUrl',
@@ -160,10 +171,8 @@ class GalleryPhoto {
       fullUrl: _absoluteUrl(full, id, fullSize: true),
       title: _readString(json, const ['title', 'name', 'caption']),
       subtitle: _readString(json, const ['subtitle']),
-      takenAt: DateTime.tryParse(_readString(json, const ['event_date']) ?? ''),
-      eventDate: DateTime.tryParse(
-        _readString(json, const ['event_date']) ?? '',
-      ),
+      takenAt: displayDate,
+      eventDate: displayDate,
       width: _readInt(json, const ['width', 'image_width', 'imageWidth', 'w']),
       height: _readInt(json, const [
         'height',

@@ -50,9 +50,22 @@ void main() {
       expect(photo.eventDate, DateTime.parse('2005-05-30T00:00:00Z'));
     });
 
-    test('does not fall back when event_date is absent', () {
+    test('uses the resolved photo_date returned by My Smruti', () {
       final photo = GalleryPhoto.fromJson({
         'id': 43,
+        'photo_date': '2005-05-29T20:00:00Z',
+        'taken_at': '2005-05-29T20:00:00Z',
+        'inferred_date': '2005-05-28T00:00:00Z',
+        'created_at': '2026-07-25T00:00:00Z',
+      });
+
+      expect(photo.takenAt, DateTime.parse('2005-05-29T20:00:00Z'));
+      expect(photo.eventDate, DateTime.parse('2005-05-29T20:00:00Z'));
+    });
+
+    test('does not use unrelated timestamps when display date is absent', () {
+      final photo = GalleryPhoto.fromJson({
+        'id': 44,
         'taken_at': '2005-05-29T20:00:00Z',
         'inferred_date': '2005-05-28T00:00:00Z',
         'created_at': '2026-07-25T00:00:00Z',
