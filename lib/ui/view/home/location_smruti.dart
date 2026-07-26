@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/widget/gallery/gallery_card_widgets.dart';
@@ -84,71 +85,39 @@ class _LocationSmrutiState extends State<LocationSmruti>
         return const GalleryEmptyState(height: 180);
       }
 
-      final groupCount = (locations.length / 3).ceil();
-      final itemCount = groupCount <= 1 ? groupCount : groupCount * 200;
+      final itemCount = locations.length <= 1
+          ? locations.length
+          : locations.length * 200;
 
       return SizedBox(
         height: 310,
         child: NotificationListener<ScrollNotification>(
           onNotification: _handleScrollNotification,
-          child: ListView.builder(
+          child: MasonryGridView.count(
             controller: _scrollController,
             physics: const BouncingScrollPhysics(),
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            padding: const EdgeInsets.fromLTRB(16, 2, 16, 12),
+            crossAxisCount: 2,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
             itemCount: itemCount,
             itemBuilder: (context, index) {
-              final layoutWidth = MediaQuery.of(context).size.width * 0.8;
-              final groupIndex = index % groupCount;
-              final firstIndex = groupIndex * 3;
-              final secondIndex = firstIndex + 1;
-              final thirdIndex = firstIndex + 2;
-              final bottomCards = [
-                if (secondIndex < locations.length) locations[secondIndex],
-                if (thirdIndex < locations.length) locations[thirdIndex],
-              ];
-              final bigCard = GalleryGridCard(
-                card: locations[firstIndex],
-                headers: galleryController.imageHeaders,
-                aspectRatio: 1,
-                fillParent: true,
-                imageFit: BoxFit.cover,
-              );
-              final smallRow = Row(
-                children: [
-                  for (var item = 0; item < bottomCards.length; item++) ...[
-                    Expanded(
-                      child: GalleryGridCard(
-                        card: bottomCards[item],
-                        headers: galleryController.imageHeaders,
-                        aspectRatio: 1,
-                        fillParent: true,
-                        imageFit: BoxFit.cover,
-                      ),
-                    ),
-                    if (item != bottomCards.length - 1)
-                      const SizedBox(width: 6),
-                  ],
-                ],
-              );
-
+              final card = locations[index % locations.length];
+              final cardWidth = switch (index % 5) {
+                0 => 210.0,
+                1 => 160.0,
+                2 => 188.0,
+                3 => 228.0,
+                _ => 176.0,
+              };
               return SizedBox(
-                width: layoutWidth,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 5),
-                  child: Column(
-                    children: groupIndex.isEven
-                        ? [
-                            Expanded(flex: 6, child: bigCard),
-                            const SizedBox(height: 6),
-                            Expanded(flex: 4, child: smallRow),
-                          ]
-                        : [
-                            Expanded(flex: 4, child: smallRow),
-                            const SizedBox(height: 6),
-                            Expanded(flex: 6, child: bigCard),
-                          ],
-                  ),
+                width: cardWidth,
+                child: GalleryGridCard(
+                  card: card,
+                  headers: galleryController.imageHeaders,
+                  fillParent: true,
+                  imageFit: BoxFit.cover,
                 ),
               );
             },

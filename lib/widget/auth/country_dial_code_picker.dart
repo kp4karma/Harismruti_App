@@ -17,7 +17,7 @@ final List<BoxShadow> kPhoneInputShadow = [
   ),
 ];
 
-class CountryDialCodePicker extends StatelessWidget {
+class CountryDialCodePicker extends StatefulWidget {
   final String countryCode;
   final ValueChanged<String> onChanged;
 
@@ -26,6 +26,36 @@ class CountryDialCodePicker extends StatelessWidget {
     required this.countryCode,
     required this.onChanged,
   });
+
+  @override
+  State<CountryDialCodePicker> createState() => _CountryDialCodePickerState();
+}
+
+class _CountryDialCodePickerState extends State<CountryDialCodePicker> {
+  late String _selectedCountry;
+  late String _selectedDialCode;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDialCode = widget.countryCode;
+    _selectedCountry = _selectionFor(widget.countryCode);
+  }
+
+  @override
+  void didUpdateWidget(covariant CountryDialCodePicker oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.countryCode != _selectedDialCode) {
+      _selectedDialCode = widget.countryCode;
+      _selectedCountry = _selectionFor(widget.countryCode);
+    }
+  }
+
+  String _selectionFor(String value) {
+    // USA and Canada share +1. Use USA when restoring a dial-code-only value;
+    // an explicit ISO selection is retained in _selectedCountry while mounted.
+    return value == '+1' ? 'US' : value;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,9 +79,13 @@ class CountryDialCodePicker extends StatelessWidget {
             onChanged: (country) {
               final dialCode = country.dialCode;
               if (dialCode == null || dialCode.isEmpty) return;
-              onChanged(dialCode);
+              setState(() {
+                _selectedDialCode = dialCode;
+                _selectedCountry = country.code ?? dialCode;
+              });
+              widget.onChanged(dialCode);
             },
-            initialSelection: countryCode,
+            initialSelection: _selectedCountry,
             favorite: const ['IN', '+91'],
             showFlagDialog: true,
             flagWidth: 22,
@@ -74,7 +108,7 @@ class CountryDialCodePicker extends StatelessWidget {
                     ),
                   const SizedBox(width: 7),
                   Text(
-                    country?.dialCode ?? countryCode,
+                    country?.dialCode ?? widget.countryCode,
                     style: const TextStyle(
                       color: Color(0xFF322318),
                       fontSize: 15,

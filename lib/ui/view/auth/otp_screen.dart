@@ -95,7 +95,7 @@ class _OTPScreenState extends State<OTPScreen> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(isKeyboardOpen ? 0 : 30),
                   child: Container(
-                    height: SizeConfig.heightMultiplier! * 60,
+                    height: SizeConfig.heightMultiplier! * 42,
                     color: isKeyboardOpen ? Colors.white60 : Colors.transparent,
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
