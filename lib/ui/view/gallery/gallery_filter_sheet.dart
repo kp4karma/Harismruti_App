@@ -94,13 +94,16 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
       }
       if (values.isEmpty) _selectedValues.remove(group.slug);
     });
-    _controller.loadFilters(selected: _selectedForApi, force: true);
   }
 
   List<GalleryFilterGroup> _availableGroups(List<GalleryFilterGroup> groups) {
     final availableGroups = groups
         .map(_withAvailableOptions)
-        .where((group) => group.options.isNotEmpty)
+        .where(
+          (group) =>
+              group.options.isNotEmpty ||
+              group.slug.trim().toLowerCase() == 'my_smruti',
+        )
         .toList();
     availableGroups.sort(
       (first, second) => _filterGroupOrder(
@@ -156,7 +159,6 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
       _selectedIndex = 0;
     });
     _searchController.clear();
-    _controller.loadFilters(force: true);
   }
 
   void _applyFilters() {
@@ -237,13 +239,14 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
               ),
               Expanded(
                 child: Obx(() {
-                  if (_controller.areFiltersLoading.value ||
-                      _controller.isMyLibraryLoading.value) {
+                  final currentGroups = _controller.filtersWithUserTags;
+                  if ((_controller.areFiltersLoading.value ||
+                          _controller.isMyLibraryLoading.value ||
+                          _controller.areMySmrutiFiltersLoading.value) &&
+                      currentGroups.isEmpty) {
                     return const _FilterSheetLoading();
                   }
-                  final availableGroups = _availableGroups(
-                    _controller.filtersWithUserTags,
-                  );
+                  final availableGroups = _availableGroups(currentGroups);
                   if (availableGroups.isEmpty) {
                     if (_controller.filtersError.value.isNotEmpty) {
                       return _FilterSheetError(
@@ -443,6 +446,7 @@ String _filterGroupDisplayTitle(GalleryFilterGroup group) {
 
 int _filterGroupOrder(String slug) {
   return switch (slug.trim().toLowerCase()) {
+    'my_smruti' => -2,
     'user_tag' => -1,
     'subject' => 0,
     'person' => 1,

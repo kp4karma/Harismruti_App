@@ -88,11 +88,13 @@ class GalleryController extends GetxController {
   final RxList<GalleryFilterGroup> filters = <GalleryFilterGroup>[].obs;
   final RxBool areFiltersLoading = false.obs;
   final RxBool isMyLibraryLoading = false.obs;
+  final RxBool areMySmrutiFiltersLoading = false.obs;
   final RxString filtersError = ''.obs;
   final RxSet<int> favoritePhotoIds = <int>{}.obs;
   final RxMap<int, GalleryPhoto> savedPhotos = <int, GalleryPhoto>{}.obs;
   final RxMap<int, List<String>> userTags = <int, List<String>>{}.obs;
   final RxList<String> userTagNames = <String>[].obs;
+  final RxList<GalleryPhoto> mySmrutiPhotos = <GalleryPhoto>[].obs;
   final RxList<UserPhotoCollection> userCollections =
       <UserPhotoCollection>[].obs;
 
@@ -163,9 +165,13 @@ class GalleryController extends GetxController {
 
   List<GalleryFilterGroup> get filtersWithUserTags {
     final groups = filters.toList();
+    final mySmrutiGroup = _buildMySmrutiFilterGroup();
     final customTagGroup = _buildUserTagFilterGroup();
-    if (customTagGroup == null) return groups;
-    return [customTagGroup, ...groups];
+    return [
+      mySmrutiGroup,
+      if (customTagGroup != null) customTagGroup,
+      ...groups,
+    ];
   }
 
   List<String> get allUserCollectionNames {
@@ -598,7 +604,8 @@ class GalleryController extends GetxController {
     bool force = false,
   }) async {
     final serverSelected = Map<String, List<String>>.from(selected)
-      ..remove(_userTagFilterSlug);
+      ..remove(_userTagFilterSlug)
+      ..remove(_mySmrutiFilterSlug);
     if (!force && serverSelected.isEmpty && filters.isNotEmpty) return;
     final requestId = ++_filtersRequestId;
     areFiltersLoading.value = true;
@@ -625,7 +632,51 @@ class GalleryController extends GetxController {
   Future<void> resetFiltersForSheet() async {
     filters.assignAll(_filterSnapshots[selectedSwami.value] ?? const []);
     filtersError.value = '';
-    await Future.wait([loadFilters(force: true), loadMyLibrary()]);
+    await Future.wait([
+      loadFilters(force: true),
+      loadMyLibrary(),
+      loadMySmrutiFilterPhotos(),
+    ]);
+  }
+
+  Future<void> loadMySmrutiFilterPhotos() async {
+    if (!StorageHelper.isLogin()) {
+      mySmrutiPhotos.clear();
+      return;
+    }
+    areMySmrutiFiltersLoading.value = true;
+    try {
+      const pageSize = 50;
+      const maxPages = 50;
+      final photos = <GalleryPhoto>[];
+      final seenIds = <int>{};
+      var offset = 0;
+      var total = 0;
+      var pagesFetched = 0;
+
+      do {
+        final data = await _repository.getMySmruti(
+          offset: offset,
+          limit: pageSize,
+        );
+        final pagePhotos =
+            (data['photos'] is List ? data['photos'] as List : const [])
+                .map(GalleryPhoto.fromJson)
+                .where((photo) => photo.id > 0 && seenIds.add(photo.id))
+                .toList();
+        photos.addAll(pagePhotos);
+        total = int.tryParse('${data['total']}') ?? photos.length;
+        pagesFetched++;
+        offset += pageSize;
+        if (pagePhotos.isEmpty) break;
+      } while (photos.length < total && pagesFetched < maxPages);
+
+      mySmrutiPhotos.assignAll(photos);
+    } catch (_) {
+      mySmrutiPhotos.clear();
+    } finally {
+      areMySmrutiFiltersLoading.value = false;
+    }
   }
 
   Future<List<GalleryPhoto>> loadPhotosForCard(
@@ -683,7 +734,9 @@ class GalleryController extends GetxController {
   }) {
     if (selected.length == 1) {
       final entry = selected.entries.first;
-      if (entry.key != _userTagFilterSlug && entry.value.length == 1) {
+      if (entry.key != _userTagFilterSlug &&
+          entry.key != _mySmrutiFilterSlug &&
+          entry.value.length == 1) {
         return loadPhotosForFilter(
           slug: entry.key,
           value: entry.value.first,
@@ -693,6 +746,16 @@ class GalleryController extends GetxController {
     }
 
     final selectedUserTags = selected[_userTagFilterSlug] ?? const <String>[];
+    final selectedMySmrutiTags =
+        selected[_mySmrutiFilterSlug] ?? const <String>[];
+    if (selectedMySmrutiTags.isNotEmpty) {
+      return _loadPhotosForMySmrutiTags(
+        selected: selected,
+        selectedTags: selectedMySmrutiTags,
+        page: page,
+        perPage: 120,
+      );
+    }
     if (selectedUserTags.isNotEmpty) {
       return _loadPhotosForUserTags(
         selected: selected,
@@ -706,6 +769,74 @@ class GalleryController extends GetxController {
       page: page,
       perPage: 120,
     );
+  }
+
+  Future<List<GalleryPhoto>> _loadPhotosForMySmrutiTags({
+    required Map<String, List<String>> selected,
+    required List<String> selectedTags,
+    required int page,
+    required int perPage,
+  }) async {
+    final wantedTags = selectedTags
+        .map((tag) => tag.trim().toLowerCase())
+        .where((tag) => tag.isNotEmpty)
+        .toSet();
+    var matches = mySmrutiPhotos
+        .where(
+          (photo) => photo.tags.any(
+            (tag) => wantedTags.contains(tag.trim().toLowerCase()),
+          ),
+        )
+        .toList();
+
+    final selectedUserTags = selected[_userTagFilterSlug] ?? const <String>[];
+    if (selectedUserTags.isNotEmpty) {
+      final wantedUserTags = selectedUserTags
+          .map((tag) => tag.trim().toLowerCase())
+          .where((tag) => tag.isNotEmpty)
+          .toSet();
+      matches = matches
+          .where(
+            (photo) => (userTags[photo.id] ?? const <String>[]).any(
+              (tag) => wantedUserTags.contains(tag.trim().toLowerCase()),
+            ),
+          )
+          .toList();
+    }
+
+    final serverSelected = Map<String, List<String>>.from(selected)
+      ..remove(_mySmrutiFilterSlug)
+      ..remove(_userTagFilterSlug);
+    if (serverSelected.isNotEmpty && matches.isNotEmpty) {
+      final matchingIds = matches.map((photo) => photo.id).toSet();
+      final filtered = <GalleryPhoto>[];
+      var serverPage = 1;
+      const serverPageSize = 200;
+      while (true) {
+        final photos = await _repository.getFilteredPhotos(
+          selected: serverSelected,
+          page: serverPage,
+          perPage: serverPageSize,
+        );
+        filtered.addAll(
+          photos.where((photo) => matchingIds.contains(photo.id)),
+        );
+        if (photos.length < serverPageSize) break;
+        serverPage++;
+      }
+      matches = filtered;
+    }
+
+    matches.sort((a, b) {
+      final first = a.eventDate ?? a.takenAt;
+      final second = b.eventDate ?? b.takenAt;
+      if (first == null) return second == null ? 0 : 1;
+      if (second == null) return -1;
+      return second.compareTo(first);
+    });
+    final start = (page - 1) * perPage;
+    if (start >= matches.length) return const [];
+    return matches.sublist(start, min(start + perPage, matches.length));
   }
 
   Future<List<GalleryPhoto>> _loadPhotosForUserTags({
@@ -991,6 +1122,38 @@ class GalleryController extends GetxController {
   }
 
   static const String _userTagFilterSlug = 'user_tag';
+  static const String _mySmrutiFilterSlug = 'my_smruti';
+
+  GalleryFilterGroup _buildMySmrutiFilterGroup() {
+    final labels = <String, String>{};
+    final counts = <String, int>{};
+    for (final photo in mySmrutiPhotos) {
+      final photoTags = <String>{};
+      for (final rawTag in photo.tags) {
+        final tag = rawTag.trim();
+        final key = tag.toLowerCase();
+        if (key.isEmpty || !photoTags.add(key)) continue;
+        labels.putIfAbsent(key, () => tag);
+        counts[key] = (counts[key] ?? 0) + 1;
+      }
+    }
+    final options =
+        labels.entries
+            .map(
+              (entry) => GalleryFilterOption(
+                value: entry.value,
+                label: entry.value,
+                count: counts[entry.key] ?? 0,
+              ),
+            )
+            .toList()
+          ..sort(_compareGalleryFilterOptions);
+    return GalleryFilterGroup(
+      slug: _mySmrutiFilterSlug,
+      title: 'My Smruti',
+      options: options,
+    );
+  }
 
   GalleryFilterGroup? _buildUserTagFilterGroup() {
     final tags = allUserTags;
@@ -1019,4 +1182,9 @@ class GalleryController extends GetxController {
           .toList(),
     );
   }
+
+  static int _compareGalleryFilterOptions(
+    GalleryFilterOption first,
+    GalleryFilterOption second,
+  ) => first.label.toLowerCase().compareTo(second.label.toLowerCase());
 }
