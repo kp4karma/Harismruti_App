@@ -16,6 +16,8 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 @pragma('vm:entry-point')
 class NotificationService {
+  static const String developerTopic = 'developer_only';
+
   static const List<String> topics = [
     'recent',
     'smruti_with',
@@ -28,6 +30,11 @@ class NotificationService {
     'my_diary',
     'my_favorite',
     'my_collection',
+  ];
+
+  static List<String> get _topicsToSubscribe => [
+    ...topics,
+    if (kDebugMode) developerTopic,
   ];
 
   static final FlutterLocalNotificationsPlugin _plugin =
@@ -122,9 +129,18 @@ class NotificationService {
   }
 
   static Future<void> _subscribeToTopics() async {
-    for (final topic in topics) {
+    if (!kDebugMode) {
+      // Remove a subscription left behind if this installation was upgraded
+      // from a developer build to a release build.
+      await FirebaseMessaging.instance.unsubscribeFromTopic(developerTopic);
+    }
+
+    for (final topic in _topicsToSubscribe) {
       try {
         await FirebaseMessaging.instance.subscribeToTopic(topic);
+        if (kDebugMode) {
+          debugPrint('Subscribed to FCM topic "$topic".');
+        }
       } catch (error) {
         // One transient subscription failure must not disable the remaining
         // notification topics.
