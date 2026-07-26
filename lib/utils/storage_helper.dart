@@ -24,6 +24,8 @@ class StorageKeys {
   static const String authCarouselImages = 'authCarouselImages';
   static const String reorderTutorialSeen = 'reorderTutorialSeenV2';
   static const String selectedSwami = 'selectedSwami';
+  static const String fcmTopicsSubscriptionVersion =
+      'fcmTopicsSubscriptionVersion';
   static const String lastMobileNumber = 'lastMobileNumber';
   static const String lastMobileCountryCode = 'lastMobileCountryCode';
 }

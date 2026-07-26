@@ -11,12 +11,14 @@ import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/firebase_options.dart';
+import 'package:harismruti/utils/storage_helper.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 @pragma('vm:entry-point')
 class NotificationService {
   static const String developerTopic = 'developer_only';
+  static const int _topicSubscriptionVersion = 1;
 
   static const List<String> topics = [
     'recent',
@@ -101,7 +103,7 @@ class NotificationService {
     if (!_tokenRefreshListenerAttached) {
       FirebaseMessaging.instance.onTokenRefresh.listen((fcmToken) async {
         debugPrint('FCM token refreshed: $fcmToken');
-        await _subscribeToTopics();
+        await _subscribeToTopics(force: true);
       });
       _tokenRefreshListenerAttached = true;
     }
@@ -128,24 +130,60 @@ class NotificationService {
     _initialised = true;
   }
 
-  static Future<void> _subscribeToTopics() async {
+  static Future<void> _subscribeToTopics({bool force = false}) async {
+    final savedVersion = StorageHelper.getValue<int>(
+      key: StorageKeys.fcmTopicsSubscriptionVersion,
+      defaultValue: 0,
+    );
+    if (!force && savedVersion == _topicSubscriptionVersion) return;
+
+    final subscriptions = <Future<void>>[];
     if (!kDebugMode) {
       // Remove a subscription left behind if this installation was upgraded
       // from a developer build to a release build.
-      await FirebaseMessaging.instance.unsubscribeFromTopic(developerTopic);
+      subscriptions.add(
+        FirebaseMessaging.instance.unsubscribeFromTopic(developerTopic),
+      );
     }
 
     for (final topic in _topicsToSubscribe) {
-      try {
-        await FirebaseMessaging.instance.subscribeToTopic(topic);
+      subscriptions.add(FirebaseMessaging.instance.subscribeToTopic(topic));
+    }
+
+    final results = await Future.wait(
+      subscriptions.map((subscription) async {
+        try {
+          await subscription;
+          return null;
+        } catch (error) {
+          return error;
+        }
+      }),
+    );
+
+    for (var index = 0; index < results.length; index++) {
+      final error = results[index];
+      final isDeveloperUnsubscribe = !kDebugMode && index == 0;
+      final topicIndex = index - (!kDebugMode ? 1 : 0);
+      final topic = isDeveloperUnsubscribe
+          ? developerTopic
+          : _topicsToSubscribe[topicIndex];
+      if (error == null) {
         if (kDebugMode) {
           debugPrint('Subscribed to FCM topic "$topic".');
         }
-      } catch (error) {
+      } else {
         // One transient subscription failure must not disable the remaining
         // notification topics.
         debugPrint('Could not subscribe to FCM topic "$topic": $error');
       }
+    }
+
+    if (results.every((error) => error == null)) {
+      StorageHelper.setValue(
+        key: StorageKeys.fcmTopicsSubscriptionVersion,
+        value: _topicSubscriptionVersion,
+      );
     }
   }
 

@@ -71,7 +71,7 @@ class GalleryRepository {
     final response = await ApiClient.get(
       ApiEndpoints.onThisDay,
       queryParams: _scopedQueryParams({'limit': limit}),
-      forceRefresh: true,
+      cacheDuration: const Duration(hours: 1),
     );
     return GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items;
   }

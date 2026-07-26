@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:get/get.dart';
 import 'package:harismruti/api/models/app_version_info.dart';
 import 'package:harismruti/api/repositories/app_version_repository.dart';
 import 'package:harismruti/api/api_client.dart';
@@ -40,9 +42,6 @@ class SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _checkInternetAndNavigate() async {
-    final splashDelay = Future<void>.delayed(
-      const Duration(milliseconds: 2200),
-    );
     final connectivity = await Connectivity().checkConnectivity();
     final hasInternet =
         connectivity.contains(ConnectivityResult.wifi) ||
@@ -53,21 +52,6 @@ class SplashScreenState extends State<SplashScreen>
       Future.delayed(const Duration(milliseconds: 500), () {
         InternetStatusWidget.showNoInternetDialog();
       });
-    } else {
-      try {
-        final versionInfo = await const AppVersionRepository()
-            .checkCurrentVersion();
-        if (versionInfo?.updateRequired == true) {
-          await splashDelay;
-          if (!mounted) return;
-          await _showRequiredUpdateSheet(versionInfo!);
-          return;
-        }
-      } catch (error) {
-        if (kDebugMode) {
-          debugPrint('App version check failed: $error');
-        }
-      }
     }
 
     if (hasInternet && StorageHelper.isLogin()) {
@@ -76,7 +60,7 @@ class SplashScreenState extends State<SplashScreen>
           ApiEndpoints.verifyToken,
           forceRefresh: true,
           cacheDuration: Duration.zero,
-        );
+        ).timeout(const Duration(seconds: 2));
       } catch (error) {
         if (kDebugMode) {
           debugPrint('Stored login verification failed: $error');
@@ -89,15 +73,36 @@ class SplashScreenState extends State<SplashScreen>
       }
     }
 
-    await splashDelay;
     if (!mounted) return;
 
     NavigationHelper.navigateAndRemoveAll(AppRoutes.home);
+    if (hasInternet) {
+      unawaited(_checkVersionAfterAppOpen());
+    }
+  }
+
+  Future<void> _checkVersionAfterAppOpen() async {
+    // Let Home paint before starting this noncritical network request.
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    try {
+      final versionInfo = await const AppVersionRepository()
+          .checkCurrentVersion()
+          .timeout(const Duration(seconds: 5));
+      if (versionInfo?.updateRequired == true) {
+        await _showRequiredUpdateSheet(versionInfo!);
+      }
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint('App version check failed: $error');
+      }
+    }
   }
 
   Future<void> _showRequiredUpdateSheet(AppVersionInfo versionInfo) {
+    final overlayContext = Get.overlayContext ?? Get.context;
+    if (overlayContext == null) return Future<void>.value();
     return showModalBottomSheet<void>(
-      context: context,
+      context: overlayContext,
       isDismissible: false,
       enableDrag: false,
       useSafeArea: true,
@@ -204,9 +209,10 @@ class SplashScreenState extends State<SplashScreen>
     final uri = Uri.tryParse(storeUrl);
     if (uri == null ||
         !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open the app store.')),
+      Get.snackbar(
+        'Update unavailable',
+        'Could not open the app store.',
+        snackPosition: SnackPosition.BOTTOM,
       );
     }
   }

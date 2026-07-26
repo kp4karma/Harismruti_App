@@ -126,9 +126,10 @@ class GalleryController extends GetxController {
     _restorePersistedSwami();
     _restoreSnapshots();
     loadMyLibrary();
-    // Render the persisted snapshot immediately, but always validate it once
-    // per app launch so newly imported/edited photos appear on this restart.
-    loadHome(force: true);
+    // Render a recent persisted snapshot immediately without spending network
+    // data. Stale or missing snapshots are refreshed in the background.
+    final snapshot = _tabSnapshots[selectedSwami.value];
+    loadHome(force: snapshot == null || _isSnapshotStale(snapshot));
   }
 
   void _restorePersistedSwami() {
@@ -689,7 +690,7 @@ class GalleryController extends GetxController {
       return _repository.getPersonPhotos(
         groupId: card.id,
         page: page,
-        perPage: 120,
+        perPage: 60,
       );
     }
     if (card.type == 'collection') {
@@ -698,7 +699,7 @@ class GalleryController extends GetxController {
         return _repository.getCollectionYearPhotos(
           year: year,
           page: page,
-          perPage: 120,
+          perPage: 60,
         );
       }
     }
@@ -706,7 +707,7 @@ class GalleryController extends GetxController {
       slug: card.type,
       value: card.value,
       page: page,
-      perPage: 120,
+      perPage: 60,
     );
   }
 
@@ -719,14 +720,14 @@ class GalleryController extends GetxController {
       return _repository.getCollectionYearPhotos(
         year: int.tryParse(value) ?? 0,
         page: page,
-        perPage: 120,
+        perPage: 60,
       );
     }
     return _repository.getByAttributePhotos(
       slug: slug,
       value: value,
       page: page,
-      perPage: 120,
+      perPage: 60,
     );
   }
 
@@ -755,7 +756,7 @@ class GalleryController extends GetxController {
         selected: selected,
         selectedTags: selectedMySmrutiTags,
         page: page,
-        perPage: 120,
+        perPage: 60,
       );
     }
     if (selectedUserTags.isNotEmpty) {
@@ -763,7 +764,7 @@ class GalleryController extends GetxController {
         selected: selected,
         selectedUserTags: selectedUserTags,
         page: page,
-        perPage: 120,
+        perPage: 60,
       );
     }
     return _repository.getFilteredPhotos(
