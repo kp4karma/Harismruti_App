@@ -34,6 +34,7 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
   static AndroidNotificationChannel? _channel;
   static bool _initialised = false;
+  static bool _foregroundListenerAttached = false;
 
   @pragma('vm:entry-point')
   static Future<void> firebaseBackgroundHandler(RemoteMessage message) async {
@@ -46,18 +47,15 @@ class NotificationService {
   static Future<void> setupFlutterNotifications() async {
     if (_initialised) return;
 
-    await FirebaseMessaging.instance.requestPermission(
+    final settings = await FirebaseMessaging.instance.requestPermission(
       alert: true,
       sound: true,
       badge: true,
     );
+    if (settings.authorizationStatus == AuthorizationStatus.denied) {
+      debugPrint('Notification permission was denied by the user.');
+    }
     await FirebaseMessaging.instance.setAutoInitEnabled(true);
-    await Future.wait(topics.map(FirebaseMessaging.instance.subscribeToTopic));
-
-    final token = Platform.isAndroid
-        ? await FirebaseMessaging.instance.getToken()
-        : await FirebaseMessaging.instance.getAPNSToken();
-    debugPrint('FCM token: $token');
 
     _channel = const AndroidNotificationChannel(
       'high_importance_channel',
@@ -71,6 +69,43 @@ class NotificationService {
         >()
         ?.createNotificationChannel(_channel!);
 
+    // On Apple devices FCM cannot create a token or subscribe to topics until
+    // APNs has registered the app. Registration may complete shortly after the
+    // permission prompt, so give it a small bounded wait.
+    if (Platform.isIOS || Platform.isMacOS) {
+      String? apnsToken;
+      for (var attempt = 0; attempt < 10 && apnsToken == null; attempt++) {
+        apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+        if (apnsToken == null) {
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+        }
+      }
+      if (apnsToken == null) {
+        debugPrint(
+          'APNs token is not available yet; FCM setup will retry next launch.',
+        );
+      }
+    }
+
+    // getToken() returns the FCM registration token on both Android and iOS.
+    // getAPNSToken() is an Apple transport token and must not be sent to FCM.
+    try {
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+      debugPrint('FCM token: $fcmToken');
+    } catch (error) {
+      debugPrint('Could not obtain FCM token: $error');
+    }
+
+    for (final topic in topics) {
+      try {
+        await FirebaseMessaging.instance.subscribeToTopic(topic);
+      } catch (error) {
+        // One transient subscription failure must not disable all notification
+        // listeners and foreground presentation.
+        debugPrint('Could not subscribe to FCM topic "$topic": $error');
+      }
+    }
+
     await FirebaseMessaging.instance
         .setForegroundNotificationPresentationOptions(
           alert: true,
@@ -82,6 +117,8 @@ class NotificationService {
   }
 
   static Future<void> attachForegroundListener() async {
+    if (_foregroundListenerAttached) return;
+
     const initSettings = InitializationSettings(
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
       iOS: DarwinInitializationSettings(),
@@ -98,6 +135,7 @@ class NotificationService {
     );
 
     FirebaseMessaging.onMessage.listen(_showNotification);
+    _foregroundListenerAttached = true;
   }
 
   static Future<void> _showNotification(RemoteMessage message) async {
