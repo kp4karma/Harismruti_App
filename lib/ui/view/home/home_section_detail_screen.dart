@@ -355,6 +355,10 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
             widget.title == SmrutiSectionKeys.myFavorite ||
             widget.title == 'My Favot' ||
             widget.title == 'My Favorites';
+        final showMySmrutiMetadata =
+            widget.title == SmrutiSectionKeys.myPhotos ||
+            widget.title == 'My Phone' ||
+            widget.title == 'My Photos';
         return MasonryGridView.count(
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -367,7 +371,20 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
             child: _PhotoPosterCard(
               photo: photos[index],
               headers: _controller.imageHeaders,
-              showTitle: showPhotoTitles,
+              showTitle: showPhotoTitles || showMySmrutiMetadata,
+              title: showMySmrutiMetadata
+                  ? _galleryPhotoTitle(
+                      photos[index],
+                      additionalTags: _controller.tagsForPhoto(
+                        photos[index].id,
+                      ),
+                    )
+                  : null,
+              dateLabel: showMySmrutiMetadata
+                  ? _formatDate(
+                      photos[index].eventDate ?? photos[index].takenAt,
+                    )
+                  : null,
               onTap: () => _openPhotoGallery(photos, index),
             ),
           ),
@@ -1474,12 +1491,16 @@ class _PhotoPosterCard extends StatelessWidget {
   final GalleryPhoto photo;
   final Map<String, String>? headers;
   final bool showTitle;
+  final String? title;
+  final String? dateLabel;
   final VoidCallback onTap;
 
   const _PhotoPosterCard({
     required this.photo,
     required this.headers,
     this.showTitle = true,
+    this.title,
+    this.dateLabel,
     required this.onTap,
   });
 
@@ -1527,15 +1548,34 @@ class _PhotoPosterCard extends StatelessWidget {
                 left: 10,
                 right: 10,
                 bottom: 10,
-                child: Text(
-                  _galleryPhotoTitle(photo),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 13,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title ?? _galleryPhotoTitle(photo),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                      ),
+                    ),
+                    if (dateLabel != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        dateLabel!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withAlpha(220),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],

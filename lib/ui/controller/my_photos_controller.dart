@@ -156,7 +156,9 @@ class MyPhotosController extends GetxController {
   final RxBool isUploading = false.obs;
   final RxBool isFetchingMatches = false.obs;
   final RxBool isCheckingMapping = false.obs;
+  final RxBool isFlowInitialized = false.obs;
   final RxBool hasPhoneMapping = false.obs;
+  final RxBool isServerPendingSmruti = false.obs;
   final RxBool faceSearchCompleted = false.obs;
   final RxnInt faceSearchRequestId = RxnInt();
   final RxString helperMessage = ''.obs;
@@ -219,18 +221,19 @@ class MyPhotosController extends GetxController {
 
   bool get isVerified => overallReviewStatus == MyPhotoReviewStatus.verified;
   bool get hasMatchedSmruti => matchedPhotos.isNotEmpty;
-  // A phone mapping can exist before its matched photos have finished
-  // processing. Do not turn that transient state into "Smruti not found".
   bool get smrutiLookupFinished => faceSearchCompleted.value;
   bool get canShowMatchedSmruti => hasMatchedSmruti;
   bool get canShowUploadSection =>
+      isFlowInitialized.value &&
+      !isServerPendingSmruti.value &&
       !smrutiLookupFinished &&
       (overallReviewStatus == MyPhotoReviewStatus.draft ||
           overallReviewStatus == MyPhotoReviewStatus.rejected);
   bool get isRejected => overallReviewStatus == MyPhotoReviewStatus.rejected;
   bool get isPendingReview =>
       !smrutiLookupFinished &&
-      overallReviewStatus == MyPhotoReviewStatus.pending;
+      (overallReviewStatus == MyPhotoReviewStatus.pending ||
+          isServerPendingSmruti.value);
 
   bool get canEditUploads => !isVerified;
   Map<String, String> get imageHeaders => _repository.imageHeaders;
@@ -238,6 +241,7 @@ class MyPhotosController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    _syncLocalStateToCurrentUser();
     _loadPhotos();
     refreshSmrutiFlow();
   }
@@ -327,6 +331,7 @@ class MyPhotosController extends GetxController {
   }
 
   Future<void> submitForReview() async {
+    if (isUploading.value) return;
     if (!canSubmitRequiredPhotos) {
       helperMessage.value = 'Front face selfie is compulsory.';
       return;
@@ -424,8 +429,10 @@ class MyPhotosController extends GetxController {
 
   Future<void> refreshSmrutiFlow() async {
     if (!StorageHelper.isLogin() || isCheckingMapping.value) return;
+    _syncLocalStateToCurrentUser();
     if (kDebugMode) _debugProbeMyLibrary();
     isCheckingMapping.value = true;
+    isFlowInitialized.value = false;
     try {
       if (await _loadPhoneMapping()) return;
       final storedId = StorageHelper.getValue<int>(
@@ -441,6 +448,7 @@ class MyPhotosController extends GetxController {
       helperMessage.value = error.toString().replaceFirst('Exception: ', '');
     } finally {
       isCheckingMapping.value = false;
+      isFlowInitialized.value = true;
     }
   }
 
@@ -479,9 +487,19 @@ class MyPhotosController extends GetxController {
       limit: _mySmrutiPageSize,
     );
     if (firstPage['found'] != true) {
+      isServerPendingSmruti.value = firstPage['pending'] == true;
       hasPhoneMapping.value = false;
+      if (isServerPendingSmruti.value) {
+        matchedPhotos.clear();
+        faceSearchCompleted.value = false;
+        helperMessage.value =
+            firstPage['message']?.toString() ??
+            'Your Smruti request is processed and awaiting final approval.';
+      }
       return false;
     }
+
+    isServerPendingSmruti.value = false;
 
     final seenIds = <int>{};
     final mapped = <GalleryPhoto>[];
@@ -524,10 +542,11 @@ class MyPhotosController extends GetxController {
       StorageHelper.removeValue(StorageKeys.mySmrutiRequestId);
       helperMessage.value = 'Your Smruti photos are ready.';
     } else {
+      faceSearchCompleted.value = false;
       helperMessage.value =
           'Your selfie is saved. We are still fetching your Smruti photos.';
     }
-    return true;
+    return mapped.isNotEmpty;
   }
 
   Future<void> _refreshRequestStatus(int requestId) async {
@@ -911,9 +930,36 @@ class MyPhotosController extends GetxController {
     _sortPhotos();
   }
 
+  void _syncLocalStateToCurrentUser() {
+    final currentOwner = _repository.currentPhoneNumber();
+    if (currentOwner.isEmpty) return;
+
+    final storedOwner = StorageHelper.getValue<String>(
+      key: StorageKeys.mySmrutiOwnerKey,
+      defaultValue: '',
+    );
+    if (storedOwner == currentOwner) return;
+
+    StorageHelper.setValue(
+      key: StorageKeys.mySmrutiOwnerKey,
+      value: currentOwner,
+    );
+    StorageHelper.removeValue(StorageKeys.myPhotos);
+    StorageHelper.removeValue(StorageKeys.myPhotosSubmitted);
+    StorageHelper.removeValue(StorageKeys.mySmrutiRequestId);
+    photos.clear();
+    matchedPhotos.clear();
+    isServerPendingSmruti.value = false;
+    faceSearchCompleted.value = false;
+    faceSearchRequestId.value = null;
+    helperMessage.value = '';
+    _statusTimer?.cancel();
+  }
+
   Future<void> _loadRemotePhotos() async {
     if (!StorageHelper.isLogin()) return;
     try {
+      _syncLocalStateToCurrentUser();
       final library = await _repository.getMyLibrary();
       final remote = library['user_images'] is List
           ? (library['user_images'] as List)
@@ -921,20 +967,6 @@ class MyPhotosController extends GetxController {
                 .where((photo) => photo.hasRemoteImage)
                 .toList()
           : <MyPhotoItem>[];
-      final matched =
-          (library['photos'] is List ? library['photos'] as List : const [])
-              .map(GalleryPhoto.fromJson)
-              .where((photo) => photo.id > 0)
-              .toList();
-      debugPrint(
-        'MyPhotosController._loadRemotePhotos: '
-        'raw_photos=${library['photos'] is List ? (library['photos'] as List).length : 0} '
-        'matched=${matched.length}',
-      );
-      matchedPhotos.assignAll(matched);
-      if (matched.isNotEmpty) {
-        faceSearchCompleted.value = true;
-      }
       if (remote.isNotEmpty) {
         final stalePaths = photos
             .where((photo) => photo.hasLocalFile)
@@ -950,8 +982,10 @@ class MyPhotosController extends GetxController {
       if (remote.any(
         (photo) => photo.reviewStatus == MyPhotoReviewStatus.verified,
       )) {
-        faceSearchCompleted.value = true;
         await fetchServerMatches();
+      } else {
+        matchedPhotos.clear();
+        faceSearchCompleted.value = false;
       }
     } catch (_) {}
   }
@@ -962,27 +996,19 @@ class MyPhotosController extends GetxController {
     }
     isFetchingMatches.value = true;
     try {
+      _syncLocalStateToCurrentUser();
       if (Get.isRegistered<GalleryController>()) {
         final galleryController = Get.find<GalleryController>();
         await galleryController.loadMyLibrary();
         await galleryController.loadHome(force: true);
       }
-      final library = await _repository.getMyLibrary();
-      final matched =
-          (library['photos'] is List ? library['photos'] as List : const [])
-              .map(GalleryPhoto.fromJson)
-              .where((photo) => photo.id > 0)
-              .toList();
-      debugPrint(
-        'MyPhotosController.fetchServerMatches: '
-        'raw_photos=${library['photos'] is List ? (library['photos'] as List).length : 0} '
-        'matched=${matched.length}',
-      );
-      matchedPhotos.assignAll(matched);
-      faceSearchCompleted.value = true;
-      helperMessage.value = matched.isEmpty
-          ? 'Smruti not found.'
-          : 'Verified. Your smruti photos are ready.';
+      final found = await _loadPhoneMapping();
+      if (!found) {
+        matchedPhotos.clear();
+        faceSearchCompleted.value = false;
+        helperMessage.value =
+            'Verified. We are still fetching your Smruti photos.';
+      }
     } catch (error) {
       helperMessage.value = error.toString().replaceFirst('Exception: ', '');
     } finally {

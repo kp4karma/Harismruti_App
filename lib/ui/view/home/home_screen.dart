@@ -73,13 +73,20 @@ class _HomeScreenState extends State<HomeScreen>
     return Obx(() {
       final sortedVisibleSections =
           sectionController.sections
-              .where((section) => section['is_show'] == true)
+              .where(
+                (section) =>
+                    section['is_show'] == true &&
+                    _hasHomeSectionContent(section['title'].toString()),
+              )
               .toList()
             ..sort((a, b) => a['order_index'].compareTo(b['order_index']));
       final displaySections = sortedVisibleSections
           .take(sectionController.visibleCount.value)
           .toList();
       final bottomSystemInset = MediaQuery.of(context).viewPadding.bottom;
+      final bottomContentPadding = sectionController.showBottomBar.value
+          ? 96.0 + bottomSystemInset
+          : 24.0 + bottomSystemInset;
 
       return CustomBackground(
         child: Center(
@@ -155,7 +162,7 @@ class _HomeScreenState extends State<HomeScreen>
                           ],
                         ),
                       ),
-                      const SizedBox(height: kBottomNavigationBarHeight),
+                      SizedBox(height: bottomContentPadding),
                     ],
                   ),
                 ),
@@ -196,6 +203,14 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   bool _hasSectionDetailAction(String title) {
+    if (title == SmrutiSectionKeys.myPhotos ||
+        title == 'My Phone' ||
+        title == 'My Photos') {
+      // The arrow opens the matched-photo detail gallery. Hide it while the
+      // user is uploading, waiting, rejected, fetching, or has no matches.
+      return myPhotosController.hasMatchedSmruti;
+    }
+
     return switch (title) {
       SmrutiSectionKeys.recent ||
       SmrutiSectionKeys.withSmruti ||
@@ -204,18 +219,29 @@ class _HomeScreenState extends State<HomeScreen>
       SmrutiSectionKeys.album ||
       SmrutiSectionKeys.ofSmruti ||
       SmrutiSectionKeys.yearCollection ||
-      SmrutiSectionKeys.myPhotos ||
       SmrutiSectionKeys.myDiary ||
       SmrutiSectionKeys.myCollection ||
       SmrutiSectionKeys.myFavorite ||
       'Collection' ||
-      'My Phone' ||
-      'My Photos' ||
       'My Diray' ||
       'My Collectino' ||
       'My Favot' ||
       'My Favorites' => true,
       _ => false,
     };
+  }
+
+  bool _hasHomeSectionContent(String title) {
+    if (title == SmrutiSectionKeys.myFavorite ||
+        title == 'My Favot' ||
+        title == 'My Favorites') {
+      return galleryController.favoritePhotos.isNotEmpty;
+    }
+
+    if (title == SmrutiSectionKeys.myCollection || title == 'My Collectino') {
+      return galleryController.userCollections.isNotEmpty;
+    }
+
+    return true;
   }
 }

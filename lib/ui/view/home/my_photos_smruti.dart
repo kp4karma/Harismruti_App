@@ -12,6 +12,7 @@ import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/bootstrap.dart';
 import 'package:harismruti/helper/auth_redirect_helper.dart';
 import 'package:harismruti/ui/controller/my_photos_controller.dart';
+import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
@@ -51,7 +52,11 @@ class MyPhotosSmruti extends StatelessWidget {
                   Navigator.push(
                     context,
                     CupertinoPageRoute(
-                      builder: (_) => const MyPhoneGuideScreen(),
+                      builder: (_) => GalleryFullscreenViewer(
+                        photos: matchedPhotos.toList(growable: false),
+                        initialIndex: index,
+                        title: 'My Smruti',
+                      ),
                     ),
                   );
                 },
@@ -70,6 +75,8 @@ class MyPhotosSmruti extends StatelessWidget {
           .length;
       final status = !StorageHelper.isLogin()
           ? 'Login required'
+          : !controller.isFlowInitialized.value
+          ? 'Checking status'
           : controller.smrutiLookupFinished
           ? 'Smruti not found'
           : switch (controller.overallReviewStatus) {
@@ -133,6 +140,8 @@ class MyPhotosSmruti extends StatelessWidget {
                     Text(
                       controller.hasMatchedSmruti
                           ? 'Photos linked with your phone number.'
+                          : !controller.isFlowInitialized.value
+                          ? 'Checking your Smruti status.'
                           : controller.smrutiLookupFinished
                           ? 'No matching Smruti photos are available.'
                           : 'Add a live front selfie to find your smruti.',
@@ -156,7 +165,8 @@ class MyPhotosSmruti extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(CupertinoIcons.chevron_right, color: primaryColor),
+              if (controller.isFlowInitialized.value)
+                Icon(CupertinoIcons.chevron_right, color: primaryColor),
             ],
           ),
         ),
@@ -219,6 +229,14 @@ class _MyPhoneGuideScreenState extends State<MyPhoneGuideScreen> {
         elevation: 0,
       ),
       body: Obx(() {
+        if (!controller.isFlowInitialized.value &&
+            controller.photos.isEmpty &&
+            controller.matchedPhotos.isEmpty) {
+          return Center(
+            child: CircularProgressIndicator(color: primaryColor),
+          );
+        }
+
         return CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
@@ -233,7 +251,8 @@ class _MyPhoneGuideScreenState extends State<MyPhoneGuideScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (controller.photos.isNotEmpty &&
+                    if ((controller.photos.isNotEmpty ||
+                            controller.isServerPendingSmruti.value) &&
                         !controller.smrutiLookupFinished) ...[
                       _ReviewStatePanel(controller: controller),
                       const SizedBox(height: 12),
@@ -252,7 +271,8 @@ class _MyPhoneGuideScreenState extends State<MyPhoneGuideScreen> {
                     ],
                     if (controller.helperMessage.value.isNotEmpty) ...[
                       const SizedBox(height: 8),
-                      _MessageBox(message: controller.helperMessage.value),
+                      if (!_shouldHideHelperMessage(controller))
+                        _MessageBox(message: controller.helperMessage.value),
                     ],
                     if (_showEditor && controller.canShowUploadSection) ...[
                       const SizedBox(height: 12),
@@ -780,17 +800,23 @@ class _SubmitCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isSubmitting = controller.isUploading.value;
+    final isFetching = controller.isFetchingMatches.value;
     final canSubmit =
-        controller.canSubmitTrainingSet && !controller.isUploading.value;
-    final label = switch (controller.overallReviewStatus) {
-      MyPhotoReviewStatus.verified => 'Verified',
-      MyPhotoReviewStatus.pending =>
-        controller.hasUnsavedChanges
-            ? 'Update & Submit for Approval'
-            : 'Pending Admin Approval',
-      MyPhotoReviewStatus.rejected => 'Submit for Approval',
-      MyPhotoReviewStatus.draft => 'Submit for Approval',
-    };
+        controller.canSubmitTrainingSet && !isSubmitting && !isFetching;
+    final label = isSubmitting
+        ? 'Submitting...'
+        : isFetching
+        ? 'Fetching Smruti...'
+        : switch (controller.overallReviewStatus) {
+            MyPhotoReviewStatus.verified => 'Verified',
+            MyPhotoReviewStatus.pending =>
+              controller.hasUnsavedChanges
+                  ? 'Update & Submit for Approval'
+                  : 'Pending Admin Approval',
+            MyPhotoReviewStatus.rejected => 'Submit for Approval',
+            MyPhotoReviewStatus.draft => 'Submit for Approval',
+          };
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
@@ -804,7 +830,7 @@ class _SubmitCard extends StatelessWidget {
             : controller.isVerified
             ? controller.fetchServerMatches
             : null,
-        icon: controller.isUploading.value || controller.isFetchingMatches.value
+        icon: isSubmitting || isFetching
             ? const SizedBox(
                 height: 18,
                 width: 18,
@@ -822,8 +848,12 @@ class _SubmitCard extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryColor,
           foregroundColor: Colors.white,
-          disabledBackgroundColor: Colors.grey.shade300,
-          disabledForegroundColor: Colors.grey.shade700,
+          disabledBackgroundColor: isSubmitting || isFetching
+              ? primaryColor
+              : Colors.grey.shade300,
+          disabledForegroundColor: isSubmitting || isFetching
+              ? Colors.white
+              : Colors.grey.shade700,
           elevation: 0,
           padding: const EdgeInsets.symmetric(vertical: 15),
           shape: RoundedRectangleBorder(
@@ -868,7 +898,7 @@ class _MatchedPhotosSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!controller.smrutiLookupFinished) {
+    if (!controller.smrutiLookupFinished || !controller.isFlowInitialized.value) {
       return const SizedBox.shrink();
     }
     final photos = controller.matchedPhotos;
@@ -876,6 +906,9 @@ class _MatchedPhotosSection extends StatelessWidget {
       return const _ServerFetchPanel();
     }
     if (photos.isEmpty) {
+      if (controller.overallReviewStatus != MyPhotoReviewStatus.verified) {
+        return const SizedBox.shrink();
+      }
       return const _SmrutiNotFoundPanel();
     }
     return Column(
@@ -918,6 +951,17 @@ class _MatchedPhotosSection extends StatelessWidget {
   }
 }
 
+bool _shouldHideHelperMessage(MyPhotosController controller) {
+  if (!controller.isFlowInitialized.value) return true;
+  if (controller.hasMatchedSmruti) return true;
+  final status = controller.overallReviewStatus;
+  if (status == MyPhotoReviewStatus.pending) return true;
+  if (status == MyPhotoReviewStatus.verified && !controller.smrutiLookupFinished) {
+    return true;
+  }
+  return false;
+}
+
 class _ReviewStatePanel extends StatelessWidget {
   final MyPhotosController controller;
 
@@ -925,8 +969,12 @@ class _ReviewStatePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (controller.photos.isEmpty) return const SizedBox.shrink();
-    final status = controller.overallReviewStatus;
+    if (controller.photos.isEmpty && !controller.isServerPendingSmruti.value) {
+      return const SizedBox.shrink();
+    }
+    final status = controller.isServerPendingSmruti.value
+        ? MyPhotoReviewStatus.pending
+        : controller.overallReviewStatus;
     final title = switch (status) {
       MyPhotoReviewStatus.verified =>
         controller.hasMatchedSmruti

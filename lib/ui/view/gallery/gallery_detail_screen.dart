@@ -748,7 +748,6 @@ class _MosaicTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.find<GalleryController>();
     return GestureDetector(
       onTap: () {
         if (selectionMode) {
@@ -784,31 +783,6 @@ class _MosaicTile extends StatelessWidget {
                   fit: BoxFit.cover,
                 ),
               ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: 54,
-                child: Obx(() {
-                  final tags = _combinedTags(
-                    photo.tags,
-                    controller.tagsForPhoto(photo.id),
-                  );
-                  if (tags.isEmpty) return const SizedBox.shrink();
-                  return DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withAlpha(35),
-                        ],
-                      ),
-                    ),
-                  );
-                }),
-              ),
               if (selectionMode)
                 Positioned(
                   top: 8,
@@ -824,72 +798,9 @@ class _MosaicTile extends StatelessWidget {
                     ],
                   ),
                 ),
-              Positioned(
-                left: 8,
-                right: 8,
-                bottom: 8,
-                child: Obx(() {
-                  final tags = _combinedTags(
-                    photo.tags,
-                    controller.tagsForPhoto(photo.id),
-                  );
-                  if (tags.isEmpty) return const SizedBox.shrink();
-                  return _PhotoTagStrip(tags: tags.take(3).toList());
-                }),
-              ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  List<String> _combinedTags(List<String> baseTags, List<String> userTags) {
-    final tags = <String, String>{};
-    for (final tag in [...baseTags, ...userTags]) {
-      final clean = tag.trim();
-      if (clean.isEmpty) continue;
-      tags.putIfAbsent(clean.toLowerCase(), () => clean);
-    }
-    return tags.values.toList();
-  }
-}
-
-class _PhotoTagStrip extends StatelessWidget {
-  final List<String> tags;
-
-  const _PhotoTagStrip({required this.tags});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      type: MaterialType.transparency,
-      child: Wrap(
-        spacing: 5,
-        runSpacing: 5,
-        children: [
-          for (final tag in tags)
-            Container(
-              constraints: const BoxConstraints(maxWidth: 108),
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withAlpha(224),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: Colors.white.withAlpha(180)),
-              ),
-              child: Text(
-                tag,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: primaryColor,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w900,
-                  height: 1,
-                ),
-              ),
-            ),
-        ],
       ),
     );
   }
@@ -940,6 +851,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   bool _isIgnoring = false;
   Offset _lastDoubleTapPosition = Offset.zero;
   int _gesturePointerCount = 1;
+  final Set<int> _activeViewerPointers = <int>{};
   late final List<GalleryPhoto> _localPhotos;
 
   @override
@@ -1289,6 +1201,28 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     _lastDoubleTapPosition = details.localPosition;
   }
 
+  void _handleViewerPointerDown(PointerDownEvent event) {
+    _activeViewerPointers.add(event.pointer);
+    if (_activeViewerPointers.length != 2 || _zoomModeActive) return;
+
+    // Lock the PageView as soon as the second finger lands. Waiting for
+    // InteractiveViewer's scale recognizer allows a horizontal page drag to
+    // move briefly before the pinch gesture wins the arena.
+    setState(() => _zoomModeActive = true);
+  }
+
+  void _handleViewerPointerEnd(PointerEvent event) {
+    _activeViewerPointers.remove(event.pointer);
+    if (_activeViewerPointers.isNotEmpty ||
+        _isZoomed ||
+        !_zoomModeActive ||
+        !mounted) {
+      return;
+    }
+
+    setState(() => _zoomModeActive = false);
+  }
+
   void _handleZoomInteractionStart(ScaleStartDetails details) {
     _zoomAnimationController.stop();
     _clearZoomAnimation();
@@ -1560,56 +1494,64 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       body: Stack(
         children: [
           _reactive(
-            () => PageView.builder(
-              controller: _pageController,
-              itemCount: _photosList.length,
-              allowImplicitScrolling: true,
-              physics: _zoomModeActive
-                  ? const NeverScrollableScrollPhysics()
-                  : const PageScrollPhysics(),
-              onPageChanged: (value) {
-                setState(() {
-                  _index = value;
-                  _resetZoom(animated: false, restoreChrome: false);
-                });
-                _precacheAround(value);
-                _centerThumbnail(value);
-                _maybeLoadMoreRecent(value);
-              },
-              itemBuilder: (context, index) {
-                final photo = _photosList[index];
-                return GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _toggleChrome,
-                  onDoubleTapDown: _rememberDoubleTapPosition,
-                  onDoubleTap: _toggleZoom,
-                  child: InteractiveViewer(
-                    transformationController: _transformationController,
-                    minScale: 1,
-                    maxScale: 5,
-                    scaleEnabled: true,
-                    panEnabled: _zoomModeActive,
-                    boundaryMargin: const EdgeInsets.all(96),
-                    clipBehavior: Clip.none,
-                    onInteractionStart: _handleZoomInteractionStart,
-                    onInteractionUpdate: _handleZoomInteractionUpdate,
-                    onInteractionEnd: _handleZoomInteractionEnd,
-                    child: Center(
-                      child: Hero(
-                        tag: 'photo-${photo.id}',
-                        child: RepaintBoundary(
-                          child: _FullscreenImage(
-                            photo: photo,
-                            title: widget.title,
-                            headers: _controller.imageHeaders,
-                            chromeVisible: _chromeVisible,
+            () => Listener(
+              behavior: HitTestBehavior.translucent,
+              onPointerDown: _handleViewerPointerDown,
+              onPointerUp: _handleViewerPointerEnd,
+              onPointerCancel: _handleViewerPointerEnd,
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: _photosList.length,
+                allowImplicitScrolling: true,
+                physics: _zoomModeActive
+                    ? const NeverScrollableScrollPhysics()
+                    : const PageScrollPhysics(),
+                onPageChanged: (value) {
+                  setState(() {
+                    _index = value;
+                    _resetZoom(animated: false, restoreChrome: false);
+                  });
+                  _precacheAround(value);
+                  _centerThumbnail(value);
+                  _maybeLoadMoreRecent(value);
+                },
+                itemBuilder: (context, index) {
+                  final photo = _photosList[index];
+                  return ClipRect(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _toggleChrome,
+                      onDoubleTapDown: _rememberDoubleTapPosition,
+                      onDoubleTap: _toggleZoom,
+                      child: InteractiveViewer(
+                        transformationController: _transformationController,
+                        minScale: 1,
+                        maxScale: 5,
+                        scaleEnabled: true,
+                        panEnabled: _zoomModeActive,
+                        boundaryMargin: const EdgeInsets.all(96),
+                        clipBehavior: Clip.hardEdge,
+                        onInteractionStart: _handleZoomInteractionStart,
+                        onInteractionUpdate: _handleZoomInteractionUpdate,
+                        onInteractionEnd: _handleZoomInteractionEnd,
+                        child: Center(
+                          child: Hero(
+                            tag: 'photo-${photo.id}',
+                            child: RepaintBoundary(
+                              child: _FullscreenImage(
+                                photo: photo,
+                                title: widget.title,
+                                headers: _controller.imageHeaders,
+                                chromeVisible: _chromeVisible,
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
           SafeArea(
@@ -2553,9 +2495,7 @@ class _InlineInfoPanel extends StatelessWidget {
   final Future<GalleryPhotoAttributes> attributesFuture;
   final Future<String> imageSizeFuture;
   final Future<String> storageSizeFuture;
-  final GalleryController _controller = Get.find<GalleryController>();
-
-  _InlineInfoPanel({
+  const _InlineInfoPanel({
     required this.photo,
     required this.attributesFuture,
     required this.imageSizeFuture,
@@ -2629,48 +2569,6 @@ class _InlineInfoPanel extends StatelessWidget {
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 10),
-                Obx(() {
-                  final userTags = _mergedPhotoTags(
-                    photo.tags,
-                    _controller.tagsForPhoto(photo.id),
-                  );
-                  if (userTags.isEmpty) return const SizedBox.shrink();
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final tag in userTags)
-                          Chip(
-                            label: Text(tag),
-                            deleteIcon:
-                                _controller.tagsForPhoto(photo.id).contains(tag)
-                                ? const Icon(
-                                    CupertinoIcons.xmark_circle_fill,
-                                    size: 18,
-                                  )
-                                : null,
-                            onDeleted:
-                                _controller.tagsForPhoto(photo.id).contains(tag)
-                                ? () {
-                                    _controller.removeTagFromPhoto(
-                                      photo.id,
-                                      tag,
-                                    );
-                                  }
-                                : null,
-                            backgroundColor: primaryColor.withAlpha(24),
-                            labelStyle: TextStyle(
-                              color: primaryColor,
-                              fontWeight: FontWeight.w800,
-                            ),
-                            side: BorderSide(color: primaryColor.withAlpha(45)),
-                          ),
-                      ],
-                    ),
-                  );
-                }),
                 if (snapshot.connectionState != ConnectionState.done)
                   const GalleryShimmerBox(height: 86, borderRadius: 18)
                 else if (entries.isEmpty)
@@ -2745,16 +2643,6 @@ class _InlineInfoPanel extends StatelessWidget {
       'Dec',
     ];
     return '${localDate.day} ${months[localDate.month - 1]} ${localDate.year}';
-  }
-
-  List<String> _mergedPhotoTags(List<String> baseTags, List<String> userTags) {
-    final tags = <String, String>{};
-    for (final tag in [...baseTags, ...userTags]) {
-      final clean = tag.trim();
-      if (clean.isEmpty) continue;
-      tags.putIfAbsent(clean.toLowerCase(), () => clean);
-    }
-    return tags.values.toList();
   }
 }
 

@@ -3,6 +3,7 @@ import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/bootstrap.dart';
+import 'package:harismruti/services/shorebird_update_service.dart';
 import 'package:harismruti/ui/controller/global_binding.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_routes.dart';
@@ -22,6 +23,31 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  final _messengerKey = GlobalKey<ScaffoldMessengerState>();
+  final _shorebirdUpdates = ShorebirdUpdateService();
+  late final _lifecycleObserver = _AppLifecycleObserver(
+    onResumed: _checkForShorebirdUpdate,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(_lifecycleObserver);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForShorebirdUpdate();
+    });
+  }
+
+  void _checkForShorebirdUpdate() {
+    _shorebirdUpdates.checkForUpdate(_messengerKey);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(_lifecycleObserver);
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     // NotificationService.listenForInitialAndOpenedApp();
@@ -37,6 +63,7 @@ class _MyAppState extends State<MyApp> {
           SizeConfig().init(constraints, orientation);
 
           return GetMaterialApp(
+            scaffoldMessengerKey: _messengerKey,
             debugShowCheckedModeBanner: false,
             initialBinding: GlobalBindings(),
             title: 'Hari Smurti',
@@ -76,5 +103,18 @@ class _MyAppState extends State<MyApp> {
         },
       ),
     );
+  }
+}
+
+class _AppLifecycleObserver extends WidgetsBindingObserver {
+  _AppLifecycleObserver({required this.onResumed});
+
+  final VoidCallback onResumed;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      onResumed();
+    }
   }
 }
