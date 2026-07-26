@@ -180,11 +180,28 @@ class NotificationService {
         notification.android?.imageUrl ??
         notification.apple?.imageUrl;
     ByteArrayAndroidBitmap? bigPicture;
+    String? iOSAttachmentPath;
     if (imageUrl != null && imageUrl.isNotEmpty) {
       try {
         final response = await http.get(Uri.parse(imageUrl));
         if (response.statusCode >= 200 && response.statusCode < 300) {
           bigPicture = ByteArrayAndroidBitmap(response.bodyBytes);
+          if (Platform.isIOS) {
+            final uri = Uri.parse(imageUrl);
+            final sourceName = uri.pathSegments.isEmpty
+                ? 'notification.jpg'
+                : uri.pathSegments.last;
+            final extension = sourceName.contains('.')
+                ? sourceName.substring(sourceName.lastIndexOf('.'))
+                : '.jpg';
+            final attachment = File(
+              '${Directory.systemTemp.path}'
+              '${Platform.pathSeparator}notification-${message.messageId ?? notification.hashCode}'
+              '$extension',
+            );
+            await attachment.writeAsBytes(response.bodyBytes, flush: true);
+            iOSAttachmentPath = attachment.path;
+          }
         }
       } catch (error) {
         debugPrint('Could not load notification image: $error');
@@ -209,7 +226,11 @@ class NotificationService {
                   summaryText: notification.body,
                 ),
         ),
-        iOS: const DarwinNotificationDetails(),
+        iOS: DarwinNotificationDetails(
+          attachments: iOSAttachmentPath == null
+              ? null
+              : [DarwinNotificationAttachment(iOSAttachmentPath)],
+        ),
       ),
       payload: jsonEncode(message.data),
     );
