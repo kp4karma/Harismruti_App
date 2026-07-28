@@ -250,6 +250,8 @@ class SmrutiSectionController extends GetxController {
         .map(
           (e) => {
             "title": e['title'],
+            "display_name": e['display_name'] ?? e['title'],
+            "description": e['description'] ?? '',
             "order_index": e['order_index'],
             "is_show": e['user_is_show'] ?? e['is_show'],
             "user_is_show": e['user_is_show'] ?? e['is_show'],
@@ -424,6 +426,10 @@ class SmrutiSectionController extends GetxController {
       if (setting == null) continue;
       final userValue = section['user_is_show'] ?? section['is_show'] ?? true;
       section['is_show'] = setting.enabled && (userValue == true);
+      section['display_name'] = setting.displayName.isEmpty
+          ? section['title']
+          : setting.displayName;
+      section['description'] = setting.description;
       section['order_index'] = setting.orderIndex;
       section['order_mode'] = setting.orderMode;
       section['freshness_days'] = setting.freshnessDays;

@@ -178,7 +178,14 @@ class _HomeScreenState extends State<HomeScreen>
                         (section) => Column(
                           children: [
                             SubHeader(
-                              title: section['title'],
+                              title:
+                                  section['display_name']
+                                          ?.toString()
+                                          .trim()
+                                          .isNotEmpty ==
+                                      true
+                                  ? section['display_name'].toString()
+                                  : section['title'].toString(),
                               showAction: _hasSectionDetailAction(
                                 section['title'].toString(),
                               ),

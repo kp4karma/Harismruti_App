@@ -1,6 +1,7 @@
 class AppSectionSetting {
   final String sectionKey;
   final String displayName;
+  final String description;
   final bool enabled;
   final int orderIndex;
   final String orderMode;
@@ -10,6 +11,7 @@ class AppSectionSetting {
   const AppSectionSetting({
     required this.sectionKey,
     required this.displayName,
+    required this.description,
     required this.enabled,
     required this.orderIndex,
     required this.orderMode,
@@ -21,6 +23,7 @@ class AppSectionSetting {
     return AppSectionSetting(
       sectionKey: json['section_key']?.toString() ?? '',
       displayName: json['display_name']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
       enabled: json['enabled'] != false,
       orderIndex: int.tryParse(json['order_index']?.toString() ?? '') ?? 0,
       orderMode: json['order_mode']?.toString() ?? 'fresh_then_random',
@@ -33,6 +36,7 @@ class AppSectionSetting {
   Map<String, dynamic> toJson() => {
     'section_key': sectionKey,
     'display_name': displayName,
+    'description': description,
     'enabled': enabled,
     'order_index': orderIndex,
     'order_mode': orderMode,

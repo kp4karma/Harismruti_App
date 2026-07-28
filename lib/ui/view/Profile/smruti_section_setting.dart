@@ -65,11 +65,16 @@ class _SmrutiSectionSettingsScreenState
                     itemBuilder: (context, index) {
                       final section = sections[index];
                       final title = section['title'].toString();
+                      final displayName = section['display_name']
+                          ?.toString()
+                          .trim();
                       final isShown = section['is_show'] == true;
 
                       return _PreferenceOptionTile(
                         key: ValueKey(title),
-                        title: title,
+                        title: displayName?.isNotEmpty == true
+                            ? displayName!
+                            : title,
                         isShown: isShown,
                         icon: _iconForSection(title),
                         index: index,
