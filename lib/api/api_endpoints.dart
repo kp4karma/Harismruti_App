@@ -32,6 +32,10 @@ class ApiEndpoints {
     return _localDomain;
   }
 
+  static const String shareBaseUrl = "https://hpsmruti.suhrad.digital";
+  static String sharedPhoto(String token) =>
+      "$shareBaseUrl/api/public/hps/${Uri.encodeComponent(token)}";
+
   static String get home => "/home";
   static String get recent => "/recent";
   static String get onThisDay => "/on-this-day";

@@ -15,6 +15,7 @@ import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/api/repositories/gallery_repository.dart';
 import 'package:harismruti/helper/auth_redirect_helper.dart';
 import 'package:harismruti/helper/top_notification_helper.dart';
+import 'package:harismruti/services/deep_link_service.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/controller/my_photos_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_location_screen.dart';
@@ -1096,6 +1097,10 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       await SharePlus.instance.share(
         ShareParams(
           files: [XFile(filePath, mimeType: _shareMimeType(fileName))],
+          text: 'View this Smruti:\n${DeepLinkService.photoUri(_photo)}',
+          subject: _photo.title?.trim().isNotEmpty == true
+              ? _photo.title!.trim()
+              : 'HariPrabodham Smruti photo',
         ),
       );
     } catch (_) {

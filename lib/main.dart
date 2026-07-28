@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:harismruti/bootstrap.dart';
 import 'package:harismruti/services/shorebird_update_service.dart';
 import 'package:harismruti/services/analytics_service.dart';
+import 'package:harismruti/services/deep_link_service.dart';
 import 'package:harismruti/ui/controller/global_binding.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_routes.dart';
@@ -38,6 +39,7 @@ class _MyAppState extends State<MyApp> {
     WidgetsBinding.instance.addObserver(_lifecycleObserver);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(bootstrapDeferredServices());
+      unawaited(DeepLinkService.instance.start());
       _checkForShorebirdUpdate();
     });
   }

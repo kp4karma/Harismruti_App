@@ -99,6 +99,11 @@ class GalleryRepository {
     return GalleryPhotoAttributes.fromJson(response.data);
   }
 
+  Future<GalleryPhoto> getSharedPhoto(String token) async {
+    final response = await ApiClient.get(ApiEndpoints.sharedPhoto(token));
+    return GalleryPhoto.fromJson(response.data);
+  }
+
   Future<Map<String, dynamic>> getMyLibrary() async {
     final response = await ApiClient.get(
       ApiEndpoints.myLibrary,
