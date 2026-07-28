@@ -12,6 +12,7 @@ class StorageKeys {
   static const String onThisDaySectionOrderMigrated =
       'onThisDaySectionOrderMigratedV1';
   static const String appSectionVisibility = 'appSectionVisibility';
+  static const String appSectionSettings = 'appSectionSettings';
   static const String myPhotos = 'myPhotos';
   static const String myDiaryEntries = 'myDiaryEntries';
   static const String myPhotosSubmitted = 'myPhotosSubmitted';

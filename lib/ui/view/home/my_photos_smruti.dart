@@ -13,6 +13,7 @@ import 'package:harismruti/bootstrap.dart';
 import 'package:harismruti/helper/auth_redirect_helper.dart';
 import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:harismruti/ui/controller/my_photos_controller.dart';
+import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/responsive.dart';
@@ -36,7 +37,10 @@ class MyPhotosSmruti extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final matchedPhotos = controller.matchedPhotos;
+      final matchedPhotos = Get.find<GalleryController>().orderedSectionPhotos(
+        'my_smruti',
+        controller.matchedPhotos,
+      );
       if (matchedPhotos.isNotEmpty) {
         return SizedBox(
           height: 190,
@@ -56,7 +60,7 @@ class MyPhotosSmruti extends StatelessWidget {
                     CupertinoPageRoute(
                       settings: const RouteSettings(name: 'My Photo Viewer'),
                       builder: (_) => GalleryFullscreenViewer(
-                        photos: matchedPhotos.toList(growable: false),
+                        photos: matchedPhotos,
                         initialIndex: index,
                         title: 'My Smruti',
                         isMySmruti: true,

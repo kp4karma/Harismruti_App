@@ -3,12 +3,18 @@ class AppSectionSetting {
   final String displayName;
   final bool enabled;
   final int orderIndex;
+  final String orderMode;
+  final int freshnessDays;
+  final int itemLimit;
 
   const AppSectionSetting({
     required this.sectionKey,
     required this.displayName,
     required this.enabled,
     required this.orderIndex,
+    required this.orderMode,
+    required this.freshnessDays,
+    required this.itemLimit,
   });
 
   factory AppSectionSetting.fromJson(Map<String, dynamic> json) {
@@ -17,6 +23,10 @@ class AppSectionSetting {
       displayName: json['display_name']?.toString() ?? '',
       enabled: json['enabled'] != false,
       orderIndex: int.tryParse(json['order_index']?.toString() ?? '') ?? 0,
+      orderMode: json['order_mode']?.toString() ?? 'fresh_then_random',
+      freshnessDays:
+          int.tryParse(json['freshness_days']?.toString() ?? '') ?? 7,
+      itemLimit: int.tryParse(json['item_limit']?.toString() ?? '') ?? 10,
     );
   }
 
@@ -25,5 +35,8 @@ class AppSectionSetting {
     'display_name': displayName,
     'enabled': enabled,
     'order_index': orderIndex,
+    'order_mode': orderMode,
+    'freshness_days': freshnessDays,
+    'item_limit': itemLimit,
   };
 }

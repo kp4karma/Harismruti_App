@@ -13,6 +13,7 @@ import 'package:harismruti/ui/view/home/smruti_of.dart';
 import 'package:harismruti/ui/view/home/smruti_with.dart';
 import 'package:harismruti/ui/view/home/subject_smruti.dart';
 import 'package:harismruti/api/repositories/app_section_repository.dart';
+import 'package:harismruti/api/models/app_section_setting.dart';
 import 'package:harismruti/utils/app_string.dart';
 import 'package:harismruti/utils/size_config.dart';
 import 'package:harismruti/utils/storage_helper.dart';
@@ -384,10 +385,56 @@ class SmrutiSectionController extends GetxController {
         key: StorageKeys.appSectionVisibility,
         value: visibility,
       );
-      _applyGlobalVisibility(visibility);
+      StorageHelper.setValue(
+        key: StorageKeys.appSectionSettings,
+        value: remoteSections.map((section) => section.toJson()).toList(),
+      );
+      _applyGlobalSettings(remoteSections);
     } catch (_) {
-      _applyGlobalVisibility(_loadCachedGlobalVisibility());
+      final cachedSettings = _loadCachedGlobalSettings();
+      if (cachedSettings.isNotEmpty) {
+        _applyGlobalSettings(cachedSettings);
+      } else {
+        _applyGlobalVisibility(_loadCachedGlobalVisibility());
+      }
     }
+  }
+
+  List<AppSectionSetting> _loadCachedGlobalSettings() {
+    final raw = StorageHelper.getValue<List>(
+      key: StorageKeys.appSectionSettings,
+    );
+    if (raw == null) return const [];
+    return raw
+        .whereType<Map>()
+        .map(
+          (item) => AppSectionSetting.fromJson(Map<String, dynamic>.from(item)),
+        )
+        .where((item) => item.sectionKey.isNotEmpty)
+        .toList();
+  }
+
+  void _applyGlobalSettings(List<AppSectionSetting> settings) {
+    final settingsByKey = {
+      for (final setting in settings) setting.sectionKey: setting,
+    };
+    for (final section in sections) {
+      final sectionKey = _sectionKeyForTitle(section['title'].toString());
+      final setting = settingsByKey[sectionKey];
+      if (setting == null) continue;
+      final userValue = section['user_is_show'] ?? section['is_show'] ?? true;
+      section['is_show'] = setting.enabled && (userValue == true);
+      section['order_index'] = setting.orderIndex;
+      section['order_mode'] = setting.orderMode;
+      section['freshness_days'] = setting.freshnessDays;
+      section['item_limit'] = setting.itemLimit;
+    }
+    sections.sort(
+      (first, second) =>
+          (first['order_index'] as int).compareTo(second['order_index'] as int),
+    );
+    resetVisibleCount();
+    sections.refresh();
   }
 
   Map<String, bool> _loadCachedGlobalVisibility() {

@@ -3,7 +3,9 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
+import 'package:harismruti/api/models/app_section_setting.dart';
 import 'package:harismruti/api/repositories/gallery_repository.dart';
+import 'package:harismruti/api/repositories/app_section_repository.dart';
 import 'package:harismruti/services/analytics_service.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 
@@ -1012,6 +1014,7 @@ class GalleryController extends GetxController {
     errorMessage.value = '';
 
     try {
+      await _refreshSectionSettings();
       final bundle = await _repository.getHomeBundle(
         samples: 4,
         forceRefresh: force,
@@ -1019,7 +1022,9 @@ class GalleryController extends GetxController {
       if (selectedSwami.value != requestedSwami) return;
       _applyBundle(bundle);
       try {
-        onThisDayPhotos.assignAll(await _repository.getOnThisDay());
+        onThisDayPhotos.assignAll(
+          _orderPhotos('on_this_day', await _repository.getOnThisDay()),
+        );
       } catch (error) {
         onThisDayPhotos.clear();
         debugPrint('On This Day load failed: $error');
@@ -1033,6 +1038,18 @@ class GalleryController extends GetxController {
       errorMessage.value = error.toString().replaceFirst('Exception: ', '');
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  Future<void> _refreshSectionSettings() async {
+    try {
+      final settings = await const AppSectionRepository().getSections();
+      StorageHelper.setValue(
+        key: StorageKeys.appSectionSettings,
+        value: settings.map((setting) => setting.toJson()).toList(),
+      );
+    } catch (_) {
+      // Continue with the last cached configuration or built-in defaults.
     }
   }
 
@@ -1062,37 +1079,116 @@ class GalleryController extends GetxController {
   }
 
   void _applyBundle(GalleryHomeBundle bundle) {
-    recentPhotos.assignAll(bundle.recent);
-    collections.assignAll(_randomizedYearCollectionImages(bundle.collections));
-    smrutiWith.assignAll(_shuffled(bundle.smrutiWith));
-    smrutiOf.assignAll(_shuffled(bundle.smrutiOf));
-    locations.assignAll(_shuffled(bundle.locations));
-    albums.assignAll(_shuffled(bundle.albums));
-    subjects.assignAll(_shuffled(bundle.subjects));
-    people.assignAll(_shuffled(bundle.people));
-    wallpapers.assignAll(_shuffled(bundle.wallpapers));
+    recentPhotos.assignAll(_orderPhotos('recent', bundle.recent));
+    collections.assignAll(_orderCards('year', bundle.collections));
+    smrutiWith.assignAll(_orderCards('smruti_with', bundle.smrutiWith));
+    smrutiOf.assignAll(_orderCards('darshan_of', bundle.smrutiOf));
+    locations.assignAll(_orderCards('location', bundle.locations));
+    albums.assignAll(_orderCards('smruti_category', bundle.albums));
+    subjects.assignAll(_orderCards('smruti_of', bundle.subjects));
+    people.assignAll(_orderCards('darshan_of', bundle.people));
+    wallpapers.assignAll(bundle.wallpapers);
   }
 
-  List<T> _shuffled<T>(List<T> items) {
-    return items.toList()..shuffle(Random());
-  }
-
-  List<GalleryCard> _randomizedYearCollectionImages(List<GalleryCard> items) {
-    return items.map((card) {
-      final randomizedPhotos = card.photos.toList()..shuffle(Random());
-      return GalleryCard(
-        id: card.id,
-        title: card.title,
-        subtitle: card.subtitle,
-        type: card.type,
-        value: card.value,
-        count: card.count,
-        locationCount: card.locationCount,
-        tagCount: card.tagCount,
-        faceId: card.faceId,
-        photos: randomizedPhotos,
+  AppSectionSetting? _sectionSetting(String sectionKey) {
+    final raw = StorageHelper.getValue<List>(
+      key: StorageKeys.appSectionSettings,
+    );
+    if (raw == null) return null;
+    for (final item in raw.whereType<Map>()) {
+      final setting = AppSectionSetting.fromJson(
+        Map<String, dynamic>.from(item),
       );
-    }).toList();
+      if (setting.sectionKey == sectionKey) return setting;
+    }
+    return null;
+  }
+
+  List<GalleryPhoto> _orderPhotos(String sectionKey, List<GalleryPhoto> items) {
+    final setting = _sectionSetting(sectionKey);
+    final ordered = _applyConfiguredOrder<GalleryPhoto>(
+      sectionKey,
+      items,
+      setting,
+      (photo) => photo.createdAt ?? photo.eventDate ?? photo.takenAt,
+      (photo) => photo.id,
+    );
+    return ordered.take(setting?.itemLimit ?? ordered.length).toList();
+  }
+
+  List<GalleryPhoto> orderedSectionPhotos(
+    String sectionKey,
+    Iterable<GalleryPhoto> items,
+  ) => _orderPhotos(sectionKey, items.toList());
+
+  List<GalleryCard> _orderCards(String sectionKey, List<GalleryCard> items) {
+    final setting = _sectionSetting(sectionKey);
+    final ordered = _applyConfiguredOrder<GalleryCard>(
+      sectionKey,
+      items,
+      setting,
+      (card) => card.photos
+          .map((photo) => photo.createdAt ?? photo.eventDate ?? photo.takenAt)
+          .whereType<DateTime>()
+          .fold<DateTime?>(
+            null,
+            (latest, date) =>
+                latest == null || date.isAfter(latest) ? date : latest,
+          ),
+      (card) => card.id,
+    );
+    return ordered.take(setting?.itemLimit ?? ordered.length).toList();
+  }
+
+  List<T> _applyConfiguredOrder<T>(
+    String sectionKey,
+    List<T> items,
+    AppSectionSetting? setting,
+    DateTime? Function(T item) dateOf,
+    int Function(T item) idOf,
+  ) {
+    final result = items.toList();
+    final mode = setting?.orderMode ?? 'newest_first';
+    int compareNewest(T first, T second) {
+      final firstDate = dateOf(first)?.millisecondsSinceEpoch ?? 0;
+      final secondDate = dateOf(second)?.millisecondsSinceEpoch ?? 0;
+      final dateResult = secondDate.compareTo(firstDate);
+      return dateResult != 0 ? dateResult : idOf(second).compareTo(idOf(first));
+    }
+
+    if (mode == 'newest_first') {
+      result.sort(compareNewest);
+      return result;
+    }
+    if (mode == 'oldest_first') {
+      result.sort((first, second) => compareNewest(second, first));
+      return result;
+    }
+    if (mode == 'random') {
+      result.shuffle(_dailyRandom(sectionKey));
+      return result;
+    }
+
+    final cutoff = DateTime.now().subtract(
+      Duration(days: setting?.freshnessDays ?? 7),
+    );
+    final fresh =
+        result.where((item) => dateOf(item)?.isAfter(cutoff) == true).toList()
+          ..sort(compareNewest);
+    final old =
+        result.where((item) => dateOf(item)?.isAfter(cutoff) != true).toList()
+          ..shuffle(_dailyRandom(sectionKey));
+    return [...fresh, ...old];
+  }
+
+  Random _dailyRandom(String sectionKey) {
+    final now = DateTime.now();
+    final seedText = '$sectionKey:${now.year}-${now.month}-${now.day}';
+    var seed = 17;
+    for (final unit in seedText.codeUnits) {
+      seed = 0x1fffffff & (seed * 31 + unit);
+    }
+    return Random(seed);
   }
 
   void _saveCurrentSnapshot() {
