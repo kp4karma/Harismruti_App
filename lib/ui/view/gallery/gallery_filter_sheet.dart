@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
@@ -36,10 +37,12 @@ class GalleryFilterSheet extends StatefulWidget {
 class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
   final GalleryController _controller = Get.find<GalleryController>();
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _durationController = TextEditingController();
   final Map<String, Set<String>> _selectedValues = {};
   final Map<String, Map<String, GalleryFilterOption>> _selectedOptions = {};
   int _selectedIndex = 0;
   String _query = '';
+  String? _durationError;
 
   @override
   void initState() {
@@ -56,6 +59,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
   @override
   void dispose() {
     _searchController.dispose();
+    _durationController.dispose();
     super.dispose();
   }
 
@@ -96,14 +100,37 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
     });
   }
 
+  void _applyCustomDuration() {
+    final input = _durationController.text.trim();
+    final match = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$').firstMatch(input);
+    if (match == null) {
+      setState(() => _durationError = 'Enter date as DD/MM/YYYY');
+      return;
+    }
+    final day = int.parse(match.group(1)!);
+    final month = int.parse(match.group(2)!);
+    final year = int.parse(match.group(3)!);
+    final date = DateTime(year, month, day);
+    if (date.year != year || date.month != month || date.day != day) {
+      setState(() => _durationError = 'Enter a valid date');
+      return;
+    }
+    final apiValue =
+        '${date.year.toString().padLeft(4, '0')}-'
+        '${date.month.toString().padLeft(2, '0')}-'
+        '${date.day.toString().padLeft(2, '0')}';
+    final option = GalleryFilterOption(value: apiValue, label: input, count: 1);
+    setState(() {
+      _durationError = null;
+      _selectedValues['duration'] = {apiValue};
+      _selectedOptions['duration'] = {apiValue: option};
+    });
+  }
+
   List<GalleryFilterGroup> _availableGroups(List<GalleryFilterGroup> groups) {
     final availableGroups = groups
         .map(_withAvailableOptions)
-        .where(
-          (group) =>
-              group.options.isNotEmpty ||
-              group.slug.trim().toLowerCase() == 'my_smruti',
-        )
+        .where((group) => group.options.isNotEmpty)
         .toList();
     availableGroups.sort(
       (first, second) => _filterGroupOrder(
@@ -313,16 +340,31 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                         child: AnimatedSwitcher(
                           duration: const Duration(milliseconds: 220),
                           switchInCurve: Curves.easeOutCubic,
-                          child: _FilterOptionsList(
-                            key: ValueKey(selected.slug),
-                            group: selected,
-                            query: _query,
-                            selectedValues:
-                                _selectedValues[selected.slug] ??
-                                const <String>{},
-                            onChanged: (option) =>
-                                _toggleOption(selected, option),
-                          ),
+                          child:
+                              selected.slug.trim().toLowerCase() == 'duration'
+                              ? _DurationFilterOptions(
+                                  key: const ValueKey('duration'),
+                                  group: selected,
+                                  query: _query,
+                                  controller: _durationController,
+                                  errorText: _durationError,
+                                  selectedValues:
+                                      _selectedValues[selected.slug] ??
+                                      const <String>{},
+                                  onChanged: (option) =>
+                                      _toggleOption(selected, option),
+                                  onSubmit: _applyCustomDuration,
+                                )
+                              : _FilterOptionsList(
+                                  key: ValueKey(selected.slug),
+                                  group: selected,
+                                  query: _query,
+                                  selectedValues:
+                                      _selectedValues[selected.slug] ??
+                                      const <String>{},
+                                  onChanged: (option) =>
+                                      _toggleOption(selected, option),
+                                ),
                         ),
                       ),
                     ],
@@ -548,6 +590,69 @@ class _FilterOptionsList extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _DurationFilterOptions extends StatelessWidget {
+  const _DurationFilterOptions({
+    super.key,
+    required this.group,
+    required this.query,
+    required this.controller,
+    required this.errorText,
+    required this.selectedValues,
+    required this.onChanged,
+    required this.onSubmit,
+  });
+
+  final GalleryFilterGroup group;
+  final String query;
+  final TextEditingController controller;
+  final String? errorText;
+  final Set<String> selectedValues;
+  final ValueChanged<GalleryFilterOption> onChanged;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
+          child: TextField(
+            controller: controller,
+            keyboardType: TextInputType.datetime,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9/]')),
+              LengthLimitingTextInputFormatter(10),
+            ],
+            textInputAction: TextInputAction.search,
+            onSubmitted: (_) => onSubmit(),
+            decoration: InputDecoration(
+              labelText: 'Custom date',
+              hintText: 'DD/MM/YYYY',
+              errorText: errorText,
+              suffixIcon: IconButton(
+                tooltip: 'Search date',
+                onPressed: onSubmit,
+                icon: const Icon(CupertinoIcons.search),
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: _FilterOptionsList(
+            group: group,
+            query: query,
+            selectedValues: selectedValues,
+            onChanged: onChanged,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -26,6 +26,7 @@ class StorageKeys {
   static const String selectedSwami = 'selectedSwami';
   static const String fcmTopicsSubscriptionVersion =
       'fcmTopicsSubscriptionVersion';
+  static const String notificationHistory = 'notificationHistory';
   static const String lastMobileNumber = 'lastMobileNumber';
   static const String lastMobileCountryCode = 'lastMobileCountryCode';
 }

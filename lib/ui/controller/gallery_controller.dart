@@ -171,10 +171,24 @@ class GalleryController extends GetxController {
     final mySmrutiGroup = _buildMySmrutiFilterGroup();
     final customTagGroup = _buildUserTagFilterGroup();
     return [
-      mySmrutiGroup,
+      if (StorageHelper.isLogin() && mySmrutiGroup.options.isNotEmpty)
+        mySmrutiGroup,
       if (customTagGroup != null) customTagGroup,
       ...groups,
     ];
+  }
+
+  Future<void> handleAuthChanged() async {
+    if (!StorageHelper.isLogin()) {
+      favoritePhotoIds.clear();
+      savedPhotos.clear();
+      userTags.clear();
+      userTagNames.clear();
+      userCollections.clear();
+      mySmrutiPhotos.clear();
+      return;
+    }
+    await Future.wait([loadMyLibrary(), loadMySmrutiFilterPhotos()]);
   }
 
   List<String> get allUserCollectionNames {
@@ -717,6 +731,16 @@ class GalleryController extends GetxController {
     int page = 1,
   }) {
     if (slug == 'duration') {
+      final exactDate = DateTime.tryParse(value);
+      if (exactDate != null && value.contains('-')) {
+        return _repository.getCollectionDayPhotos(
+          year: exactDate.year,
+          month: exactDate.month,
+          day: exactDate.day,
+          page: page,
+          perPage: 120,
+        );
+      }
       return _repository.getCollectionYearPhotos(
         year: int.tryParse(value) ?? 0,
         page: page,

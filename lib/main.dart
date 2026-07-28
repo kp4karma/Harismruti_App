@@ -72,7 +72,7 @@ class _MyAppState extends State<MyApp> {
             scaffoldMessengerKey: _messengerKey,
             debugShowCheckedModeBanner: false,
             initialBinding: GlobalBindings(),
-            title: 'Hari Smurti',
+            title: 'HariPrabodham Smruti',
 
             initialRoute: AppRoutes.splash,
             getPages: AppRoutes.routes,

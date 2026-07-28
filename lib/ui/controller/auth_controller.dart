@@ -8,6 +8,7 @@ import 'package:harismruti/helper/navigation_helper.dart';
 import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:harismruti/services/analytics_service.dart';
 import 'package:harismruti/ui/controller/ProfileController.dart';
+import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 
@@ -18,6 +19,7 @@ class AuthController extends GetxController {
   final AuthRepository _repository;
 
   final RxBool isLoading = false.obs;
+  final RxBool isLoggedIn = StorageHelper.isLogin().obs;
   final RxString lastMobile = ''.obs;
   final RxString lastEmail = ''.obs;
   final RxString lastValidationMethod = 'email'.obs;
@@ -137,6 +139,10 @@ class AuthController extends GetxController {
         );
         return false;
       }
+      isLoggedIn.value = StorageHelper.isLogin();
+      if (Get.isRegistered<GalleryController>()) {
+        await Get.find<GalleryController>().handleAuthChanged();
+      }
       NavigationHelper.navigateAndRemoveAll(AppRoutes.home);
       return true;
     });
@@ -200,6 +206,10 @@ class AuthController extends GetxController {
         profileController.loadUploadedProfileImageUrl();
       }
     }
+  }
+
+  void notifyLoggedOut() {
+    isLoggedIn.value = false;
   }
 
   void _showServerMessage(dynamic responseData, {required String fallback}) {

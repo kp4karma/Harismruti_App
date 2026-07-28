@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/ui/controller/ProfileController.dart';
 import 'package:harismruti/ui/view/Profile/profile_screen.dart';
+import 'package:harismruti/services/notification_history_service.dart';
+import 'package:harismruti/ui/view/notification/notification_history_screen.dart';
 import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/storage_helper.dart';
@@ -98,6 +100,16 @@ class CustomAppbar extends StatelessWidget implements PreferredSizeWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    _NotificationAppbarButton(
+                      onTap: () => Navigator.push(
+                        context,
+                        CupertinoPageRoute(
+                          settings: const RouteSettings(name: 'Notifications'),
+                          builder: (_) => const NotificationHistoryScreen(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     _ProfileAppbarButton(
                       onTap: () {
                         if (!StorageHelper.isLogin()) {
@@ -124,6 +136,31 @@ class CustomAppbar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight + 10);
+}
+
+class _NotificationAppbarButton extends StatelessWidget {
+  const _NotificationAppbarButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: NotificationHistoryService.revision,
+      builder: (_, __, ___) {
+        final count = NotificationHistoryService.unreadCount;
+        return IconButton(
+          tooltip: 'Notifications',
+          onPressed: onTap,
+          icon: Badge(
+            isLabelVisible: count > 0,
+            label: Text(count > 99 ? '99+' : '$count'),
+            child: Icon(CupertinoIcons.bell, color: primaryColor, size: 25),
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _ProfileAppbarButton extends StatelessWidget {

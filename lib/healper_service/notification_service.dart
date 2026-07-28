@@ -12,6 +12,8 @@ import 'package:http/http.dart' as http;
 import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/firebase_options.dart';
 import 'package:harismruti/utils/storage_helper.dart';
+import 'package:harismruti/services/notification_history_service.dart';
+import 'package:harismruti/ui/view/notification/notification_image_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -51,7 +53,9 @@ class NotificationService {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    await StorageHelper.init();
     await setupFlutterNotifications();
+    _saveMessage(message);
   }
 
   static Future<void> setupFlutterNotifications() async {
@@ -210,6 +214,7 @@ class NotificationService {
   }
 
   static Future<void> _showNotification(RemoteMessage message) async {
+    _saveMessage(message);
     final notification = message.notification;
     if (notification == null || kIsWeb || _channel == null) return;
 
@@ -310,7 +315,63 @@ class NotificationService {
   }
 
   static void _navigateFromMessage(RemoteMessage message) {
+    _saveMessage(message);
+    final imageUrl = _imageUrl(message);
+    if (imageUrl.isNotEmpty) {
+      _openImage(imageUrl, message.notification?.title);
+      return;
+    }
     _navigateFromData(message.data);
+  }
+
+  static void openSavedNotification(Map<String, dynamic> entry) {
+    final imageUrl = entry['image_url']?.toString().trim() ?? '';
+    if (imageUrl.isNotEmpty) {
+      _openImage(imageUrl, entry['title']?.toString());
+      return;
+    }
+    final data = entry['data'];
+    if (data is Map) {
+      _navigateFromData(Map<String, dynamic>.from(data));
+    }
+  }
+
+  static void _openImage(String imageUrl, String? title) {
+    if (Get.key.currentContext == null) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _openImage(imageUrl, title),
+      );
+      return;
+    }
+    Get.to(
+      () => NotificationImageScreen(imageUrl: imageUrl, title: title),
+      transition: Transition.cupertino,
+    );
+  }
+
+  static void _saveMessage(RemoteMessage message) {
+    final notification = message.notification;
+    final data = Map<String, dynamic>.from(message.data);
+    final imageUrl = _imageUrl(message);
+    if (imageUrl.isNotEmpty) data['image_url'] = imageUrl;
+    NotificationHistoryService.save(
+      id:
+          message.messageId ??
+          '${notification?.hashCode ?? message.data.hashCode}',
+      title:
+          notification?.title ??
+          message.data['title']?.toString() ??
+          'Notification',
+      body: notification?.body ?? message.data['body']?.toString() ?? '',
+      data: data,
+    );
+  }
+
+  static String _imageUrl(RemoteMessage message) {
+    return message.data['image_url']?.toString().trim() ??
+        message.notification?.android?.imageUrl?.trim() ??
+        message.notification?.apple?.imageUrl?.trim() ??
+        '';
   }
 
   static void listenForInitialAndOpenedApp() {

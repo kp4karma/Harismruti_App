@@ -43,7 +43,16 @@ List<String> _readTags(Map<String, dynamic> json) {
     if (text.isNotEmpty && text.toLowerCase() != 'null') tags.add(text);
   }
 
-  for (final key in const ['tags', 'tag', 'labels', 'keywords']) {
+  for (final key in const [
+    'tags',
+    'tag',
+    'tag_names',
+    'tagNames',
+    'smruti_tags',
+    'smrutiTags',
+    'labels',
+    'keywords',
+  ]) {
     final value = json[key];
     if (value is List) {
       for (final item in value) {
@@ -55,6 +64,31 @@ List<String> _readTags(Map<String, dynamic> json) {
       }
     } else {
       add(value);
+    }
+  }
+
+  final attributes = json['attributes'] ?? json['metadata'];
+  if (attributes is Map) {
+    for (final key in const [
+      'tags',
+      'tag',
+      'tag_names',
+      'smruti_tags',
+      'labels',
+      'keywords',
+    ]) {
+      final value = attributes[key];
+      if (value is List) {
+        for (final item in value) {
+          add(item);
+        }
+      } else if (value is String) {
+        for (final item in value.split(',')) {
+          add(item);
+        }
+      } else {
+        add(value);
+      }
     }
   }
 

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
@@ -8,6 +9,8 @@ import 'package:harismruti/helper/navigation_helper.dart';
 import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:harismruti/ui/controller/ProfileController.dart';
 import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
+import 'package:harismruti/ui/controller/auth_controller.dart';
+import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/view/Profile/smruti_section_setting.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_routes.dart';
@@ -15,6 +18,7 @@ import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/widget/appbar/detail_appbar.dart';
 import 'package:harismruti/widget/background/custom_background.dart';
+import 'package:in_app_review/in_app_review.dart';
 
 class ProfileScreen extends StatelessWidget {
   final ProfileController profileController = Get.put(ProfileController());
@@ -62,6 +66,12 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       _ProfileOption(
+                        icon: Icons.star_outline_rounded,
+                        label: 'Rate this app',
+                        onTap: _rateApp,
+                      ),
+                      const SizedBox(height: 12),
+                      _ProfileOption(
                         icon: Icons.logout,
                         label: 'Logout',
                         onTap: _logout,
@@ -104,8 +114,33 @@ class ProfileScreen extends StatelessWidget {
     StorageHelper.clearStorage();
     profileController.clearProfile();
     ApiClient.clearGetCache();
+    if (Get.isRegistered<AuthController>()) {
+      Get.find<AuthController>().notifyLoggedOut();
+    }
+    if (Get.isRegistered<GalleryController>()) {
+      Get.find<GalleryController>().handleAuthChanged();
+    }
     TopNotification.success('Logged out successfully.');
     NavigationHelper.navigateAndRemoveAll(AppRoutes.home);
+  }
+
+  Future<void> _rateApp() async {
+    try {
+      final inAppReview = InAppReview.instance;
+      if (Platform.isAndroid) {
+        await inAppReview.openStoreListing();
+        return;
+      }
+      if (await inAppReview.isAvailable()) {
+        await inAppReview.requestReview();
+        return;
+      }
+      await inAppReview.openStoreListing();
+    } catch (_) {
+      TopNotification.error(
+        'The app store could not be opened. Please try again later.',
+      );
+    }
   }
 
   Future<void> _confirmDeleteAccount(BuildContext context) async {
