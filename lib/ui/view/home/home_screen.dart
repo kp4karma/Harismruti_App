@@ -141,8 +141,10 @@ class _HomeScreenState extends State<HomeScreen>
                           constraints: const BoxConstraints(maxWidth: 680),
                           child: SwamiTabBar(
                             tabs: [
-                              "P.P.Prabodh Swamiji",
-                              "P.P.Hariprasad Swamiji",
+                              sectionController.optionLabels['prabodh'] ??
+                                  'P.P.Prabodh Swamiji',
+                              sectionController.optionLabels['hariprasad'] ??
+                                  'P.P.Hariprasad Swamiji',
                             ],
                             initialIndex:
                                 galleryController.selectedSwami.value.index,
@@ -212,7 +214,6 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _refreshHome() async {
     await Future.wait([
       galleryController.refreshHome(),
-      sectionController.refreshGlobalVisibility(),
       myPhotosController.refreshSmrutiFlow(),
       _refreshLiveStreamForAuth(),
     ]);

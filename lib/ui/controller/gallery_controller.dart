@@ -5,8 +5,8 @@ import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/api/models/app_section_setting.dart';
 import 'package:harismruti/api/repositories/gallery_repository.dart';
-import 'package:harismruti/api/repositories/app_section_repository.dart';
 import 'package:harismruti/services/analytics_service.dart';
+import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 
 const bool kShowFavoriteCountOnImages = false;
@@ -1042,15 +1042,10 @@ class GalleryController extends GetxController {
   }
 
   Future<void> _refreshSectionSettings() async {
-    try {
-      final settings = await const AppSectionRepository().getSections();
-      StorageHelper.setValue(
-        key: StorageKeys.appSectionSettings,
-        value: settings.map((setting) => setting.toJson()).toList(),
-      );
-    } catch (_) {
-      // Continue with the last cached configuration or built-in defaults.
-    }
+    if (!Get.isRegistered<SmrutiSectionController>()) return;
+    await Get.find<SmrutiSectionController>().refreshGlobalVisibility(
+      optionKey: selectedSwami.value.apiValue,
+    );
   }
 
   void _clearGallerySections() {
@@ -1091,10 +1086,11 @@ class GalleryController extends GetxController {
   }
 
   AppSectionSetting? _sectionSetting(String sectionKey) {
-    final raw = StorageHelper.getValue<List>(
-      key: StorageKeys.appSectionSettings,
+    final configurations = StorageHelper.getValue<Map>(
+      key: StorageKeys.appSectionSettingsByOption,
     );
-    if (raw == null) return null;
+    final raw = configurations?[selectedSwami.value.apiValue];
+    if (raw is! List) return null;
     for (final item in raw.whereType<Map>()) {
       final setting = AppSectionSetting.fromJson(
         Map<String, dynamic>.from(item),

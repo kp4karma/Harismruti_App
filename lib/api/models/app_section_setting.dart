@@ -1,7 +1,6 @@
 class AppSectionSetting {
   final String sectionKey;
   final String displayName;
-  final String description;
   final bool enabled;
   final int orderIndex;
   final String orderMode;
@@ -11,7 +10,6 @@ class AppSectionSetting {
   const AppSectionSetting({
     required this.sectionKey,
     required this.displayName,
-    required this.description,
     required this.enabled,
     required this.orderIndex,
     required this.orderMode,
@@ -23,7 +21,6 @@ class AppSectionSetting {
     return AppSectionSetting(
       sectionKey: json['section_key']?.toString() ?? '',
       displayName: json['display_name']?.toString() ?? '',
-      description: json['description']?.toString() ?? '',
       enabled: json['enabled'] != false,
       orderIndex: int.tryParse(json['order_index']?.toString() ?? '') ?? 0,
       orderMode: json['order_mode']?.toString() ?? 'fresh_then_random',
@@ -36,11 +33,82 @@ class AppSectionSetting {
   Map<String, dynamic> toJson() => {
     'section_key': sectionKey,
     'display_name': displayName,
-    'description': description,
     'enabled': enabled,
     'order_index': orderIndex,
     'order_mode': orderMode,
     'freshness_days': freshnessDays,
     'item_limit': itemLimit,
   };
+}
+
+class AppSectionOptionLabel {
+  final String optionKey;
+  final String displayName;
+  final int orderIndex;
+
+  const AppSectionOptionLabel({
+    required this.optionKey,
+    required this.displayName,
+    required this.orderIndex,
+  });
+
+  factory AppSectionOptionLabel.fromJson(Map<String, dynamic> json) {
+    return AppSectionOptionLabel(
+      optionKey: json['option_key']?.toString() ?? '',
+      displayName: json['display_name']?.toString() ?? '',
+      orderIndex: int.tryParse(json['order_index']?.toString() ?? '') ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'option_key': optionKey,
+    'display_name': displayName,
+    'order_index': orderIndex,
+  };
+}
+
+class AppSectionsConfiguration {
+  final String selectedOption;
+  final String optionName;
+  final List<AppSectionOptionLabel> options;
+  final List<AppSectionSetting> sections;
+
+  const AppSectionsConfiguration({
+    required this.selectedOption,
+    required this.optionName,
+    required this.options,
+    required this.sections,
+  });
+
+  factory AppSectionsConfiguration.fromJson(Map<String, dynamic> json) {
+    final rawOptions = json['options'] is List
+        ? json['options'] as List
+        : const [];
+    final rawSections = json['sections'] is List
+        ? json['sections'] as List
+        : const [];
+    return AppSectionsConfiguration(
+      selectedOption: json['selected_option']?.toString() ?? 'prabodh',
+      optionName: json['option_name']?.toString() ?? '',
+      options:
+          rawOptions
+              .whereType<Map>()
+              .map(
+                (item) => AppSectionOptionLabel.fromJson(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .where((item) => item.optionKey.isNotEmpty)
+              .toList()
+            ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex)),
+      sections: rawSections
+          .whereType<Map>()
+          .map(
+            (item) =>
+                AppSectionSetting.fromJson(Map<String, dynamic>.from(item)),
+          )
+          .where((item) => item.sectionKey.isNotEmpty)
+          .toList(),
+    );
+  }
 }

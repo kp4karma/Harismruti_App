@@ -25,6 +25,10 @@ class SmrutiSectionController extends GetxController {
 
   final AppSectionRepository _appSectionRepository;
   RxList<Map<String, dynamic>> sections = <Map<String, dynamic>>[].obs;
+  final RxMap<String, String> optionLabels = <String, String>{
+    'prabodh': 'P.P.Prabodh Swamiji',
+    'hariprasad': 'P.P.Hariprasad Swamiji',
+  }.obs;
   final RxInt visibleCount = 3.obs;
   final RxBool showBottomBar = true.obs;
   double lastOffset = 0;
@@ -32,8 +36,13 @@ class SmrutiSectionController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    _loadCachedOptionLabels();
     loadSections();
-    refreshGlobalVisibility();
+    final cachedSettings = _loadCachedGlobalSettings(_selectedOptionKey());
+    if (cachedSettings.isNotEmpty) {
+      _applyGlobalSettings(cachedSettings);
+    }
+    refreshGlobalVisibility(optionKey: _selectedOptionKey());
   }
 
   void increaseVisibleCount([int step = 3]) {
@@ -251,7 +260,6 @@ class SmrutiSectionController extends GetxController {
           (e) => {
             "title": e['title'],
             "display_name": e['display_name'] ?? e['title'],
-            "description": e['description'] ?? '',
             "order_index": e['order_index'],
             "is_show": e['user_is_show'] ?? e['is_show'],
             "user_is_show": e['user_is_show'] ?? e['is_show'],
@@ -376,9 +384,12 @@ class SmrutiSectionController extends GetxController {
     },
   ];
 
-  Future<void> refreshGlobalVisibility() async {
+  Future<void> refreshGlobalVisibility({required String optionKey}) async {
     try {
-      final remoteSections = await _appSectionRepository.getSections();
+      final configuration = await _appSectionRepository.getConfiguration(
+        optionKey: optionKey,
+      );
+      final remoteSections = configuration.sections;
       final visibility = {
         for (final section in remoteSections)
           section.sectionKey: section.enabled,
@@ -388,12 +399,23 @@ class SmrutiSectionController extends GetxController {
         value: visibility,
       );
       StorageHelper.setValue(
-        key: StorageKeys.appSectionSettings,
-        value: remoteSections.map((section) => section.toJson()).toList(),
+        key: StorageKeys.appSectionSettingsByOption,
+        value: {
+          ..._loadCachedSettingsMap(),
+          optionKey: remoteSections.map((section) => section.toJson()).toList(),
+        },
+      );
+      optionLabels.assignAll({
+        for (final option in configuration.options)
+          option.optionKey: option.displayName,
+      });
+      StorageHelper.setValue(
+        key: StorageKeys.appSectionOptionLabels,
+        value: Map<String, String>.from(optionLabels),
       );
       _applyGlobalSettings(remoteSections);
     } catch (_) {
-      final cachedSettings = _loadCachedGlobalSettings();
+      final cachedSettings = _loadCachedGlobalSettings(optionKey);
       if (cachedSettings.isNotEmpty) {
         _applyGlobalSettings(cachedSettings);
       } else {
@@ -402,18 +424,40 @@ class SmrutiSectionController extends GetxController {
     }
   }
 
-  List<AppSectionSetting> _loadCachedGlobalSettings() {
-    final raw = StorageHelper.getValue<List>(
-      key: StorageKeys.appSectionSettings,
+  Map<String, dynamic> _loadCachedSettingsMap() {
+    final raw = StorageHelper.getValue<Map>(
+      key: StorageKeys.appSectionSettingsByOption,
     );
-    if (raw == null) return const [];
-    return raw
+    if (raw == null) return {};
+    return raw.map((key, value) => MapEntry(key.toString(), value));
+  }
+
+  List<AppSectionSetting> _loadCachedGlobalSettings(String optionKey) {
+    final raw = _loadCachedSettingsMap()[optionKey];
+    if (raw is! List) return const [];
+    final items = raw;
+    return items
         .whereType<Map>()
         .map(
           (item) => AppSectionSetting.fromJson(Map<String, dynamic>.from(item)),
         )
         .where((item) => item.sectionKey.isNotEmpty)
         .toList();
+  }
+
+  void _loadCachedOptionLabels() {
+    final raw = StorageHelper.getValue<Map>(
+      key: StorageKeys.appSectionOptionLabels,
+    );
+    if (raw == null) return;
+    optionLabels.assignAll(
+      raw.map((key, value) => MapEntry(key.toString(), value.toString())),
+    );
+  }
+
+  String _selectedOptionKey() {
+    return StorageHelper.getValue<String>(key: StorageKeys.selectedSwami) ??
+        'prabodh';
   }
 
   void _applyGlobalSettings(List<AppSectionSetting> settings) {
@@ -429,7 +473,6 @@ class SmrutiSectionController extends GetxController {
       section['display_name'] = setting.displayName.isEmpty
           ? section['title']
           : setting.displayName;
-      section['description'] = setting.description;
       section['order_index'] = setting.orderIndex;
       section['order_mode'] = setting.orderMode;
       section['freshness_days'] = setting.freshnessDays;
