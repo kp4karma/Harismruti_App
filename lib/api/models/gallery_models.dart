@@ -427,7 +427,10 @@ class GalleryCard {
         'representative_face_id',
         'cover_face_id',
       ]),
-      photos: _newestPhotosFirst(samplePhotos),
+      // The home API intentionally orders sample_photos with its selected
+      // section cover first. Preserve that order so cover selection stays
+      // server-controlled.
+      photos: samplePhotos,
     );
   }
 

@@ -73,6 +73,8 @@ class _AutoSwapRecentStackState extends State<_AutoSwapRecentStack> {
 
   Timer? _timer;
   int _frontIndex = 0;
+  int _automaticSwapsInDirection = 0;
+  bool _automaticSwappingForward = true;
   bool _autoplayStoppedByUser = false;
 
   @override
@@ -106,7 +108,26 @@ class _AutoSwapRecentStackState extends State<_AutoSwapRecentStack> {
         widget.photos.length <= 1) {
       return;
     }
-    _timer = Timer.periodic(_swapInterval, (_) => _showNext());
+    _timer = Timer.periodic(_swapInterval, (_) => _showAutomaticNext());
+  }
+
+  void _showAutomaticNext() {
+    if (!mounted || widget.photos.length <= 1) return;
+
+    setState(() {
+      if (_automaticSwappingForward) {
+        _frontIndex = (_frontIndex + 1) % widget.photos.length;
+      } else {
+        _frontIndex =
+            (_frontIndex - 1 + widget.photos.length) % widget.photos.length;
+      }
+
+      _automaticSwapsInDirection++;
+      if (_automaticSwapsInDirection == 3) {
+        _automaticSwapsInDirection = 0;
+        _automaticSwappingForward = !_automaticSwappingForward;
+      }
+    });
   }
 
   void _stopAutoplayForUser() {
