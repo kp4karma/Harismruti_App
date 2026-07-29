@@ -30,6 +30,9 @@ import 'package:share_plus/share_plus.dart';
 
 const double _homeAppbarBlurSigma = 24;
 const int _homeAppbarGlassAlpha = 125;
+const MethodChannel _wallpaperChannel = MethodChannel(
+  'org.hp.harismruti/wallpaper',
+);
 
 double _galleryPhotoAspectRatio(GalleryPhoto photo) {
   final width = photo.width;
@@ -860,6 +863,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   bool _infoPanelOpen = false;
   bool _allowIgnore = false;
   bool _isIgnoring = false;
+  bool _isSettingWallpaper = false;
   Offset _lastDoubleTapPosition = Offset.zero;
   int _gesturePointerCount = 1;
   final Set<int> _activeViewerPointers = <int>{};
@@ -1130,6 +1134,88 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     if (lower.endsWith('.png')) return 'image/png';
     if (lower.endsWith('.webp')) return 'image/webp';
     return 'image/jpeg';
+  }
+
+  Future<void> _showWallpaperOptions() async {
+    if (!Platform.isAndroid) {
+      TopNotification.error(
+        'Setting wallpaper directly is currently available on Android only',
+      );
+      return;
+    }
+
+    final destination = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: const Text('Set as wallpaper'),
+        message: const Text('Choose where this photo should appear.'),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(context, 'home'),
+            child: const Text('Home Screen'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(context, 'lock'),
+            child: const Text('Lock Screen'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(context, 'both'),
+            child: const Text('Home & Lock Screens'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
+    if (destination == null) return;
+    await _setWallpaper(destination);
+  }
+
+  Future<void> _setWallpaper(String destination) async {
+    if (_isSettingWallpaper) return;
+    final url = _photo.fullUrl.isNotEmpty
+        ? _photo.fullUrl
+        : _photo.thumbnailUrl;
+    if (url.isEmpty) {
+      TopNotification.error('Photo is not ready to use as wallpaper');
+      return;
+    }
+
+    setState(() => _isSettingWallpaper = true);
+    File? wallpaperFile;
+    try {
+      final tempDir = await getTemporaryDirectory();
+      wallpaperFile = File(
+        '${tempDir.path}${Platform.pathSeparator}wallpaper-${_photo.id}.jpg',
+      );
+      await Dio().download(
+        url,
+        wallpaperFile.path,
+        options: Options(
+          headers: _controller.imageHeaders,
+          responseType: ResponseType.bytes,
+        ),
+      );
+      await _wallpaperChannel.invokeMethod<bool>('setWallpaper', {
+        'path': wallpaperFile.path,
+        'destination': destination,
+      });
+      if (!mounted) return;
+      TopNotification.success('Wallpaper set successfully');
+    } on PlatformException catch (error) {
+      if (!mounted) return;
+      TopNotification.error(error.message ?? 'Unable to set wallpaper');
+    } catch (_) {
+      if (!mounted) return;
+      TopNotification.error('Unable to set wallpaper');
+    } finally {
+      if (wallpaperFile?.existsSync() == true) {
+        wallpaperFile!.deleteSync();
+      }
+      if (mounted) setState(() => _isSettingWallpaper = false);
+    }
   }
 
   void _playFavoriteBurst() {
@@ -1444,6 +1530,13 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       builder: (_) => CupertinoActionSheet(
         title: const Text('Photo options'),
         actions: [
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _showWallpaperOptions();
+            },
+            child: const Text('Set as Wallpaper'),
+          ),
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.pop(context);

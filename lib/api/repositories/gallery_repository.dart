@@ -96,10 +96,16 @@ class GalleryRepository {
     selected.forEach((slug, values) {
       if (values.isNotEmpty) queryParams[slug] = values;
     });
-    final response = await ApiClient.get(
+    var response = await ApiClient.get(
       ApiEndpoints.filters,
       queryParams: queryParams,
     );
+    if (_isHtmlResponse(response.data)) {
+      response = await ApiClient.get(
+        ApiEndpoints.legacyFilters,
+        queryParams: queryParams,
+      );
+    }
     return GalleryPage.fromJson(
       response.data,
       GalleryFilterGroup.fromJson,
@@ -388,10 +394,16 @@ class GalleryRepository {
     selected.forEach((slug, values) {
       if (values.isNotEmpty) queryParams[slug] = values;
     });
-    final response = await ApiClient.get(
+    var response = await ApiClient.get(
       ApiEndpoints.filteredPhotos,
       queryParams: queryParams,
     );
+    if (_isHtmlResponse(response.data)) {
+      response = await ApiClient.get(
+        ApiEndpoints.legacyFilteredPhotos,
+        queryParams: queryParams,
+      );
+    }
     return _sortPhotosNewestFirst(
       GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items,
     );
@@ -476,6 +488,13 @@ class GalleryRepository {
       'swami': activeSwami.apiValue,
       'cache_revision': _activeCacheRevision,
     };
+  }
+
+  static bool _isHtmlResponse(dynamic data) {
+    if (data is! String) return false;
+    final normalized = data.trimLeft().toLowerCase();
+    return normalized.startsWith('<!doctype html') ||
+        normalized.startsWith('<html');
   }
 
   Map<String, dynamic> _scopedQueryParams([
