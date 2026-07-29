@@ -188,16 +188,12 @@ class GalleryController extends GetxController {
     return tags;
   }
 
-  List<GalleryFilterGroup> get filtersWithUserTags {
-    final groups = filters.toList();
-    final mySmrutiGroups = _buildMySmrutiFilterGroups();
-    final customTagGroup = _buildUserTagFilterGroup();
-    return [
-      if (StorageHelper.isLogin()) ...mySmrutiGroups,
-      if (customTagGroup != null) customTagGroup,
-      ...groups,
-    ];
-  }
+  List<GalleryFilterGroup> get filtersWithUserTags =>
+      filtersWithUserTagsForSelection(const {});
+
+  List<GalleryFilterGroup> filtersWithUserTagsForSelection(
+    Map<String, List<String>> selected,
+  ) => filters.toList();
 
   Future<void> handleAuthChanged() async {
     if (!StorageHelper.isLogin()) {
@@ -209,7 +205,7 @@ class GalleryController extends GetxController {
       mySmrutiPhotos.clear();
       return;
     }
-    await Future.wait([loadMyLibrary(), loadMySmrutiFilterPhotos()]);
+    await loadMyLibrary();
   }
 
   List<String> get allUserCollectionNames {
@@ -766,11 +762,7 @@ class GalleryController extends GetxController {
     Map<String, List<String>> selected = const {},
     bool force = false,
   }) async {
-    final serverSelected = Map<String, List<String>>.from(selected)
-      ..remove(_userTagFilterSlug);
-    for (final slug in _mySmrutiFilterSlugs) {
-      serverSelected.remove(slug);
-    }
+    final serverSelected = Map<String, List<String>>.from(selected);
     if (!force && serverSelected.isEmpty && filters.isNotEmpty) return;
     final requestId = ++_filtersRequestId;
     areFiltersLoading.value = true;
@@ -797,11 +789,7 @@ class GalleryController extends GetxController {
   Future<void> resetFiltersForSheet() async {
     filters.assignAll(_filterSnapshots[selectedSwami.value] ?? const []);
     filtersError.value = '';
-    await Future.wait([
-      loadFilters(force: true),
-      loadMyLibrary(),
-      loadMySmrutiFilterPhotos(),
-    ]);
+    await loadFilters(force: true);
   }
 
   Future<void> loadMySmrutiFilterPhotos() async {
@@ -931,40 +919,6 @@ class GalleryController extends GetxController {
     required Map<String, List<String>> selected,
     int page = 1,
   }) {
-    if (selected.length == 1) {
-      final entry = selected.entries.first;
-      if (entry.key != _userTagFilterSlug &&
-          !_mySmrutiFilterSlugs.contains(entry.key) &&
-          entry.key != 'date' &&
-          entry.value.length == 1) {
-        return loadPhotosForFilter(
-          slug: entry.key,
-          value: entry.value.first,
-          page: page,
-        );
-      }
-    }
-
-    final selectedUserTags = selected[_userTagFilterSlug] ?? const <String>[];
-    final hasMySmrutiSelection = selected.entries.any(
-      (entry) =>
-          _mySmrutiFilterSlugs.contains(entry.key) && entry.value.isNotEmpty,
-    );
-    if (hasMySmrutiSelection) {
-      return _loadPhotosForMySmrutiFilters(
-        selected: selected,
-        page: page,
-        perPage: 60,
-      );
-    }
-    if (selectedUserTags.isNotEmpty) {
-      return _loadPhotosForUserTags(
-        selected: selected,
-        selectedUserTags: selectedUserTags,
-        page: page,
-        perPage: 60,
-      );
-    }
     final requestedSwami = selectedSwami.value;
     return _repository
         .getFilteredPhotos(selected: selected, page: page, perPage: 120)
@@ -978,9 +932,7 @@ class GalleryController extends GetxController {
   }) async {
     var matches = mySmrutiPhotos.toList();
     for (final entry in selected.entries) {
-      if (!_mySmrutiFilterSlugs.contains(entry.key) ||
-          entry.key == _mySmrutiFilterSlug ||
-          entry.value.isEmpty) {
+      if (!_mySmrutiFilterSlugs.contains(entry.key) || entry.value.isEmpty) {
         continue;
       }
       final wantedValues = entry.value
@@ -1544,7 +1496,6 @@ class GalleryController extends GetxController {
   }
 
   static const String _userTagFilterSlug = 'user_tag';
-  static const String _mySmrutiFilterSlug = 'my_smruti';
   static const String _mySmrutiWithFilterSlug = 'my_smruti_with';
   static const String _mySmrutiCountryFilterSlug = 'my_smruti_country';
   static const String _mySmrutiLocationFilterSlug = 'my_smruti_location';
@@ -1553,9 +1504,7 @@ class GalleryController extends GetxController {
   static const String _mySmrutiDarshanOfFilterSlug = 'my_smruti_darshan_of';
   static const String _mySmrutiSmrutiOfFilterSlug = 'my_smruti_smruti_of';
   static const String _mySmrutiTagsFilterSlug = 'my_smruti_tags';
-  static const String _allMySmrutiFilterValue = '__all_my_smruti__';
   static const Set<String> _mySmrutiFilterSlugs = {
-    _mySmrutiFilterSlug,
     _mySmrutiWithFilterSlug,
     _mySmrutiCountryFilterSlug,
     _mySmrutiLocationFilterSlug,
@@ -1566,21 +1515,11 @@ class GalleryController extends GetxController {
     _mySmrutiTagsFilterSlug,
   };
 
-  List<GalleryFilterGroup> _buildMySmrutiFilterGroups() {
+  List<GalleryFilterGroup> _buildMySmrutiFilterGroups(
+    Map<String, List<String>> selected,
+  ) {
     if (mySmrutiPhotos.isEmpty) return const [];
-    final groups = <GalleryFilterGroup>[
-      GalleryFilterGroup(
-        slug: _mySmrutiFilterSlug,
-        title: 'My Smruti',
-        options: [
-          GalleryFilterOption(
-            value: _allMySmrutiFilterValue,
-            label: 'All My Smruti',
-            count: mySmrutiPhotos.length,
-          ),
-        ],
-      ),
-    ];
+    final groups = <GalleryFilterGroup>[];
     for (final definition in const [
       (_mySmrutiWithFilterSlug, 'With'),
       (_mySmrutiCountryFilterSlug, 'Country'),
@@ -1591,7 +1530,7 @@ class GalleryController extends GetxController {
       (_mySmrutiSmrutiOfFilterSlug, 'Smruti Of'),
       (_mySmrutiTagsFilterSlug, 'Tags'),
     ]) {
-      final options = _buildMySmrutiOptions(definition.$1);
+      final options = _buildMySmrutiOptions(definition.$1, selected: selected);
       if (options.isNotEmpty) {
         groups.add(
           GalleryFilterGroup(
@@ -1605,10 +1544,17 @@ class GalleryController extends GetxController {
     return groups;
   }
 
-  List<GalleryFilterOption> _buildMySmrutiOptions(String slug) {
+  List<GalleryFilterOption> _buildMySmrutiOptions(
+    String slug, {
+    required Map<String, List<String>> selected,
+  }) {
     final labels = <String, String>{};
     final counts = <String, int>{};
-    for (final photo in mySmrutiPhotos) {
+    final applicablePhotos = mySmrutiPhotos.where(
+      (photo) =>
+          _matchesMySmrutiSelections(photo, selected, excludingSlug: slug),
+    );
+    for (final photo in applicablePhotos) {
       final photoValues = <String>{};
       for (final rawValue in _mySmrutiValuesForPhoto(photo, slug)) {
         final value = rawValue.trim();
@@ -1628,6 +1574,35 @@ class GalleryController extends GetxController {
         )
         .toList()
       ..sort(_compareGalleryFilterOptions);
+  }
+
+  static bool _matchesMySmrutiSelections(
+    GalleryPhoto photo,
+    Map<String, List<String>> selected, {
+    String? excludingSlug,
+  }) {
+    // "Tags" is an independent facet: attribute selections do not reduce its
+    // options, and tag selections do not reduce the attribute facet options.
+    if (excludingSlug == _mySmrutiTagsFilterSlug) return true;
+    for (final entry in selected.entries) {
+      if (entry.key == excludingSlug ||
+          entry.key == _mySmrutiTagsFilterSlug ||
+          !_mySmrutiFilterSlugs.contains(entry.key) ||
+          entry.value.isEmpty) {
+        continue;
+      }
+      final wantedValues = entry.value
+          .map(_normalizeFilterValue)
+          .where((value) => value.isNotEmpty)
+          .toSet();
+      if (wantedValues.isEmpty) continue;
+      final matches = _mySmrutiValuesForPhoto(
+        photo,
+        entry.key,
+      ).map(_normalizeFilterValue).any(wantedValues.contains);
+      if (!matches) return false;
+    }
+    return true;
   }
 
   static Iterable<String> _mySmrutiValuesForPhoto(

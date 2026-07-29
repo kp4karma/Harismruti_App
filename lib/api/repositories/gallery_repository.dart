@@ -87,6 +87,8 @@ class GalleryRepository {
     Map<String, List<String>> selected = const {},
   }) async {
     final queryParams = _latestQueryParams({'limit': limit});
+    final mobile = currentPhoneNumber();
+    if (mobile.isNotEmpty) queryParams['mobile'] = mobile;
     selected.forEach((slug, values) {
       if (values.isNotEmpty) queryParams[slug] = values;
     });
@@ -377,6 +379,8 @@ class GalleryRepository {
     int perPage = 60,
   }) async {
     final queryParams = _latestQueryParams({'page': page, 'per_page': perPage});
+    final mobile = currentPhoneNumber();
+    if (mobile.isNotEmpty) queryParams['mobile'] = mobile;
     selected.forEach((slug, values) {
       if (values.isNotEmpty) queryParams[slug] = values;
     });

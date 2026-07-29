@@ -41,10 +41,10 @@ class ApiEndpoints {
   static String get onThisDay => "/on-this-day";
   static String get collections => "/collections";
   static String get attributes => "/attributes";
-  static String get filters => "/filters";
+  static String get filters => "/me/filters";
   static String get smrutiOf => "/smruti-of";
   static String get people => "/people";
-  static String get filteredPhotos => "/filtered/photos";
+  static String get filteredPhotos => "/me/filtered/photos";
   static String get login => "/auth/login";
   static String get verifyOtp => "/auth/verify-otp";
   static String get register => "/auth/register";

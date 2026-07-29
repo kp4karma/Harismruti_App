@@ -105,6 +105,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
       }
       if (values.isEmpty) _selectedValues.remove(group.slug);
     });
+    _controller.loadFilters(selected: _selectedForApi, force: true);
   }
 
   void _updateDateSelection() {
@@ -220,6 +221,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
       _selectedIndex = 0;
     });
     _searchController.clear();
+    _controller.loadFilters(force: true);
   }
 
   void _applyFilters() {
@@ -300,10 +302,9 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
               ),
               Expanded(
                 child: Obx(() {
-                  final currentGroups = _controller.filtersWithUserTags;
-                  if ((_controller.areFiltersLoading.value ||
-                          _controller.isMyLibraryLoading.value ||
-                          _controller.areMySmrutiFiltersLoading.value) &&
+                  final currentGroups = _controller
+                      .filtersWithUserTagsForSelection(_selectedForApi);
+                  if (_controller.areFiltersLoading.value &&
                       currentGroups.isEmpty) {
                     return const _FilterSheetLoading();
                   }
@@ -547,7 +548,6 @@ String _filterGroupDisplayTitle(GalleryFilterGroup group) {
 
 int _filterGroupOrder(String slug) {
   return switch (slug.trim().toLowerCase()) {
-    'my_smruti' => -2,
     'my_smruti_with' => -1,
     'my_smruti_country' => 0,
     'my_smruti_location' => 1,
