@@ -74,5 +74,26 @@ void main() {
       expect(photo.takenAt, isNull);
       expect(photo.eventDate, isNull);
     });
+
+    test('reads category attributes returned by My Smruti', () {
+      final photo = GalleryPhoto.fromJson({
+        'photo_id': 45,
+        'country': 'India',
+        'location': 'Ahmedabad',
+        'sub_location': 'Shahibaug',
+        'album': 'Yatra',
+        'smruti_with': 'Sant Mandal',
+        'darshan_of': 'Hariprasad Swamiji',
+        'smruti_of': 'Sabha',
+      });
+
+      expect(photo.country, 'India');
+      expect(photo.location, 'Ahmedabad');
+      expect(photo.subLocation, 'Shahibaug');
+      expect(photo.album, 'Yatra');
+      expect(photo.smrutiWith, 'Sant Mandal');
+      expect(photo.darshanOf, 'Hariprasad Swamiji');
+      expect(photo.smrutiOf, 'Sabha');
+    });
   });
 }

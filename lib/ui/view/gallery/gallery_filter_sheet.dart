@@ -525,6 +525,22 @@ String _filterGroupDisplayTitle(GalleryFilterGroup group) {
       return 'Country';
     case 'duration':
       return 'Year';
+    case 'my_smruti_with':
+      return 'With';
+    case 'my_smruti_country':
+      return 'Country';
+    case 'my_smruti_location':
+      return 'Location';
+    case 'my_smruti_place':
+      return 'Place';
+    case 'my_smruti_album':
+      return 'Album';
+    case 'my_smruti_darshan_of':
+      return 'Darshan Of';
+    case 'my_smruti_smruti_of':
+      return 'Smruti Of';
+    case 'my_smruti_tags':
+      return 'Tags';
   }
   return group.title;
 }
@@ -532,17 +548,25 @@ String _filterGroupDisplayTitle(GalleryFilterGroup group) {
 int _filterGroupOrder(String slug) {
   return switch (slug.trim().toLowerCase()) {
     'my_smruti' => -2,
-    'user_tag' => -1,
-    'subject' => 0,
-    'person' => 1,
-    'with' => 2,
-    'album' => 3,
-    'sub_location' => 4,
-    'location' => 5,
-    'country' => 6,
-    'duration' => 7,
-    'date' => 8,
-    _ => 9,
+    'my_smruti_with' => -1,
+    'my_smruti_country' => 0,
+    'my_smruti_location' => 1,
+    'my_smruti_place' => 2,
+    'my_smruti_album' => 3,
+    'my_smruti_darshan_of' => 4,
+    'my_smruti_smruti_of' => 5,
+    'my_smruti_tags' => 6,
+    'user_tag' => 7,
+    'subject' => 10,
+    'person' => 11,
+    'with' => 12,
+    'album' => 13,
+    'sub_location' => 14,
+    'location' => 15,
+    'country' => 16,
+    'duration' => 17,
+    'date' => 18,
+    _ => 19,
   };
 }
 

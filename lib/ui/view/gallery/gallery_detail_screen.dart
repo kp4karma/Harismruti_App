@@ -109,8 +109,6 @@ class GalleryDetailScreen extends StatefulWidget {
 }
 
 class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
-  static const int _perPage = 120;
-
   final GalleryController _galleryController = Get.find<GalleryController>();
   final ScrollController _scrollController = ScrollController();
   final List<GalleryPhoto> _photos = [];
@@ -143,15 +141,23 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
 
   Future<void> _loadInitial() async {
     try {
-      final features = await _repository.getMobileFeatures();
-      _allowIgnore = features['allow_ignore'] == true;
-      _ignoredPhotoIds.addAll(
-        (features['ignored_photo_ids'] is List
-                ? features['ignored_photo_ids'] as List
-                : const [])
-            .map((value) => int.tryParse('$value'))
-            .whereType<int>(),
-      );
+      // Ignoring is an optional enhancement. A missing/older features endpoint
+      // must never prevent the gallery itself from opening.
+      try {
+        final features = await _repository.getMobileFeatures();
+        _allowIgnore = features['allow_ignore'] == true;
+        _ignoredPhotoIds.addAll(
+          (features['ignored_photo_ids'] is List
+                  ? features['ignored_photo_ids'] as List
+                  : const [])
+              .map((value) => int.tryParse('$value'))
+              .whereType<int>(),
+        );
+      } catch (error) {
+        debugPrint(
+          'GalleryDetailScreen[${widget.title}]: optional features failed, $error',
+        );
+      }
       final photos = await widget.loader();
       debugPrint(
         'GalleryDetailScreen[${widget.title}]: initial load returned=${photos.length}',
@@ -167,7 +173,7 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
             ).where((photo) => !_ignoredPhotoIds.contains(photo.id)),
           );
         _page = 1;
-        _hasMore = widget.loadMore != null && photos.length >= _perPage;
+        _hasMore = widget.loadMore != null && photos.isNotEmpty;
         _initialLoading = false;
         _failed = false;
       });
@@ -202,11 +208,11 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
       final newPhotos = _dedupe(
         photos,
         existing: _photos,
-      ).where((photo) => !_ignoredPhotoIds.contains(photo.id));
+      ).where((photo) => !_ignoredPhotoIds.contains(photo.id)).toList();
       setState(() {
         _photos.addAll(newPhotos);
         _page = nextPage;
-        _hasMore = photos.length >= _perPage;
+        _hasMore = photos.isNotEmpty && newPhotos.isNotEmpty;
         _isLoadingMore = false;
       });
       debugPrint(

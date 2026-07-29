@@ -147,8 +147,10 @@ class GalleryPhoto {
   final String? fileName;
   final double? latitude;
   final double? longitude;
+  final String? country;
   final String? location;
   final String? subLocation;
+  final String? album;
   final String? smrutiWith;
   final String? darshanOf;
   final String? smrutiOf;
@@ -170,8 +172,10 @@ class GalleryPhoto {
     this.fileName,
     this.latitude,
     this.longitude,
+    this.country,
     this.location,
     this.subLocation,
+    this.album,
     this.smrutiWith,
     this.darshanOf,
     this.smrutiOf,
@@ -264,12 +268,14 @@ class GalleryPhoto {
         'gps_longitude',
         'gpsLongitude',
       ]),
+      country: _readString(json, const ['country']),
       location: _readString(json, const ['location', 'city']),
       subLocation: _readString(json, const [
         'sub_location',
         'subLocation',
         'place',
       ]),
+      album: _readString(json, const ['album']),
       smrutiWith: _readString(json, const [
         'smruti_with',
         'smrutiWith',
@@ -298,8 +304,10 @@ class GalleryPhoto {
       if (fileName != null) 'filename': fileName,
       if (latitude != null) 'latitude': latitude,
       if (longitude != null) 'longitude': longitude,
+      if (country != null) 'country': country,
       if (location != null) 'location': location,
       if (subLocation != null) 'sub_location': subLocation,
+      if (album != null) 'album': album,
       if (smrutiWith != null) 'smruti_with': smrutiWith,
       if (darshanOf != null) 'darshan_of': darshanOf,
       if (smrutiOf != null) 'smruti_of': smrutiOf,
