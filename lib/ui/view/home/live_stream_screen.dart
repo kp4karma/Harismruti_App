@@ -8,6 +8,7 @@ import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 import 'package:screen_protector/screen_protector.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
 class LiveStreamScreen extends StatefulWidget {
   const LiveStreamScreen({super.key, required this.url});
@@ -59,25 +60,33 @@ class _LiveStreamScreenState extends State<LiveStreamScreen>
       requestHeaders['Authorization'] = 'Bearer $accessToken';
     }
 
-    final controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(Colors.black)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onProgress: (progress) {
-            if (mounted) setState(() => _progress = progress);
-          },
-          onPageStarted: (_) {
-            if (mounted) setState(() => _error = null);
-          },
-          onWebResourceError: (error) {
-            if (error.isForMainFrame == true && mounted) {
-              setState(() => _error = error.description);
-            }
-          },
-        ),
-      )
-      ..loadRequest(Uri.parse(widget.url), headers: requestHeaders);
+    final creationParams = WebViewPlatform.instance is WebKitWebViewPlatform
+        ? WebKitWebViewControllerCreationParams(
+            allowsInlineMediaPlayback: true,
+            mediaTypesRequiringUserAction: const <PlaybackMediaTypes>{},
+          )
+        : const PlatformWebViewControllerCreationParams();
+
+    final controller =
+        WebViewController.fromPlatformCreationParams(creationParams)
+          ..setJavaScriptMode(JavaScriptMode.unrestricted)
+          ..setBackgroundColor(Colors.black)
+          ..setNavigationDelegate(
+            NavigationDelegate(
+              onProgress: (progress) {
+                if (mounted) setState(() => _progress = progress);
+              },
+              onPageStarted: (_) {
+                if (mounted) setState(() => _error = null);
+              },
+              onWebResourceError: (error) {
+                if (error.isForMainFrame == true && mounted) {
+                  setState(() => _error = error.description);
+                }
+              },
+            ),
+          )
+          ..loadRequest(Uri.parse(widget.url), headers: requestHeaders);
     _controller = controller;
     setState(() => _protectionReady = true);
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -6,6 +7,7 @@ import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/api/models/app_section_setting.dart';
 import 'package:harismruti/api/repositories/gallery_repository.dart';
 import 'package:harismruti/services/analytics_service.dart';
+import 'package:harismruti/services/phone_smruti_widget_service.dart';
 import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 
@@ -51,12 +53,16 @@ class UserPhotoCollection {
 
 class _GalleryTabSnapshot {
   final GalleryHomeBundle bundle;
+  final List<GalleryPhoto> onThisDayPhotos;
+  final bool hasLoadedOnThisDay;
   final DateTime loadedAt;
   final int recentPage;
   final bool hasMoreRecentPhotos;
 
   const _GalleryTabSnapshot({
     required this.bundle,
+    required this.onThisDayPhotos,
+    required this.hasLoadedOnThisDay,
     required this.loadedAt,
     required this.recentPage,
     required this.hasMoreRecentPhotos,
@@ -103,6 +109,7 @@ class GalleryController extends GetxController {
 
   DateTime? _lastLoadedAt;
   Future<void>? _inFlightLoad;
+  bool _hasLoadedOnThisDay = false;
   int _recentPage = 1;
   int _favoriteMutationVersion = 0;
   final Map<GallerySwami, _GalleryTabSnapshot> _tabSnapshots = {};
@@ -131,7 +138,19 @@ class GalleryController extends GetxController {
     // Render a recent persisted snapshot immediately without spending network
     // data. Stale or missing snapshots are refreshed in the background.
     final snapshot = _tabSnapshots[selectedSwami.value];
-    loadHome(force: snapshot == null || _isSnapshotStale(snapshot));
+    unawaited(
+      _loadAndSyncHomeWidget(
+        force: snapshot == null || _isSnapshotStale(snapshot),
+      ),
+    );
+  }
+
+  Future<void> _loadAndSyncHomeWidget({required bool force}) async {
+    await loadHome(force: force);
+    await PhoneSmrutiWidgetService.syncInstalledWidget(
+      photos: recentPhotos.toList(growable: false),
+      imageHeaders: imageHeaders,
+    );
   }
 
   void _restorePersistedSwami() {
@@ -215,13 +234,94 @@ class GalleryController extends GetxController {
   }
 
   bool isPhotoInSelectedSwami(GalleryPhoto photo) {
-    final date = photo.takenAt;
+    return _isPhotoInSwami(photo, selectedSwami.value);
+  }
+
+  bool _isPhotoInSwami(GalleryPhoto photo, GallerySwami swami) {
+    final date = photo.eventDate ?? photo.takenAt;
     if (date == null) return false;
     final calendarDate = DateTime(date.year, date.month, date.day);
     final cutoff = DateTime(2022, 4, 21);
-    return selectedSwami.value == GallerySwami.hariprasad
+    return swami == GallerySwami.hariprasad
         ? calendarDate.isBefore(cutoff)
         : !calendarDate.isBefore(cutoff);
+  }
+
+  List<GalleryPhoto> _photosForSwami(
+    Iterable<GalleryPhoto> photos,
+    GallerySwami swami,
+  ) => photos.where((photo) => _isPhotoInSwami(photo, swami)).toList();
+
+  List<GalleryCard> _cardsForSwami(
+    Iterable<GalleryCard> cards,
+    GallerySwami swami,
+  ) {
+    return cards
+        .map((card) {
+          final photos = _photosForSwami(card.photos, swami);
+          if (card.photos.isNotEmpty && photos.isEmpty) return null;
+          return GalleryCard(
+            id: card.id,
+            title: card.title,
+            subtitle: card.subtitle,
+            type: card.type,
+            value: card.value,
+            count: card.count,
+            locationCount: card.locationCount,
+            tagCount: card.tagCount,
+            faceId: card.faceId,
+            photos: photos,
+          );
+        })
+        .whereType<GalleryCard>()
+        .toList();
+  }
+
+  List<GalleryTimeBucket> _timeBucketsForSwami(
+    Iterable<GalleryTimeBucket> buckets,
+    GallerySwami swami,
+  ) {
+    const cutoffYear = 2022;
+    const cutoffMonth = 4;
+    const cutoffDay = 21;
+
+    bool includesSelectedPeriod(GalleryTimeBucket bucket) {
+      if (bucket.year != cutoffYear) {
+        return swami == GallerySwami.hariprasad
+            ? bucket.year < cutoffYear
+            : bucket.year > cutoffYear;
+      }
+      final month = bucket.month;
+      if (month == null) return true;
+      if (month != cutoffMonth) {
+        return swami == GallerySwami.hariprasad
+            ? month < cutoffMonth
+            : month > cutoffMonth;
+      }
+      final day = bucket.day;
+      if (day == null) return true;
+      return swami == GallerySwami.hariprasad
+          ? day < cutoffDay
+          : day >= cutoffDay;
+    }
+
+    return buckets
+        .where(includesSelectedPeriod)
+        .map((bucket) {
+          final photos = _photosForSwami(bucket.photos, swami);
+          if (bucket.photos.isNotEmpty && photos.isEmpty) return null;
+          return GalleryTimeBucket(
+            year: bucket.year,
+            month: bucket.month,
+            day: bucket.day,
+            count: bucket.count,
+            locationCount: bucket.locationCount,
+            tagCount: bucket.tagCount,
+            photos: photos,
+          );
+        })
+        .whereType<GalleryTimeBucket>()
+        .toList();
   }
 
   Future<void> selectSwami(int index) async {
@@ -591,7 +691,7 @@ class GalleryController extends GetxController {
         _lastLoadedAt != null &&
         DateTime.now().difference(_lastLoadedAt!) < const Duration(minutes: 10);
 
-    if (!force && loadedRecently && hasAnyData) {
+    if (!force && loadedRecently && hasAnyData && _hasLoadedOnThisDay) {
       return Future.value();
     }
 
@@ -663,6 +763,7 @@ class GalleryController extends GetxController {
       mySmrutiPhotos.clear();
       return;
     }
+    final requestedSwami = selectedSwami.value;
     areMySmrutiFiltersLoading.value = true;
     try {
       const pageSize = 50;
@@ -690,7 +791,8 @@ class GalleryController extends GetxController {
         if (pagePhotos.isEmpty) break;
       } while (photos.length < total && pagesFetched < maxPages);
 
-      mySmrutiPhotos.assignAll(photos);
+      if (selectedSwami.value != requestedSwami) return;
+      mySmrutiPhotos.assignAll(_photosForSwami(photos, requestedSwami));
     } catch (_) {
       mySmrutiPhotos.clear();
     } finally {
@@ -701,60 +803,70 @@ class GalleryController extends GetxController {
   Future<List<GalleryPhoto>> loadPhotosForCard(
     GalleryCard card, {
     int page = 1,
-  }) {
+  }) async {
+    final requestedSwami = selectedSwami.value;
+    late final List<GalleryPhoto> photos;
     if (card.type == 'person' && card.id > 0) {
-      return _repository.getPersonPhotos(
+      photos = await _repository.getPersonPhotos(
         groupId: card.id,
         page: page,
         perPage: 60,
       );
-    }
-    if (card.type == 'collection') {
+    } else if (card.type == 'collection') {
       final year = int.tryParse(card.value) ?? card.id;
       if (year > 0) {
-        return _repository.getCollectionYearPhotos(
+        photos = await _repository.getCollectionYearPhotos(
           year: year,
           page: page,
           perPage: 60,
         );
+      } else {
+        photos = const [];
       }
+    } else {
+      photos = await _repository.getByAttributePhotos(
+        slug: card.type,
+        value: card.value,
+        page: page,
+        perPage: 60,
+      );
     }
-    return _repository.getByAttributePhotos(
-      slug: card.type,
-      value: card.value,
-      page: page,
-      perPage: 60,
-    );
+    return _photosForSwami(photos, requestedSwami);
   }
 
   Future<List<GalleryPhoto>> loadPhotosForFilter({
     required String slug,
     required String value,
     int page = 1,
-  }) {
+  }) async {
+    final requestedSwami = selectedSwami.value;
+    late final List<GalleryPhoto> photos;
     if (slug == 'duration') {
       final exactDate = DateTime.tryParse(value);
       if (exactDate != null && value.contains('-')) {
-        return _repository.getCollectionDayPhotos(
+        photos = await _repository.getCollectionDayPhotos(
           year: exactDate.year,
           month: exactDate.month,
           day: exactDate.day,
           page: page,
           perPage: 120,
         );
+      } else {
+        photos = await _repository.getCollectionYearPhotos(
+          year: int.tryParse(value) ?? 0,
+          page: page,
+          perPage: 60,
+        );
       }
-      return _repository.getCollectionYearPhotos(
-        year: int.tryParse(value) ?? 0,
+    } else {
+      photos = await _repository.getByAttributePhotos(
+        slug: slug,
+        value: value,
         page: page,
         perPage: 60,
       );
     }
-    return _repository.getByAttributePhotos(
-      slug: slug,
-      value: value,
-      page: page,
-      perPage: 60,
-    );
+    return _photosForSwami(photos, requestedSwami);
   }
 
   Future<List<GalleryPhoto>> loadPhotosForFilters({
@@ -765,6 +877,7 @@ class GalleryController extends GetxController {
       final entry = selected.entries.first;
       if (entry.key != _userTagFilterSlug &&
           entry.key != _mySmrutiFilterSlug &&
+          entry.key != 'date' &&
           entry.value.length == 1) {
         return loadPhotosForFilter(
           slug: entry.key,
@@ -793,11 +906,10 @@ class GalleryController extends GetxController {
         perPage: 60,
       );
     }
-    return _repository.getFilteredPhotos(
-      selected: selected,
-      page: page,
-      perPage: 120,
-    );
+    final requestedSwami = selectedSwami.value;
+    return _repository
+        .getFilteredPhotos(selected: selected, page: page, perPage: 120)
+        .then((photos) => _photosForSwami(photos, requestedSwami));
   }
 
   Future<List<GalleryPhoto>> _loadPhotosForMySmrutiTags({
@@ -912,6 +1024,7 @@ class GalleryController extends GetxController {
         serverPage++;
       }
     }
+    matches = _photosForSwami(matches, selectedSwami.value);
     matches.sort((a, b) {
       final first = a.eventDate ?? a.takenAt;
       final second = b.eventDate ?? b.takenAt;
@@ -933,17 +1046,20 @@ class GalleryController extends GetxController {
   Future<void> loadMoreRecentPhotos() async {
     if (isRecentPageLoading.value || !hasMoreRecentPhotos.value) return;
     isRecentPageLoading.value = true;
+    final requestedSwami = selectedSwami.value;
     final nextPage = _recentPage + 1;
     try {
       final photos = await _repository.getRecent(
         page: nextPage,
         perPage: _recentPerPage,
       );
+      if (selectedSwami.value != requestedSwami) return;
+      final tabPhotos = _photosForSwami(photos, requestedSwami);
       debugPrint(
         'loadMoreRecentPhotos: page=$nextPage perPage=$_recentPerPage '
-        'returned=${photos.length} totalLoaded=${recentPhotos.length + photos.length}',
+        'returned=${tabPhotos.length} totalLoaded=${recentPhotos.length + tabPhotos.length}',
       );
-      if (photos.isEmpty) {
+      if (tabPhotos.isEmpty) {
         hasMoreRecentPhotos.value = false;
         debugPrint('loadMoreRecentPhotos: page=$nextPage empty, no more pages');
         return;
@@ -957,14 +1073,16 @@ class GalleryController extends GetxController {
           .where((photo) => photo.id <= 0)
           .map((photo) => photo.thumbnailUrl)
           .toSet();
-      final newPhotos = photos.where((photo) {
+      final newPhotos = tabPhotos.where((photo) {
         if (photo.id > 0) return existingIds.add(photo.id);
         return photo.thumbnailUrl.isNotEmpty &&
             existingUrls.add(photo.thumbnailUrl);
       }).toList();
 
       if (newPhotos.isNotEmpty) {
-        recentPhotos.addAll(newPhotos);
+        recentPhotos.assignAll(
+          _orderPhotos('recent', [...recentPhotos, ...newPhotos]),
+        );
       }
       _recentPage = nextPage;
       hasMoreRecentPhotos.value = photos.length >= _recentPerPage;
@@ -981,27 +1099,36 @@ class GalleryController extends GetxController {
     }
   }
 
-  Future<List<GalleryTimeBucket>> loadMonthsForYear(int year) {
-    return _repository.getCollectionMonths(year: year);
+  Future<List<GalleryTimeBucket>> loadMonthsForYear(int year) async {
+    final requestedSwami = selectedSwami.value;
+    final buckets = await _repository.getCollectionMonths(year: year);
+    return _timeBucketsForSwami(buckets, requestedSwami);
   }
 
   Future<List<GalleryTimeBucket>> loadDaysForMonth({
     required int year,
     required int month,
-  }) {
-    return _repository.getCollectionDays(year: year, month: month);
+  }) async {
+    final requestedSwami = selectedSwami.value;
+    final buckets = await _repository.getCollectionDays(
+      year: year,
+      month: month,
+    );
+    return _timeBucketsForSwami(buckets, requestedSwami);
   }
 
   Future<List<GalleryPhoto>> loadPhotosForDay({
     required int year,
     required int month,
     required int day,
-  }) {
-    return _repository.getCollectionDayPhotos(
+  }) async {
+    final requestedSwami = selectedSwami.value;
+    final photos = await _repository.getCollectionDayPhotos(
       year: year,
       month: month,
       day: day,
     );
+    return _photosForSwami(photos, requestedSwami);
   }
 
   Future<void> _loadHomeInternal({
@@ -1014,19 +1141,32 @@ class GalleryController extends GetxController {
     errorMessage.value = '';
 
     try {
-      await _refreshSectionSettings();
+      final cacheRevisionChanged = await _refreshSectionSettings();
+      if (cacheRevisionChanged) {
+        _tabSnapshots.remove(requestedSwami);
+      }
+      final forceDataRefresh = force || cacheRevisionChanged;
       final bundle = await _repository.getHomeBundle(
         samples: 4,
-        forceRefresh: force,
+        forceRefresh: forceDataRefresh,
       );
       if (selectedSwami.value != requestedSwami) return;
       _applyBundle(bundle);
       try {
-        onThisDayPhotos.assignAll(
-          _orderPhotos('on_this_day', await _repository.getOnThisDay()),
+        final loadedOnThisDay = await _repository.getOnThisDay(
+          forceRefresh: forceDataRefresh,
         );
+        if (selectedSwami.value != requestedSwami) return;
+        onThisDayPhotos.assignAll(
+          _orderPhotos(
+            'on_this_day',
+            _photosForSwami(loadedOnThisDay, requestedSwami),
+          ),
+        );
+        _hasLoadedOnThisDay = true;
       } catch (error) {
         onThisDayPhotos.clear();
+        _hasLoadedOnThisDay = false;
         debugPrint('On This Day load failed: $error');
       }
       _recentPage = 1;
@@ -1041,16 +1181,19 @@ class GalleryController extends GetxController {
     }
   }
 
-  Future<void> _refreshSectionSettings() async {
-    if (!Get.isRegistered<SmrutiSectionController>()) return;
-    await Get.find<SmrutiSectionController>().refreshGlobalVisibility(
+  Future<bool> _refreshSectionSettings() async {
+    if (!Get.isRegistered<SmrutiSectionController>()) return false;
+    final controller = Get.find<SmrutiSectionController>();
+    await controller.refreshGlobalVisibility(
       optionKey: selectedSwami.value.apiValue,
     );
+    return controller.consumeCacheRefresh(selectedSwami.value.apiValue);
   }
 
   void _clearGallerySections() {
     recentPhotos.clear();
     onThisDayPhotos.clear();
+    _hasLoadedOnThisDay = false;
     collections.clear();
     smrutiWith.clear();
     smrutiOf.clear();
@@ -1068,21 +1211,42 @@ class GalleryController extends GetxController {
 
   void _applySnapshot(_GalleryTabSnapshot snapshot) {
     _applyBundle(snapshot.bundle);
+    onThisDayPhotos.assignAll(
+      _photosForSwami(snapshot.onThisDayPhotos, selectedSwami.value),
+    );
+    _hasLoadedOnThisDay = snapshot.hasLoadedOnThisDay;
     _lastLoadedAt = snapshot.loadedAt;
     _recentPage = snapshot.recentPage;
     hasMoreRecentPhotos.value = snapshot.hasMoreRecentPhotos;
   }
 
   void _applyBundle(GalleryHomeBundle bundle) {
-    recentPhotos.assignAll(_orderPhotos('recent', bundle.recent));
-    collections.assignAll(_orderCards('year', bundle.collections));
-    smrutiWith.assignAll(_orderCards('smruti_with', bundle.smrutiWith));
-    smrutiOf.assignAll(_orderCards('darshan_of', bundle.smrutiOf));
-    locations.assignAll(_orderCards('location', bundle.locations));
-    albums.assignAll(_orderCards('smruti_category', bundle.albums));
-    subjects.assignAll(_orderCards('smruti_of', bundle.subjects));
-    people.assignAll(_orderCards('darshan_of', bundle.people));
-    wallpapers.assignAll(bundle.wallpapers);
+    final swami = selectedSwami.value;
+    recentPhotos.assignAll(
+      _orderPhotos('recent', _photosForSwami(bundle.recent, swami)),
+    );
+    collections.assignAll(
+      _orderCards('year', _cardsForSwami(bundle.collections, swami)),
+    );
+    smrutiWith.assignAll(
+      _orderCards('smruti_with', _cardsForSwami(bundle.smrutiWith, swami)),
+    );
+    smrutiOf.assignAll(
+      _orderCards('darshan_of', _cardsForSwami(bundle.smrutiOf, swami)),
+    );
+    locations.assignAll(
+      _orderCards('location', _cardsForSwami(bundle.locations, swami)),
+    );
+    albums.assignAll(
+      _orderCards('smruti_category', _cardsForSwami(bundle.albums, swami)),
+    );
+    subjects.assignAll(
+      _orderCards('smruti_of', _cardsForSwami(bundle.subjects, swami)),
+    );
+    people.assignAll(
+      _orderCards('darshan_of', _cardsForSwami(bundle.people, swami)),
+    );
+    wallpapers.assignAll(_cardsForSwami(bundle.wallpapers, swami));
   }
 
   AppSectionSetting? _sectionSetting(String sectionKey) {
@@ -1106,7 +1270,10 @@ class GalleryController extends GetxController {
       sectionKey,
       items,
       setting,
-      (photo) => photo.createdAt ?? photo.eventDate ?? photo.takenAt,
+      // Gallery order means the date of the Smruti, not when its database row
+      // happened to be uploaded. Imported old photos often have a new
+      // `created_at`, which previously made "Oldest first" look newest-first.
+      (photo) => photo.eventDate ?? photo.takenAt ?? photo.createdAt,
       (photo) => photo.id,
     );
     return ordered.take(setting?.itemLimit ?? ordered.length).toList();
@@ -1124,7 +1291,7 @@ class GalleryController extends GetxController {
       items,
       setting,
       (card) => card.photos
-          .map((photo) => photo.createdAt ?? photo.eventDate ?? photo.takenAt)
+          .map((photo) => photo.eventDate ?? photo.takenAt ?? photo.createdAt)
           .whereType<DateTime>()
           .fold<DateTime?>(
             null,
@@ -1179,7 +1346,16 @@ class GalleryController extends GetxController {
 
   Random _dailyRandom(String sectionKey) {
     final now = DateTime.now();
-    final seedText = '$sectionKey:${now.year}-${now.month}-${now.day}';
+    final revisions = StorageHelper.getValue<Map>(
+      key: StorageKeys.appSectionCacheRevisions,
+    );
+    final revision =
+        int.tryParse(
+          revisions?[selectedSwami.value.apiValue]?.toString() ?? '',
+        ) ??
+        0;
+    final seedText =
+        '$sectionKey:$revision:${now.year}-${now.month}-${now.day}';
     var seed = 17;
     for (final unit in seedText.codeUnits) {
       seed = 0x1fffffff & (seed * 31 + unit);
@@ -1201,6 +1377,8 @@ class GalleryController extends GetxController {
         people: people.toList(),
         wallpapers: wallpapers.toList(),
       ),
+      onThisDayPhotos: onThisDayPhotos.toList(),
+      hasLoadedOnThisDay: _hasLoadedOnThisDay,
       loadedAt: loadedAt,
       recentPage: _recentPage,
       hasMoreRecentPhotos: hasMoreRecentPhotos.value,
@@ -1222,8 +1400,17 @@ class GalleryController extends GetxController {
       if (loadedAt == null || bundleRaw is! Map) continue;
       final bundle = GalleryHomeBundle.fromJson(bundleRaw);
       if (!_bundleHasData(bundle)) continue;
+      final onThisDayRaw = entry['on_this_day'];
+      final hasLoadedOnThisDay = entry.containsKey('on_this_day');
+      final restoredOnThisDay = onThisDayRaw is List
+          ? onThisDayRaw
+                .map((photo) => GalleryPhoto.fromJson(asJsonMap(photo)))
+                .toList()
+          : <GalleryPhoto>[];
       _tabSnapshots[swami] = _GalleryTabSnapshot(
         bundle: bundle,
+        onThisDayPhotos: restoredOnThisDay,
+        hasLoadedOnThisDay: hasLoadedOnThisDay,
         loadedAt: loadedAt,
         recentPage: 1,
         hasMoreRecentPhotos: bundle.recent.length >= _recentPerPage,
@@ -1242,6 +1429,9 @@ class GalleryController extends GetxController {
           entry.key.apiValue: {
             'loaded_at': entry.value.loadedAt.toIso8601String(),
             'bundle': entry.value.bundle.toJson(),
+            'on_this_day': entry.value.onThisDayPhotos
+                .map((photo) => photo.toJson())
+                .toList(),
           },
       },
     );

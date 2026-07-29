@@ -29,14 +29,36 @@ class SmrutiSectionController extends GetxController {
     'prabodh': 'P.P.Prabodh Swamiji',
     'hariprasad': 'P.P.Hariprasad Swamiji',
   }.obs;
+  final Set<String> _pendingCacheRefresh = {};
   final RxInt visibleCount = 3.obs;
   final RxBool showBottomBar = true.obs;
+  final RxBool showSmrutiStoryLine = false.obs;
+  final RxInt smrutiStoryCount = 8.obs;
+  final RxInt smrutiStoryRefreshHours = 1.obs;
   double lastOffset = 0;
 
   @override
   void onInit() {
     super.onInit();
     _loadCachedOptionLabels();
+    showSmrutiStoryLine.value =
+        StorageHelper.getValue<bool>(
+          key: StorageKeys.showSmrutiStoryLine,
+          defaultValue: false,
+        ) ??
+        false;
+    smrutiStoryCount.value =
+        StorageHelper.getValue<int>(
+          key: StorageKeys.smrutiStoryCount,
+          defaultValue: 8,
+        ) ??
+        8;
+    smrutiStoryRefreshHours.value =
+        StorageHelper.getValue<int>(
+          key: StorageKeys.smrutiStoryRefreshHours,
+          defaultValue: 1,
+        ) ??
+        1;
     loadSections();
     final cachedSettings = _loadCachedGlobalSettings(_selectedOptionKey());
     if (cachedSettings.isNotEmpty) {
@@ -167,6 +189,25 @@ class SmrutiSectionController extends GetxController {
         (globalVisibility[sectionKey] ?? true) && value;
     saveSectionsToStorage();
     sections.refresh();
+  }
+
+  void saveSmrutiStorySettings({
+    required bool visible,
+    required int count,
+    required int refreshHours,
+  }) {
+    showSmrutiStoryLine.value = visible;
+    smrutiStoryCount.value = count;
+    smrutiStoryRefreshHours.value = refreshHours;
+    StorageHelper.setValue(
+      key: StorageKeys.showSmrutiStoryLine,
+      value: visible,
+    );
+    StorageHelper.setValue(key: StorageKeys.smrutiStoryCount, value: count);
+    StorageHelper.setValue(
+      key: StorageKeys.smrutiStoryRefreshHours,
+      value: refreshHours,
+    );
   }
 
   List<Map<String, dynamic>> customizableSections() {
@@ -389,6 +430,14 @@ class SmrutiSectionController extends GetxController {
       final configuration = await _appSectionRepository.getConfiguration(
         optionKey: optionKey,
       );
+      final revisions = _loadCachedCacheRevisions();
+      if (revisions[optionKey] != configuration.cacheRevision) {
+        _pendingCacheRefresh.add(optionKey);
+      }
+      StorageHelper.setValue(
+        key: StorageKeys.appSectionCacheRevisions,
+        value: {...revisions, optionKey: configuration.cacheRevision},
+      );
       final remoteSections = configuration.sections;
       final visibility = {
         for (final section in remoteSections)
@@ -422,6 +471,21 @@ class SmrutiSectionController extends GetxController {
         _applyGlobalVisibility(_loadCachedGlobalVisibility());
       }
     }
+  }
+
+  bool consumeCacheRefresh(String optionKey) {
+    return _pendingCacheRefresh.remove(optionKey);
+  }
+
+  Map<String, int> _loadCachedCacheRevisions() {
+    final raw = StorageHelper.getValue<Map>(
+      key: StorageKeys.appSectionCacheRevisions,
+    );
+    if (raw == null) return {};
+    return raw.map(
+      (key, value) =>
+          MapEntry(key.toString(), int.tryParse(value.toString()) ?? 0),
+    );
   }
 
   Map<String, dynamic> _loadCachedSettingsMap() {

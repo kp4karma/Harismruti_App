@@ -2,7 +2,6 @@ import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
@@ -37,12 +36,12 @@ class GalleryFilterSheet extends StatefulWidget {
 class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
   final GalleryController _controller = Get.find<GalleryController>();
   final TextEditingController _searchController = TextEditingController();
-  final TextEditingController _durationController = TextEditingController();
   final Map<String, Set<String>> _selectedValues = {};
   final Map<String, Map<String, GalleryFilterOption>> _selectedOptions = {};
   int _selectedIndex = 0;
   String _query = '';
-  String? _durationError;
+  DateTime? _fromDate;
+  DateTime? _toDate;
 
   @override
   void initState() {
@@ -59,7 +58,6 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
   @override
   void dispose() {
     _searchController.dispose();
-    _durationController.dispose();
     super.dispose();
   }
 
@@ -71,10 +69,19 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
     return selected;
   }
 
-  int get _selectedCount => _selectedValues.values.fold<int>(
+  int get _selectedCount => _selectedValues.entries.fold<int>(
     0,
-    (total, values) => total + values.length,
+    (total, entry) =>
+        total +
+        (entry.key == 'date' && entry.value.isNotEmpty
+            ? 1
+            : entry.value.length),
   );
+
+  int _selectedCountFor(String slug) {
+    final count = _selectedValues[slug]?.length ?? 0;
+    return slug == 'date' && count > 0 ? 1 : count;
+  }
 
   List<String> get _selectedFilterLabels => _selectedOptions.values
       .expand((options) => options.values)
@@ -100,38 +107,61 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
     });
   }
 
-  void _applyCustomDuration() {
-    final input = _durationController.text.trim();
-    final match = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$').firstMatch(input);
-    if (match == null) {
-      setState(() => _durationError = 'Enter date as DD/MM/YYYY');
+  void _updateDateSelection() {
+    final dates = [_fromDate, _toDate].whereType<DateTime>().toList();
+    if (dates.isEmpty) {
+      _selectedValues.remove('date');
+      _selectedOptions.remove('date');
       return;
     }
-    final day = int.parse(match.group(1)!);
-    final month = int.parse(match.group(2)!);
-    final year = int.parse(match.group(3)!);
-    final date = DateTime(year, month, day);
-    if (date.year != year || date.month != month || date.day != day) {
-      setState(() => _durationError = 'Enter a valid date');
-      return;
-    }
-    final apiValue =
-        '${date.year.toString().padLeft(4, '0')}-'
-        '${date.month.toString().padLeft(2, '0')}-'
-        '${date.day.toString().padLeft(2, '0')}';
-    final option = GalleryFilterOption(value: apiValue, label: input, count: 1);
+    final options = {
+      for (final date in dates)
+        _apiDate(date): GalleryFilterOption(
+          value: _apiDate(date),
+          label: _displayDate(date),
+          count: 1,
+        ),
+    };
+    _selectedValues['date'] = options.keys.toSet();
+    _selectedOptions['date'] = options;
+  }
+
+  Future<void> _selectDate({required bool isFrom}) async {
+    final now = DateTime.now();
+    final initialDate = isFrom
+        ? (_fromDate ?? _toDate ?? now)
+        : (_toDate ?? _fromDate ?? now);
+    final selected = await _showGlassDatePicker(
+      context,
+      initialDate: initialDate.isAfter(now) ? now : initialDate,
+      minimumDate: isFrom ? null : _fromDate,
+      maximumDate: isFrom ? _toDate ?? now : now,
+    );
+    if (selected == null || !mounted) return;
     setState(() {
-      _durationError = null;
-      _selectedValues['duration'] = {apiValue};
-      _selectedOptions['duration'] = {apiValue: option};
+      if (isFrom) {
+        _fromDate = selected;
+        if (_toDate != null && _toDate!.isBefore(selected)) _toDate = null;
+      } else {
+        _toDate = selected;
+      }
+      _updateDateSelection();
     });
   }
 
   List<GalleryFilterGroup> _availableGroups(List<GalleryFilterGroup> groups) {
-    final availableGroups = groups
-        .map(_withAvailableOptions)
-        .where((group) => group.options.isNotEmpty)
-        .toList();
+    final availableGroups =
+        <GalleryFilterGroup>[
+              const GalleryFilterGroup(
+                slug: 'date',
+                title: 'Date',
+                options: [],
+              ),
+              ...groups,
+            ]
+            .map(_withAvailableOptions)
+            .where((group) => group.slug == 'date' || group.options.isNotEmpty)
+            .toList();
     availableGroups.sort(
       (first, second) => _filterGroupOrder(
         first.slug,
@@ -171,9 +201,11 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
     if (_query.isEmpty) return groups;
     return groups
         .where(
-          (group) => group.options.any(
-            (option) => option.label.toLowerCase().contains(_query),
-          ),
+          (group) =>
+              _filterGroupDisplayTitle(group).toLowerCase().contains(_query) ||
+              group.options.any(
+                (option) => option.label.toLowerCase().contains(_query),
+              ),
         )
         .toList();
   }
@@ -183,6 +215,8 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
     setState(() {
       _selectedValues.clear();
       _selectedOptions.clear();
+      _fromDate = null;
+      _toDate = null;
       _selectedIndex = 0;
     });
     _searchController.clear();
@@ -323,8 +357,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                             return _FilterCategoryTile(
                               group: group,
                               selected: isSelected,
-                              selectedCount:
-                                  _selectedValues[group.slug]?.length ?? 0,
+                              selectedCount: _selectedCountFor(group.slug),
                               onTap: () => setState(() {
                                 _selectedIndex = index;
                               }),
@@ -340,20 +373,28 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                         child: AnimatedSwitcher(
                           duration: const Duration(milliseconds: 220),
                           switchInCurve: Curves.easeOutCubic,
-                          child:
-                              selected.slug.trim().toLowerCase() == 'duration'
-                              ? _DurationFilterOptions(
-                                  key: const ValueKey('duration'),
-                                  group: selected,
-                                  query: _query,
-                                  controller: _durationController,
-                                  errorText: _durationError,
-                                  selectedValues:
-                                      _selectedValues[selected.slug] ??
-                                      const <String>{},
-                                  onChanged: (option) =>
-                                      _toggleOption(selected, option),
-                                  onSubmit: _applyCustomDuration,
+                          child: selected.slug.trim().toLowerCase() == 'date'
+                              ? _DateFilterOptions(
+                                  key: const ValueKey('date'),
+                                  fromDate: _fromDate,
+                                  toDate: _toDate,
+                                  onSelectFrom: () => _selectDate(isFrom: true),
+                                  onSelectTo: _fromDate == null
+                                      ? null
+                                      : () => _selectDate(isFrom: false),
+                                  onClearFrom: _fromDate == null
+                                      ? null
+                                      : () => setState(() {
+                                          _fromDate = null;
+                                          _toDate = null;
+                                          _updateDateSelection();
+                                        }),
+                                  onClearTo: _toDate == null
+                                      ? null
+                                      : () => setState(() {
+                                          _toDate = null;
+                                          _updateDateSelection();
+                                        }),
                                 )
                               : _FilterOptionsList(
                                   key: ValueKey(selected.slug),
@@ -466,6 +507,8 @@ class _FilterCategoryTile extends StatelessWidget {
 
 String _filterGroupDisplayTitle(GalleryFilterGroup group) {
   switch (group.slug.trim().toLowerCase()) {
+    case 'date':
+      return 'Date';
     case 'subject':
       return 'Smruti';
     case 'person':
@@ -498,7 +541,8 @@ int _filterGroupOrder(String slug) {
     'location' => 5,
     'country' => 6,
     'duration' => 7,
-    _ => 8,
+    'date' => 8,
+    _ => 9,
   };
 }
 
@@ -594,67 +638,225 @@ class _FilterOptionsList extends StatelessWidget {
   }
 }
 
-class _DurationFilterOptions extends StatelessWidget {
-  const _DurationFilterOptions({
+String _apiDate(DateTime date) =>
+    '${date.year.toString().padLeft(4, '0')}-'
+    '${date.month.toString().padLeft(2, '0')}-'
+    '${date.day.toString().padLeft(2, '0')}';
+
+String _displayDate(DateTime date) =>
+    '${date.day.toString().padLeft(2, '0')}/'
+    '${date.month.toString().padLeft(2, '0')}/'
+    '${date.year.toString().padLeft(4, '0')}';
+
+class _DateFilterOptions extends StatelessWidget {
+  const _DateFilterOptions({
     super.key,
-    required this.group,
-    required this.query,
-    required this.controller,
-    required this.errorText,
-    required this.selectedValues,
-    required this.onChanged,
-    required this.onSubmit,
+    required this.fromDate,
+    required this.toDate,
+    required this.onSelectFrom,
+    required this.onSelectTo,
+    required this.onClearFrom,
+    required this.onClearTo,
   });
 
-  final GalleryFilterGroup group;
-  final String query;
-  final TextEditingController controller;
-  final String? errorText;
-  final Set<String> selectedValues;
-  final ValueChanged<GalleryFilterOption> onChanged;
-  final VoidCallback onSubmit;
+  final DateTime? fromDate;
+  final DateTime? toDate;
+  final VoidCallback onSelectFrom;
+  final VoidCallback? onSelectTo;
+  final VoidCallback? onClearFrom;
+  final VoidCallback? onClearTo;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return ListView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 24),
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
-          child: TextField(
-            controller: controller,
-            keyboardType: TextInputType.datetime,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[0-9/]')),
-              LengthLimitingTextInputFormatter(10),
-            ],
-            textInputAction: TextInputAction.search,
-            onSubmitted: (_) => onSubmit(),
-            decoration: InputDecoration(
-              labelText: 'Custom date',
-              hintText: 'DD/MM/YYYY',
-              errorText: errorText,
-              suffixIcon: IconButton(
-                tooltip: 'Search date',
-                onPressed: onSubmit,
-                icon: const Icon(CupertinoIcons.search),
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+        Text(
+          'Select a date range',
+          style: TextStyle(
+            color: primaryColor,
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'To find photos from one specific date, select only the From date.\n\n'
+          'To find photos between two dates, select the start date in From '
+          'and the end date in To. Both dates are included.',
+          style: TextStyle(
+            color: Colors.black.withAlpha(155),
+            fontSize: 13,
+            height: 1.5,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 22),
+        _DatePickerField(
+          label: 'From',
+          value: fromDate == null ? null : _displayDate(fromDate!),
+          onTap: onSelectFrom,
+          onClear: onClearFrom,
+        ),
+        const SizedBox(height: 14),
+        _DatePickerField(
+          label: 'To',
+          value: toDate == null ? null : _displayDate(toDate!),
+          onTap: onSelectTo,
+          onClear: onClearTo,
+          enabled: onSelectTo != null,
+        ),
+        if (fromDate == null) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Select From date first',
+            style: TextStyle(
+              color: primaryColor.withAlpha(145),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
           ),
-        ),
-        Expanded(
-          child: _FilterOptionsList(
-            group: group,
-            query: query,
-            selectedValues: selectedValues,
-            onChanged: onChanged,
-          ),
-        ),
+        ],
       ],
     );
   }
+}
+
+class _DatePickerField extends StatelessWidget {
+  const _DatePickerField({
+    required this.label,
+    required this.value,
+    required this.onTap,
+    required this.onClear,
+    this.enabled = true,
+  });
+
+  final String label;
+  final String? value;
+  final VoidCallback? onTap;
+  final VoidCallback? onClear;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(14),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: 'DD/MM/YYYY',
+          enabled: enabled,
+          filled: true,
+          fillColor: enabled
+              ? primaryColor.withAlpha(10)
+              : Colors.black.withAlpha(5),
+          prefixIcon: const Icon(CupertinoIcons.calendar),
+          suffixIcon: value == null
+              ? const Icon(CupertinoIcons.chevron_down, size: 17)
+              : IconButton(
+                  tooltip: 'Clear $label date',
+                  onPressed: onClear,
+                  icon: const Icon(CupertinoIcons.xmark_circle_fill),
+                ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: primaryColor.withAlpha(45)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: primaryColor.withAlpha(55)),
+          ),
+        ),
+        child: Text(
+          value ?? 'DD/MM/YYYY',
+          style: TextStyle(
+            color: value == null
+                ? Colors.black.withAlpha(90)
+                : primaryColor.withAlpha(230),
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Future<DateTime?> _showGlassDatePicker(
+  BuildContext context, {
+  required DateTime initialDate,
+  DateTime? minimumDate,
+  required DateTime maximumDate,
+}) {
+  var pendingDate = initialDate;
+  return showCupertinoModalPopup<DateTime>(
+    context: context,
+    barrierColor: Colors.black.withAlpha(65),
+    builder: (popupContext) => ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: Container(
+          height: 360 + MediaQuery.viewPaddingOf(popupContext).bottom,
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewPaddingOf(popupContext).bottom,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white.withAlpha(218),
+            border: Border(top: BorderSide(color: Colors.white.withAlpha(210))),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CupertinoButton(
+                      onPressed: () => Navigator.pop(popupContext),
+                      child: const Text('Cancel'),
+                    ),
+                    const Text(
+                      'Select date',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    CupertinoButton(
+                      onPressed: () => Navigator.pop(popupContext, pendingDate),
+                      child: const Text(
+                        'Done',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: CupertinoTheme(
+                  data: CupertinoTheme.of(popupContext).copyWith(
+                    brightness: Brightness.light,
+                    primaryColor: primaryColor,
+                  ),
+                  child: CupertinoDatePicker(
+                    mode: CupertinoDatePickerMode.date,
+                    dateOrder: DatePickerDateOrder.dmy,
+                    initialDateTime: initialDate,
+                    minimumDate: minimumDate,
+                    maximumDate: maximumDate,
+                    onDateTimeChanged: (date) => pendingDate = date,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _FilterActionsBar extends StatelessWidget {

@@ -13,6 +13,7 @@ import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/firebase_options.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/services/notification_history_service.dart';
+import 'package:harismruti/services/phone_smruti_widget_service.dart';
 import 'package:harismruti/ui/view/notification/notification_image_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -56,6 +57,7 @@ class NotificationService {
     await StorageHelper.init();
     await setupFlutterNotifications();
     _saveMessage(message);
+    await PhoneSmrutiWidgetService.markNotificationReceived();
   }
 
   static Future<void> setupFlutterNotifications() async {
@@ -215,6 +217,7 @@ class NotificationService {
 
   static Future<void> _showNotification(RemoteMessage message) async {
     _saveMessage(message);
+    await PhoneSmrutiWidgetService.markNotificationReceived();
     final notification = message.notification;
     if (notification == null || kIsWeb || _channel == null) return;
 

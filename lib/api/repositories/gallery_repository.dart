@@ -64,14 +64,20 @@ class GalleryRepository {
       ApiEndpoints.recent,
       queryParams: _latestQueryParams({'page': page, 'per_page': perPage}),
     );
-    return GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items;
+    return _sortPhotosNewestFirst(
+      GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items,
+    );
   }
 
-  Future<List<GalleryPhoto>> getOnThisDay({int limit = 60}) async {
+  Future<List<GalleryPhoto>> getOnThisDay({
+    int limit = 60,
+    bool forceRefresh = false,
+  }) async {
     final response = await ApiClient.get(
       ApiEndpoints.onThisDay,
       queryParams: _scopedQueryParams({'limit': limit}),
       cacheDuration: const Duration(hours: 1),
+      forceRefresh: forceRefresh,
     );
     return GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items;
   }
@@ -460,18 +466,31 @@ class GalleryRepository {
       'sort': params['sort'] ?? _latestSort,
       'order': params['order'] ?? _descendingOrder,
       'swami': activeSwami.apiValue,
+      'cache_revision': _activeCacheRevision,
     };
   }
 
   Map<String, dynamic> _scopedQueryParams([
     Map<String, dynamic> params = const {},
   ]) {
-    return {...params, 'swami': activeSwami.apiValue};
+    return {
+      ...params,
+      'swami': activeSwami.apiValue,
+      'cache_revision': _activeCacheRevision,
+    };
+  }
+
+  int get _activeCacheRevision {
+    final revisions = StorageHelper.getValue<Map<dynamic, dynamic>>(
+      key: StorageKeys.appSectionCacheRevisions,
+    );
+    return int.tryParse(revisions?[activeSwami.apiValue]?.toString() ?? '') ??
+        0;
   }
 
   GalleryHomeBundle _sortHomeBundleNewestFirst(GalleryHomeBundle bundle) {
     return GalleryHomeBundle(
-      recent: bundle.recent,
+      recent: _sortPhotosNewestFirst(bundle.recent),
       collections: bundle.collections.where((card) => card.hasValue).toList(),
       smrutiWith: _sortCardsNewestFirst(bundle.smrutiWith),
       smrutiOf: _sortCardsNewestFirst(bundle.smrutiOf),

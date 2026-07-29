@@ -4,6 +4,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
+import 'package:harismruti/ui/controller/gallery_controller.dart';
+import 'package:harismruti/services/phone_smruti_widget_service.dart';
+import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_string.dart';
 import 'package:harismruti/utils/responsive.dart';
@@ -22,6 +25,16 @@ class _SmrutiSectionSettingsScreenState
     extends State<SmrutiSectionSettingsScreen> {
   final SmrutiSectionController controller =
       Get.find<SmrutiSectionController>();
+  late int _storyCount;
+  late int _refreshHours;
+  bool _isAddingPhoneWidget = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _storyCount = controller.smrutiStoryCount.value;
+    _refreshHours = controller.smrutiStoryRefreshHours.value;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +50,20 @@ class _SmrutiSectionSettingsScreenState
             maxWidth: kContentMaxWidth,
             child: Column(
               children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  child: _StoryWidgetSettings(
+                    isVisible: controller.showSmrutiStoryLine.value,
+                    count: _storyCount,
+                    refreshHours: _refreshHours,
+                    isAdding: _isAddingPhoneWidget,
+                    onCountChanged: (value) =>
+                        setState(() => _storyCount = value),
+                    onRefreshChanged: (value) =>
+                        setState(() => _refreshHours = value),
+                    onShow: _addPhoneWidget,
+                  ),
+                ),
                 const Padding(
                   padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
                   child: _ReorderSectionHeader(),
@@ -149,6 +176,181 @@ class _SmrutiSectionSettingsScreenState
       default:
         return Icons.grid_view_rounded;
     }
+  }
+
+  Future<void> _addPhoneWidget() async {
+    if (_isAddingPhoneWidget) return;
+    setState(() => _isAddingPhoneWidget = true);
+    try {
+      final gallery = Get.find<GalleryController>();
+      if (gallery.recentPhotos.isEmpty) {
+        await gallery.loadHome(force: true);
+      }
+      await PhoneSmrutiWidgetService.prepareAndAdd(
+        photos: gallery.recentPhotos.toList(growable: false),
+        imageHeaders: gallery.imageHeaders,
+        storyCount: _storyCount,
+        refreshHours: _refreshHours,
+      );
+      controller.saveSmrutiStorySettings(
+        visible: true,
+        count: _storyCount,
+        refreshHours: _refreshHours,
+      );
+      TopNotification.success('Choose where to place the Smruti widget.');
+    } catch (error) {
+      TopNotification.error(
+        error.toString().replaceFirst('Unsupported operation: ', ''),
+      );
+    } finally {
+      if (mounted) setState(() => _isAddingPhoneWidget = false);
+    }
+  }
+}
+
+class _StoryWidgetSettings extends StatelessWidget {
+  const _StoryWidgetSettings({
+    required this.isVisible,
+    required this.count,
+    required this.refreshHours,
+    required this.isAdding,
+    required this.onCountChanged,
+    required this.onRefreshChanged,
+    required this.onShow,
+  });
+
+  final bool isVisible;
+  final int count;
+  final int refreshHours;
+  final bool isAdding;
+  final ValueChanged<int> onCountChanged;
+  final ValueChanged<int> onRefreshChanged;
+  final VoidCallback onShow;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(205),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: primaryColor.withAlpha(30)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.auto_awesome_motion_rounded, color: primaryColor),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Phone Home Screen Widget',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+                ),
+              ),
+              _VisibilityBadge(isVisible: isVisible),
+            ],
+          ),
+          const SizedBox(height: 5),
+          const Text(
+            'Choose the content, then add it to your phone Home screen. Long-press the placed widget to resize it.',
+            style: TextStyle(color: Color(0xFF6E625B), fontSize: 12),
+          ),
+          const SizedBox(height: 16),
+          const _SettingLabel('Number of stories'),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final value in const [4, 8, 12])
+                ChoiceChip(
+                  label: Text('$value'),
+                  selected: count == value,
+                  onSelected: (_) => onCountChanged(value),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const _SettingLabel('Refresh interval'),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final value in const [1, 3, 6])
+                ChoiceChip(
+                  label: Text(value == 1 ? '1 hour' : '$value hours'),
+                  selected: refreshHours == value,
+                  onSelected: (_) => onRefreshChanged(value),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: isAdding ? null : onShow,
+              style: FilledButton.styleFrom(backgroundColor: primaryColor),
+              icon: Icon(Icons.add_to_home_screen),
+              label: Text(
+                isAdding
+                    ? 'Preparing Smrutis…'
+                    : isVisible
+                    ? 'Update / Add Another Widget'
+                    : 'Add to Phone Home Screen',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+          ),
+          if (isVisible)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                'To remove it, long-press the widget on your phone Home screen.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11, color: Color(0xFF6E625B)),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingLabel extends StatelessWidget {
+  const _SettingLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text(text, style: const TextStyle(fontWeight: FontWeight.w800)),
+    );
+  }
+}
+
+class _VisibilityBadge extends StatelessWidget {
+  const _VisibilityBadge({required this.isVisible});
+
+  final bool isVisible;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: (isVisible ? Colors.green : Colors.grey).withAlpha(22),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        isVisible ? 'ON' : 'OFF',
+        style: TextStyle(
+          color: isVisible ? Colors.green.shade700 : Colors.grey.shade700,
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
   }
 }
 

@@ -45,11 +45,13 @@ class AppSectionOptionLabel {
   final String optionKey;
   final String displayName;
   final int orderIndex;
+  final int cacheRevision;
 
   const AppSectionOptionLabel({
     required this.optionKey,
     required this.displayName,
     required this.orderIndex,
+    required this.cacheRevision,
   });
 
   factory AppSectionOptionLabel.fromJson(Map<String, dynamic> json) {
@@ -57,6 +59,8 @@ class AppSectionOptionLabel {
       optionKey: json['option_key']?.toString() ?? '',
       displayName: json['display_name']?.toString() ?? '',
       orderIndex: int.tryParse(json['order_index']?.toString() ?? '') ?? 0,
+      cacheRevision:
+          int.tryParse(json['cache_revision']?.toString() ?? '') ?? 1,
     );
   }
 
@@ -64,18 +68,21 @@ class AppSectionOptionLabel {
     'option_key': optionKey,
     'display_name': displayName,
     'order_index': orderIndex,
+    'cache_revision': cacheRevision,
   };
 }
 
 class AppSectionsConfiguration {
   final String selectedOption;
   final String optionName;
+  final int cacheRevision;
   final List<AppSectionOptionLabel> options;
   final List<AppSectionSetting> sections;
 
   const AppSectionsConfiguration({
     required this.selectedOption,
     required this.optionName,
+    required this.cacheRevision,
     required this.options,
     required this.sections,
   });
@@ -90,6 +97,8 @@ class AppSectionsConfiguration {
     return AppSectionsConfiguration(
       selectedOption: json['selected_option']?.toString() ?? 'prabodh',
       optionName: json['option_name']?.toString() ?? '',
+      cacheRevision:
+          int.tryParse(json['cache_revision']?.toString() ?? '') ?? 1,
       options:
           rawOptions
               .whereType<Map>()

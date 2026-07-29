@@ -16,6 +16,7 @@ class StorageKeys {
   static const String appSectionSettingsByOption =
       'appSectionSettingsByOptionV1';
   static const String appSectionOptionLabels = 'appSectionOptionLabelsV1';
+  static const String appSectionCacheRevisions = 'appSectionCacheRevisionsV1';
   static const String myPhotos = 'myPhotos';
   static const String myDiaryEntries = 'myDiaryEntries';
   static const String myPhotosSubmitted = 'myPhotosSubmitted';
@@ -33,6 +34,9 @@ class StorageKeys {
   static const String notificationHistory = 'notificationHistory';
   static const String lastMobileNumber = 'lastMobileNumber';
   static const String lastMobileCountryCode = 'lastMobileCountryCode';
+  static const String showSmrutiStoryLine = 'showSmrutiStoryLine';
+  static const String smrutiStoryCount = 'smrutiStoryCount';
+  static const String smrutiStoryRefreshHours = 'smrutiStoryRefreshHours';
 }
 
 class StorageHelper {
