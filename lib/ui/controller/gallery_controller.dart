@@ -96,6 +96,7 @@ class GalleryController extends GetxController {
   final RxList<GalleryCard> wallpapers = <GalleryCard>[].obs;
   final RxList<GalleryFilterGroup> filters = <GalleryFilterGroup>[].obs;
   final RxBool areFiltersLoading = false.obs;
+  final RxBool areFiltersRefreshing = false.obs;
   final RxBool isMyLibraryLoading = false.obs;
   final RxBool areMySmrutiFiltersLoading = false.obs;
   final RxString filtersError = ''.obs;
@@ -193,7 +194,15 @@ class GalleryController extends GetxController {
 
   List<GalleryFilterGroup> filtersWithUserTagsForSelection(
     Map<String, List<String>> selected,
-  ) => filters.toList();
+  ) {
+    final customGroups = _buildMySmrutiFilterGroups(selected);
+    final userTagGroup = _buildUserTagFilterGroup();
+    return [
+      ...customGroups,
+      if (userTagGroup != null) userTagGroup,
+      ...filters,
+    ];
+  }
 
   Future<void> handleAuthChanged() async {
     if (!StorageHelper.isLogin()) {
@@ -762,10 +771,18 @@ class GalleryController extends GetxController {
     Map<String, List<String>> selected = const {},
     bool force = false,
   }) async {
-    final serverSelected = Map<String, List<String>>.from(selected);
+    final serverSelected = _serverFilterSelection(selected);
     if (!force && serverSelected.isEmpty && filters.isNotEmpty) return;
     final requestId = ++_filtersRequestId;
-    areFiltersLoading.value = true;
+    final isInitialLoad = filters.isEmpty;
+    if (isInitialLoad) {
+      areFiltersLoading.value = true;
+      areFiltersRefreshing.value = false;
+    } else {
+      // Keep the existing facets visible while the server recalculates counts
+      // and removes options that are incompatible with the new selection.
+      areFiltersRefreshing.value = true;
+    }
     filtersError.value = '';
     try {
       final loadedFilters = await _repository.getFilters(
@@ -782,6 +799,7 @@ class GalleryController extends GetxController {
     } finally {
       if (requestId == _filtersRequestId) {
         areFiltersLoading.value = false;
+        areFiltersRefreshing.value = false;
       }
     }
   }
@@ -789,7 +807,22 @@ class GalleryController extends GetxController {
   Future<void> resetFiltersForSheet() async {
     filters.assignAll(_filterSnapshots[selectedSwami.value] ?? const []);
     filtersError.value = '';
+    unawaited(loadMySmrutiFilterPhotos());
     await loadFilters(force: true);
+  }
+
+  Future<Set<String>> loadAvailableFilterDates({
+    required Map<String, List<String>> selected,
+  }) async {
+    final groups = await _repository.getFilters(
+      selected: _serverFilterSelection(selected),
+      includeDates: true,
+    );
+    return groups
+        .where((group) => group.slug.trim().toLowerCase() == 'date')
+        .expand((group) => group.options)
+        .map((option) => option.value)
+        .toSet();
   }
 
   Future<void> loadMySmrutiFilterPhotos() async {
@@ -918,11 +951,33 @@ class GalleryController extends GetxController {
   Future<List<GalleryPhoto>> loadPhotosForFilters({
     required Map<String, List<String>> selected,
     int page = 1,
-  }) {
+  }) async {
+    if (selected.keys.any(_mySmrutiFilterSlugs.contains)) {
+      if (mySmrutiPhotos.isEmpty) {
+        await loadMySmrutiFilterPhotos();
+      }
+      return _loadPhotosForMySmrutiFilters(
+        selected: selected,
+        page: page,
+        perPage: 120,
+      );
+    }
+    final selectedUserTags = selected[_userTagFilterSlug] ?? const <String>[];
+    if (selectedUserTags.isNotEmpty) {
+      return _loadPhotosForUserTags(
+        selected: selected,
+        selectedUserTags: selectedUserTags,
+        page: page,
+        perPage: 120,
+      );
+    }
     final requestedSwami = selectedSwami.value;
-    return _repository
-        .getFilteredPhotos(selected: selected, page: page, perPage: 120)
-        .then((photos) => _photosForSwami(photos, requestedSwami));
+    final photos = await _repository.getFilteredPhotos(
+      selected: selected,
+      page: page,
+      perPage: 120,
+    );
+    return _photosForSwami(photos, requestedSwami);
   }
 
   Future<List<GalleryPhoto>> _loadPhotosForMySmrutiFilters({
@@ -1515,6 +1570,18 @@ class GalleryController extends GetxController {
     _mySmrutiTagsFilterSlug,
   };
 
+  static Map<String, List<String>> _serverFilterSelection(
+    Map<String, List<String>> selected,
+  ) {
+    return Map<String, List<String>>.fromEntries(
+      selected.entries.where(
+        (entry) =>
+            entry.key != _userTagFilterSlug &&
+            !_mySmrutiFilterSlugs.contains(entry.key),
+      ),
+    );
+  }
+
   List<GalleryFilterGroup> _buildMySmrutiFilterGroups(
     Map<String, List<String>> selected,
   ) {
@@ -1645,7 +1712,7 @@ class GalleryController extends GetxController {
 
     return GalleryFilterGroup(
       slug: _userTagFilterSlug,
-      title: 'MyTag',
+      title: 'My Tags',
       options: tags
           .map(
             (tag) => GalleryFilterOption(

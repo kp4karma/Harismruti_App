@@ -85,8 +85,12 @@ class GalleryRepository {
   Future<List<GalleryFilterGroup>> getFilters({
     int limit = 200,
     Map<String, List<String>> selected = const {},
+    bool includeDates = false,
   }) async {
-    final queryParams = _latestQueryParams({'limit': limit});
+    final queryParams = _latestQueryParams({
+      'limit': limit,
+      if (includeDates) 'include_dates': true,
+    });
     final mobile = currentPhoneNumber();
     if (mobile.isNotEmpty) queryParams['mobile'] = mobile;
     selected.forEach((slug, values) {
