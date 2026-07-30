@@ -1,6 +1,5 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
@@ -11,6 +10,7 @@ import 'package:harismruti/widget/network_Image_with_loader.dart';
 
 class RecentSmruti extends StatelessWidget {
   final bool autoplay;
+
   const RecentSmruti({super.key, this.autoplay = true});
 
   @override
@@ -29,10 +29,33 @@ class RecentSmruti extends StatelessWidget {
 
       return SizedBox(
         height: 320 * scale,
-        child: _AutoSwapRecentStack(
-          photos: photos,
-          headers: galleryController.imageHeaders,
-          autoplay: autoplay,
+        child: MasonryGridView.count(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+          crossAxisCount: 2,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          itemCount: photos.length,
+          itemBuilder: (context, index) {
+            final photo = photos[index];
+            final width = switch (index % 5) {
+              0 => 205.0,
+              1 => 158.0,
+              2 => 184.0,
+              3 => 224.0,
+              _ => 174.0,
+            };
+
+            return SizedBox(
+              width: width * scale,
+              child: _RecentPhotoCard(
+                photo: photo,
+                headers: galleryController.imageHeaders,
+                onTap: () => _openDetail(context, galleryController, photo),
+              ),
+            );
+          },
         ),
       );
     });
@@ -50,112 +73,14 @@ class RecentSmruti extends StatelessWidget {
 
     return uniquePhotos;
   }
-}
 
-class _AutoSwapRecentStack extends StatefulWidget {
-  final List<GalleryPhoto> photos;
-  final Map<String, String>? headers;
-  final bool autoplay;
-
-  const _AutoSwapRecentStack({
-    required this.photos,
-    required this.headers,
-    required this.autoplay,
-  });
-
-  @override
-  State<_AutoSwapRecentStack> createState() => _AutoSwapRecentStackState();
-}
-
-class _AutoSwapRecentStackState extends State<_AutoSwapRecentStack> {
-  static const _swapDuration = Duration(milliseconds: 650);
-  static const _swapInterval = Duration(seconds: 3);
-
-  Timer? _timer;
-  int _frontIndex = 0;
-  int _automaticSwapsInDirection = 0;
-  bool _automaticSwappingForward = true;
-  bool _autoplayStoppedByUser = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _startTimer();
-  }
-
-  @override
-  void didUpdateWidget(covariant _AutoSwapRecentStack oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (_frontIndex >= widget.photos.length) {
-      _frontIndex = 0;
-    }
-    if (oldWidget.autoplay != widget.autoplay ||
-        oldWidget.photos.length != widget.photos.length) {
-      _startTimer();
-    }
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  void _startTimer() {
-    _timer?.cancel();
-    if (_autoplayStoppedByUser ||
-        !widget.autoplay ||
-        widget.photos.length <= 1) {
-      return;
-    }
-    _timer = Timer.periodic(_swapInterval, (_) => _showAutomaticNext());
-  }
-
-  void _showAutomaticNext() {
-    if (!mounted || widget.photos.length <= 1) return;
-
-    setState(() {
-      if (_automaticSwappingForward) {
-        _frontIndex = (_frontIndex + 1) % widget.photos.length;
-      } else {
-        _frontIndex =
-            (_frontIndex - 1 + widget.photos.length) % widget.photos.length;
-      }
-
-      _automaticSwapsInDirection++;
-      if (_automaticSwapsInDirection == 3) {
-        _automaticSwapsInDirection = 0;
-        _automaticSwappingForward = !_automaticSwappingForward;
-      }
-    });
-  }
-
-  void _stopAutoplayForUser() {
-    if (_autoplayStoppedByUser) return;
-    _autoplayStoppedByUser = true;
-    _timer?.cancel();
-    _timer = null;
-  }
-
-  void _showNext() {
-    if (!mounted || widget.photos.length <= 1) return;
-    setState(() {
-      _frontIndex = (_frontIndex + 1) % widget.photos.length;
-    });
-  }
-
-  void _showPrevious() {
-    if (!mounted || widget.photos.length <= 1) return;
-    setState(() {
-      _frontIndex =
-          (_frontIndex - 1 + widget.photos.length) % widget.photos.length;
-    });
-  }
-
-  void _openDetail(BuildContext context) {
-    final galleryController = Get.find<GalleryController>();
-    final tappedPhoto = widget.photos[_frontIndex];
-    final rawIndex = galleryController.recentPhotos.indexWhere(
+  void _openDetail(
+    BuildContext context,
+    GalleryController galleryController,
+    GalleryPhoto tappedPhoto,
+  ) {
+    final recentPhotos = galleryController.recentPhotos.toList(growable: false);
+    final tappedIndex = recentPhotos.indexWhere(
       (photo) => tappedPhoto.id > 0
           ? photo.id == tappedPhoto.id
           : photo.thumbnailUrl == tappedPhoto.thumbnailUrl,
@@ -166,182 +91,12 @@ class _AutoSwapRecentStackState extends State<_AutoSwapRecentStack> {
       MaterialPageRoute(
         settings: const RouteSettings(name: 'Photo Viewer'),
         builder: (_) => GalleryFullscreenViewer(
-          photos: galleryController.recentPhotos.toList(growable: false),
-          initialIndex: rawIndex >= 0 ? rawIndex : 0,
+          photos: recentPhotos,
+          initialIndex: tappedIndex >= 0 ? tappedIndex : 0,
           title: 'Recent Smruti',
           isRecentFeed: true,
         ),
       ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final visibleCount = widget.photos.length.clamp(1, 4);
-
-    return GestureDetector(
-      onHorizontalDragEnd: (details) {
-        final velocity = details.primaryVelocity ?? 0;
-        if (velocity < -120) {
-          _stopAutoplayForUser();
-          _showNext();
-        } else if (velocity > 120) {
-          _stopAutoplayForUser();
-          _showPrevious();
-        }
-      },
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Stack(
-              clipBehavior: Clip.none,
-              children: [
-                for (var depth = visibleCount - 1; depth >= 0; depth--)
-                  _buildPositionedCard(context, depth, constraints.maxWidth),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPositionedCard(
-    BuildContext context,
-    int depth,
-    double availableWidth,
-  ) {
-    final photo = widget.photos[(_frontIndex + depth) % widget.photos.length];
-
-    return _RecentStackPosition(
-      key: ValueKey(_photoKey(photo)),
-      depth: depth,
-      duration: _swapDuration,
-      availableWidth: availableWidth,
-      child: _RecentPhotoCard(
-        photo: photo,
-        headers: widget.headers,
-        onTap: depth == 0 ? () => _openDetail(context) : null,
-      ),
-    );
-  }
-
-  String _photoKey(GalleryPhoto photo) {
-    if (photo.id > 0) return 'recent-${photo.id}';
-    return 'recent-${photo.thumbnailUrl}';
-  }
-}
-
-class _RecentStackPosition extends StatelessWidget {
-  // The pixel insets below were tuned against this available-width baseline
-  // (padded phone viewport); scaling by availableWidth/_referenceWidth keeps
-  // the overlap proportions consistent instead of the gutters staying
-  // pixel-fixed while the card barely shrinks on a much wider tablet.
-  static const _referenceWidth = 380.0;
-
-  final int depth;
-  final Duration duration;
-  final double availableWidth;
-  final Widget child;
-
-  const _RecentStackPosition({
-    super.key,
-    required this.depth,
-    required this.duration,
-    required this.availableWidth,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final baseLayout = switch (depth) {
-      0 => const _StackCardLayout(
-        left: 46,
-        right: 46,
-        top: 0,
-        bottom: 0,
-        rotation: 0,
-        opacity: 1,
-      ),
-      1 => const _StackCardLayout(
-        left: 6,
-        right: 96,
-        top: 38,
-        bottom: 22,
-        rotation: -0.07,
-        opacity: 0.92,
-      ),
-      2 => const _StackCardLayout(
-        left: 96,
-        right: 6,
-        top: 38,
-        bottom: 22,
-        rotation: 0.07,
-        opacity: 0.92,
-      ),
-      _ => const _StackCardLayout(
-        left: 68,
-        right: 68,
-        top: 22,
-        bottom: 16,
-        rotation: 0,
-        opacity: 0.82,
-      ),
-    };
-
-    final ratio = availableWidth > 0 ? availableWidth / _referenceWidth : 1.0;
-    final layout = baseLayout.scaled(ratio);
-
-    return AnimatedPositioned(
-      duration: duration,
-      curve: Curves.easeOutCubic,
-      left: layout.left,
-      right: layout.right,
-      top: layout.top,
-      bottom: layout.bottom,
-      child: AnimatedRotation(
-        duration: duration,
-        curve: Curves.easeOutCubic,
-        turns: layout.rotation / 6.283185307179586,
-        child: AnimatedOpacity(
-          duration: duration,
-          curve: Curves.easeOutCubic,
-          opacity: layout.opacity,
-          child: child,
-        ),
-      ),
-    );
-  }
-}
-
-class _StackCardLayout {
-  final double left;
-  final double right;
-  final double top;
-  final double bottom;
-  final double rotation;
-  final double opacity;
-
-  const _StackCardLayout({
-    required this.left,
-    required this.right,
-    required this.top,
-    required this.bottom,
-    required this.rotation,
-    required this.opacity,
-  });
-
-  /// Scales only the positional insets by [ratio] -- rotation/opacity are
-  /// visual constants, not tied to available width.
-  _StackCardLayout scaled(double ratio) {
-    return _StackCardLayout(
-      left: left * ratio,
-      right: right * ratio,
-      top: top * ratio,
-      bottom: bottom * ratio,
-      rotation: rotation,
-      opacity: opacity,
     );
   }
 }
@@ -349,42 +104,30 @@ class _StackCardLayout {
 class _RecentPhotoCard extends StatelessWidget {
   final GalleryPhoto photo;
   final Map<String, String>? headers;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
   const _RecentPhotoCard({
     required this.photo,
     required this.headers,
-    this.onTap,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final title = photo.title ?? 'Recent Smruti';
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(32),
-              blurRadius: 24,
-              offset: const Offset(0, 12),
-            ),
-          ],
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            NetworkImageWithLoader(
-              imageUrl: photo.thumbnailUrl,
-              title: title,
-              headers: headers,
-            ),
-          ],
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      elevation: 3,
+      shadowColor: Colors.black.withAlpha(48),
+      child: InkWell(
+        onTap: onTap,
+        child: NetworkImageWithLoader(
+          imageUrl: photo.thumbnailUrl,
+          title: title,
+          headers: headers,
         ),
       ),
     );
