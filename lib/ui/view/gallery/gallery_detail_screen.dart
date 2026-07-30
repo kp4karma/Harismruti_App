@@ -1453,6 +1453,11 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
           responseType: ResponseType.bytes,
         ),
       );
+      await _wallpaperChannel.invokeMethod<bool>('saveToPhotos', {
+        'path': wallpaperFile.path,
+      });
+      if (!mounted) return;
+      TopNotification.success('Wallpaper saved to Photos');
       await SharePlus.instance.share(
         ShareParams(
           files: [
@@ -1510,6 +1515,18 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     } finally {
       if (mounted) setState(() => _isSettingWallpaper = false);
     }
+  }
+
+  Future<void> _openPhotoEditor() async {
+    if (Platform.isAndroid) {
+      await _openSystemWallpaperEditor();
+      return;
+    }
+    if (Platform.isIOS) {
+      await _openIosWallpaperFlow();
+      return;
+    }
+    TopNotification.error('Photo editing is not supported on this device');
   }
 
   Future<void> _setWallpaper(String destination) async {
@@ -1907,14 +1924,13 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       builder: (_) => CupertinoActionSheet(
         title: const Text('Photo options'),
         actions: [
-          if (Platform.isAndroid)
-            CupertinoActionSheetAction(
-              onPressed: () {
-                Navigator.pop(context);
-                _openSystemWallpaperEditor();
-              },
-              child: const Text('Edit Photo'),
-            ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _openPhotoEditor();
+            },
+            child: const Text('Edit Photo'),
+          ),
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.pop(context);
@@ -2214,9 +2230,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                             ? _toggleSlideshow
                             : null,
                         isInfoOpen: _infoPanelOpen,
-                        onEdit: Platform.isAndroid
-                            ? _openSystemWallpaperEditor
-                            : null,
+                        onEdit: _openPhotoEditor,
                         onOptions: _showMoreOptions,
                         onCollection: _openAddCollectionSheet,
                       ),
@@ -2932,47 +2946,58 @@ class _ViewerActions extends StatelessWidget {
             icon: CupertinoIcons.square_arrow_up,
             onTap: onShare,
           ),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(20),
-                  blurRadius: 18,
-                  offset: const Offset(0, 8),
+          const SizedBox(width: 8),
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 6,
                 ),
-              ],
-            ),
-            child: Row(
-              children: [
-                _ViewerPlainButton(
-                  icon: isFavorite
-                      ? CupertinoIcons.heart_fill
-                      : CupertinoIcons.heart,
-                  color: isFavorite ? Colors.redAccent : Colors.black,
-                  onTap: onFavorite,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(20),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
-                _InfoToggleButton(isOpen: isInfoOpen, onTap: onInfo),
-                if (onSlideshow != null)
-                  _ViewerPlainButton(
-                    icon: isSlideshowPlaying
-                        ? CupertinoIcons.pause
-                        : CupertinoIcons.play,
-                    onTap: onSlideshow!,
-                  ),
-                if (onEdit != null)
-                  _ViewerPlainButton(icon: CupertinoIcons.crop, onTap: onEdit!),
-                _ViewerPlainButton(
-                  icon: CupertinoIcons.slider_horizontal_3,
-                  onTap: onOptions,
+                child: Row(
+                  children: [
+                    _ViewerPlainButton(
+                      icon: isFavorite
+                          ? CupertinoIcons.heart_fill
+                          : CupertinoIcons.heart,
+                      color: isFavorite ? Colors.redAccent : Colors.black,
+                      onTap: onFavorite,
+                    ),
+                    _InfoToggleButton(isOpen: isInfoOpen, onTap: onInfo),
+                    if (onSlideshow != null)
+                      _ViewerPlainButton(
+                        icon: isSlideshowPlaying
+                            ? CupertinoIcons.pause
+                            : CupertinoIcons.play,
+                        onTap: onSlideshow!,
+                      ),
+                    if (onEdit != null)
+                      _ViewerPlainButton(
+                        icon: CupertinoIcons.crop,
+                        onTap: onEdit!,
+                      ),
+                    _ViewerPlainButton(
+                      icon: CupertinoIcons.slider_horizontal_3,
+                      onTap: onOptions,
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
-          const Spacer(),
+          const SizedBox(width: 8),
           _ViewerCircleButton(
             icon: CupertinoIcons.collections,
             onTap: onCollection,
