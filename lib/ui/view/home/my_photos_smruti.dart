@@ -224,18 +224,21 @@ class _MyPhoneGuideScreenState extends State<MyPhoneGuideScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBodyBehindAppBar: true,
-      backgroundColor: const Color(0xFFF8F6F3),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         centerTitle: true,
-        title: const Text(
+        title: Text(
           'My Smruti',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontWeight: FontWeight.w900,
+          ),
         ),
         leading: IconButton(
           icon: Icon(CupertinoIcons.chevron_left, color: primaryColor),
           onPressed: () => Navigator.pop(context),
         ),
-        backgroundColor: Colors.white.withAlpha(135),
+        backgroundColor: Theme.of(context).colorScheme.surface.withAlpha(190),
         surfaceTintColor: Colors.transparent,
         elevation: 0,
       ),
@@ -1608,7 +1611,7 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
         ? primaryColor
         : const Color(0xFFC62828);
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F6F3),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(22, 14, 22, 18),
@@ -1622,7 +1625,9 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
                       height: 34,
                       width: 34,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHigh,
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -1638,7 +1643,7 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
               Text(
                 '${widget.pose.label} Face',
                 style: TextStyle(
-                  color: Colors.black,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
                 ),
@@ -1647,7 +1652,7 @@ class _MyPhoneCaptureScreenState extends State<MyPhoneCaptureScreen>
               Text(
                 'Please look into the camera and hold still',
                 style: TextStyle(
-                  color: Colors.black.withAlpha(120),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 11,
                 ),
               ),

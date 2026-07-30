@@ -626,7 +626,7 @@ DATA: $responseData
       }
     }
 
-   SecureLogger.write("Unknown Dio Error: ${error.message}");
+    SecureLogger.write("Unknown Dio Error: ${error.message}");
     return Exception("⚠️ Unknown Error: ${error.message}");
   }
 

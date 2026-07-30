@@ -207,7 +207,7 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F6F3),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: DetailAppbar(title: _appBarTitle()),
       body: ListenableBuilder(
         listenable: _searchController,

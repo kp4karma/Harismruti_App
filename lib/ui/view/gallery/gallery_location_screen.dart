@@ -214,7 +214,7 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFEFF3EA),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       // Keyboard insets are handled inside _LocationSheet instead, so the
       // map behind it doesn't relayout/resize every time the keyboard
       // opens or closes.
@@ -452,7 +452,9 @@ class _LocationGroupMapMarker extends StatelessWidget {
                 7 * markerScale,
               ),
               decoration: BoxDecoration(
-                color: Colors.white.withAlpha(230),
+                color: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHigh.withAlpha(235),
                 borderRadius: radius,
                 border: Border.all(
                   color: selected ? primaryColor : primaryColor.withAlpha(95),
@@ -515,7 +517,9 @@ class _LocationGroupMapMarker extends StatelessWidget {
                 (selected ? 10 : 8) * markerScale,
               ),
               painter: _MarkerTipPainter(
-                color: Colors.white.withAlpha(230),
+                color: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHigh.withAlpha(235),
                 shadowColor: Colors.black.withAlpha(20),
               ),
             ),
@@ -586,9 +590,13 @@ class _LocationTopPanel extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withAlpha(178),
+                color: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainer.withAlpha(210),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withAlpha(210)),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withAlpha(24),
@@ -737,11 +745,15 @@ class _LocationSheetState extends State<_LocationSheet> {
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
                   decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(188),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainer.withAlpha(225),
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(28),
                     ),
-                    border: Border.all(color: Colors.white.withAlpha(220)),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withAlpha(42),
@@ -761,7 +773,9 @@ class _LocationSheetState extends State<_LocationSheet> {
                             width: 42,
                             height: 4,
                             decoration: BoxDecoration(
-                              color: Colors.black.withAlpha(35),
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.outlineVariant,
                               borderRadius: BorderRadius.circular(99),
                             ),
                           ),
@@ -833,7 +847,7 @@ class _CityListView extends StatelessWidget {
         child: Text(
           'No place found',
           style: TextStyle(
-            color: Colors.black.withAlpha(130),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -875,7 +889,7 @@ class _CityListTile extends StatelessWidget {
     return Material(
       color: selected
           ? primaryColor.withAlpha(24)
-          : Colors.white.withAlpha(150),
+          : Theme.of(context).colorScheme.surfaceContainer.withAlpha(190),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -887,7 +901,7 @@ class _CityListTile extends StatelessWidget {
             border: Border.all(
               color: selected
                   ? primaryColor.withAlpha(140)
-                  : Colors.white.withAlpha(190),
+                  : Theme.of(context).colorScheme.outlineVariant,
             ),
           ),
           child: Row(
@@ -944,7 +958,7 @@ class _CityListTile extends StatelessWidget {
               Icon(
                 CupertinoIcons.chevron_right,
                 size: 18,
-                color: Colors.black.withAlpha(90),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ],
           ),
@@ -1033,11 +1047,15 @@ class _CitySearchField extends StatelessWidget {
           hintText: 'Search city or country',
           prefixIcon: Icon(CupertinoIcons.search, color: primaryColor),
           filled: true,
-          fillColor: Colors.white.withAlpha(170),
+          fillColor: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest.withAlpha(210),
           contentPadding: const EdgeInsets.symmetric(horizontal: 14),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: Colors.white.withAlpha(190)),
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
@@ -1045,7 +1063,9 @@ class _CitySearchField extends StatelessWidget {
           ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: Colors.white.withAlpha(190)),
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
           ),
         ),
       ),
@@ -1074,9 +1094,13 @@ class _LocationTitlePill extends StatelessWidget {
           height: 54,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
-            color: Colors.white.withAlpha(116),
+            color: Theme.of(
+              context,
+            ).colorScheme.surfaceContainer.withAlpha(175),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withAlpha(180)),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
           ),
           child: Row(
             children: [
@@ -1129,7 +1153,9 @@ class _RoundMapButton extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Material(
-          color: Colors.white.withAlpha(145),
+          color: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHigh.withAlpha(200),
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),
@@ -1161,7 +1187,9 @@ class _NoCoordinateNotice extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 28),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withAlpha(235),
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHigh.withAlpha(240),
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(

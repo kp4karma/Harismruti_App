@@ -198,7 +198,8 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
         .toList();
     final availableGroups =
         <GalleryFilterGroup>[
-              if (mySmrutiGroups.isNotEmpty)
+              if (mySmrutiGroups.isNotEmpty ||
+                  _controller.shouldShowMySmrutiFilterCategory)
                 GalleryFilterGroup(
                   slug: 'my_smruti',
                   title: 'My Smruti',
@@ -314,7 +315,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
         filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
           height: height,
-          color: Colors.white.withAlpha(238),
+          color: Theme.of(context).colorScheme.surfaceContainer.withAlpha(245),
           child: Column(
             children: [
               const SizedBox(height: 8),
@@ -342,7 +343,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                     IconButton(
                       onPressed: () => Navigator.pop(context),
                       icon: const Icon(CupertinoIcons.xmark_circle_fill),
-                      color: Colors.black45,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ],
                 ),
@@ -358,7 +359,9 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                       color: primaryColor,
                     ),
                     filled: true,
-                    fillColor: const Color(0xFFF3EEE9),
+                    fillColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide.none,
@@ -500,6 +503,9 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                                       )
                                       .toList(),
                                   query: _query,
+                                  loading: _controller
+                                      .areMySmrutiFiltersLoading
+                                      .value,
                                   selectedValues: _selectedValues,
                                   onChanged: _toggleOption,
                                 )
@@ -689,12 +695,14 @@ class _MySmrutiOptionsList extends StatelessWidget {
     super.key,
     required this.groups,
     required this.query,
+    required this.loading,
     required this.selectedValues,
     required this.onChanged,
   });
 
   final List<GalleryFilterGroup> groups;
   final String query;
+  final bool loading;
   final Map<String, Set<String>> selectedValues;
   final void Function(GalleryFilterGroup group, GalleryFilterOption option)
   onChanged;
@@ -724,6 +732,9 @@ class _MySmrutiOptionsList extends StatelessWidget {
         .toList();
 
     if (visibleGroups.isEmpty) {
+      if (loading) {
+        return const _FilterSheetLoading();
+      }
       return const GalleryEmptyState(height: 240, message: 'No options found');
     }
 
@@ -820,7 +831,7 @@ class _FilterOptionTile extends StatelessWidget {
             Text(
               '${option.count}',
               style: TextStyle(
-                color: Colors.black.withAlpha(120),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
               ),
@@ -910,7 +921,7 @@ class _FilterOptionsList extends StatelessWidget {
                 Text(
                   '${option.count}',
                   style: TextStyle(
-                    color: Colors.black.withAlpha(120),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
                   ),
@@ -984,7 +995,7 @@ class _DateFilterOptions extends StatelessWidget {
           'To find photos between two dates, select the start date in From '
           'and the end date in To. Both dates are included.',
           style: TextStyle(
-            color: Colors.black.withAlpha(155),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
             fontSize: 13,
             height: 1.5,
             fontWeight: FontWeight.w500,
@@ -1049,7 +1060,7 @@ class _DatePickerField extends StatelessWidget {
           filled: true,
           fillColor: enabled
               ? primaryColor.withAlpha(10)
-              : Colors.black.withAlpha(5),
+              : Theme.of(context).colorScheme.surfaceContainerHighest,
           prefixIcon: const Icon(CupertinoIcons.calendar),
           suffixIcon: value == null
               ? const Icon(CupertinoIcons.chevron_down, size: 17)
@@ -1071,7 +1082,7 @@ class _DatePickerField extends StatelessWidget {
           value ?? 'DD/MM/YYYY',
           style: TextStyle(
             color: value == null
-                ? Colors.black.withAlpha(90)
+                ? Theme.of(context).colorScheme.onSurfaceVariant
                 : primaryColor.withAlpha(230),
             fontSize: 15,
             fontWeight: FontWeight.w700,
@@ -1118,8 +1129,10 @@ class _FilterActionsBar extends StatelessWidget {
     return Container(
       padding: EdgeInsets.fromLTRB(14, 10, 14, 12 + bottomInset),
       decoration: BoxDecoration(
-        color: Colors.white.withAlpha(245),
-        border: Border(top: BorderSide(color: Colors.black.withAlpha(14))),
+        color: Theme.of(context).colorScheme.surfaceContainer.withAlpha(250),
+        border: Border(
+          top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+        ),
       ),
       child: Row(
         children: [
@@ -1138,8 +1151,12 @@ class _FilterActionsBar extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: primaryColor,
                 foregroundColor: Colors.white,
-                disabledBackgroundColor: Colors.black.withAlpha(22),
-                disabledForegroundColor: Colors.black.withAlpha(95),
+                disabledBackgroundColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest,
+                disabledForegroundColor: Theme.of(
+                  context,
+                ).colorScheme.onSurfaceVariant,
                 minimumSize: const Size.fromHeight(48),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,

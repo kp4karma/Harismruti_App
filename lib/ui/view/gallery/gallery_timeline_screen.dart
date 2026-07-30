@@ -290,7 +290,7 @@ class _TimelineBottomTools extends StatelessWidget {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
                 child: Container(
-                    decoration: BoxDecoration(
+                  decoration: BoxDecoration(
                     backgroundBlendMode: BlendMode.dstOut,
                     gradient: LinearGradient(
                       begin: Alignment.bottomCenter,

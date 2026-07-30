@@ -97,9 +97,7 @@ class _OTPScreenState extends State<OTPScreen> {
                   child: Container(
                     height: SizeConfig.heightMultiplier! * 42,
                     color: isKeyboardOpen
-                        ? Theme.of(
-                            context,
-                          ).colorScheme.surface.withAlpha(180)
+                        ? Theme.of(context).colorScheme.surface.withAlpha(180)
                         : Colors.transparent,
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),

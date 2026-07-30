@@ -158,7 +158,7 @@ class MyDiaryScreen extends StatelessWidget {
     final month = DateTime.now();
     return Scaffold(
       extendBodyBehindAppBar: true,
-      backgroundColor: const Color(0xFFF8F6F3),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: _DiaryGlassAppBar(
         title: 'Calendar',
         leading: CupertinoIcons.chevron_left,
@@ -363,7 +363,7 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
       return Scaffold(
         extendBodyBehindAppBar: true,
         extendBody: true,
-        backgroundColor: const Color(0xFFF8F6F3),
+        backgroundColor: Theme.of(context).colorScheme.surface,
         appBar: _DiaryGlassAppBar(
           title: _formatDetailDate(widget.date),
           leading: CupertinoIcons.chevron_left,
@@ -642,7 +642,7 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
   void _showManualLocationSheet() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFFF8F6F3),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),

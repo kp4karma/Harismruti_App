@@ -133,9 +133,7 @@ class _CountryDialCodePickerState extends State<CountryDialCodePicker> {
               hintText: 'Search country or code',
               prefixIcon: Icon(CupertinoIcons.search, color: primaryColor),
               filled: true,
-              fillColor: Theme.of(
-                context,
-              ).colorScheme.surfaceContainerHighest,
+              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: BorderSide.none,

@@ -232,9 +232,7 @@ class _StoryWidgetSettings extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(
-          context,
-        ).colorScheme.surfaceContainer.withAlpha(220),
+        color: Theme.of(context).colorScheme.surfaceContainer.withAlpha(220),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: primaryColor.withAlpha(30)),
       ),
@@ -514,9 +512,7 @@ class _ReorderHelpPopover extends StatelessWidget {
                     Text(
                       'Hold the handle and drag up or down to change the Home screen order.',
                       style: TextStyle(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurfaceVariant,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w700,
                         fontSize: 12,
                         height: 1.35,
@@ -608,9 +604,7 @@ class _PreferenceOptionTile extends StatelessWidget {
                       Text(
                         isShown ? 'Shown on home' : 'Hidden from home',
                         style: TextStyle(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurfaceVariant,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w700,
                           fontSize: 12,
                         ),

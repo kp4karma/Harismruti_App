@@ -119,9 +119,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   borderRadius: BorderRadius.circular(isKeyboardOpen ? 0 : 30),
                   child: Container(
                     color: isKeyboardOpen
-                        ? Theme.of(
-                            context,
-                          ).colorScheme.surface.withAlpha(180)
+                        ? Theme.of(context).colorScheme.surface.withAlpha(180)
                         : Colors.transparent,
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
