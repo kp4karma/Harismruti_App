@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
@@ -76,8 +75,7 @@ class _AutoSwapRecentCollagesState extends State<_AutoSwapRecentCollages> {
   int _frontGroup = 0;
 
   List<List<GalleryPhoto>> get _groups => [
-    for (var index = 0; index < widget.photos.length; index += 4)
-      widget.photos.sublist(index, (index + 4).clamp(0, widget.photos.length)),
+    for (final photo in widget.photos) [photo],
   ];
 
   int get _groupCount => _groups.length;
@@ -266,38 +264,13 @@ class _MasonryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ordered = [...photos]
-      ..sort((a, b) => _aspectRatio(a).compareTo(_aspectRatio(b)));
-    return MasonryGridView.count(
-      padding: EdgeInsets.zero,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      mainAxisSpacing: 0,
-      crossAxisSpacing: 0,
-      itemCount: ordered.length,
-      itemBuilder: (context, index) {
-        final photo = ordered[index];
-        return AspectRatio(
-          aspectRatio: _aspectRatio(photo),
-          child: _tile(photo),
-        );
-      },
-    );
-  }
-
-  double _aspectRatio(GalleryPhoto photo) {
-    final width = photo.width;
-    final height = photo.height;
-    if (width == null || height == null || width <= 0 || height <= 0) {
-      return 4 / 3;
-    }
-    return (width / height).clamp(0.55, 1.8);
+    return _tile(photos.first);
   }
 
   Widget _tile(GalleryPhoto photo) {
-    return ClipRect(
+    return SizedBox.expand(
       child: Material(
-        color: const Color(0xFFF4F1EC),
+        color: Colors.transparent,
         child: InkWell(
           onTap: onTap == null ? null : () => onTap!(photo),
           child: NetworkImageWithLoader(
