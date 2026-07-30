@@ -11,6 +11,7 @@ import 'package:harismruti/ui/controller/ProfileController.dart';
 import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
 import 'package:harismruti/ui/controller/auth_controller.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
+import 'package:harismruti/ui/controller/theme_controller.dart';
 import 'package:harismruti/ui/view/Profile/smruti_section_setting.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_routes.dart';
@@ -64,6 +65,24 @@ class ProfileScreen extends StatelessWidget {
                           );
                         },
                       ),
+                      const SizedBox(height: 12),
+                      Obx(() {
+                        final themeController = Get.find<ThemeController>();
+                        return _ProfileOption(
+                          icon: themeController.isDarkMode.value
+                              ? Icons.dark_mode_rounded
+                              : Icons.light_mode_rounded,
+                          label: 'Dark mode',
+                          trailing: Switch.adaptive(
+                            value: themeController.isDarkMode.value,
+                            activeThumbColor: primaryColor,
+                            onChanged: themeController.setDarkMode,
+                          ),
+                          onTap: () => themeController.setDarkMode(
+                            !themeController.isDarkMode.value,
+                          ),
+                        );
+                      }),
                       const SizedBox(height: 12),
                       _ProfileOption(
                         icon: Icons.star_outline_rounded,
@@ -417,19 +436,23 @@ class _ProfileOption extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final bool destructive;
+  final Widget? trailing;
 
   const _ProfileOption({
     required this.icon,
     required this.label,
     required this.onTap,
     this.destructive = false,
+    this.trailing,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = destructive ? Colors.red.shade700 : Colors.brown;
+    final color = destructive
+        ? Colors.red.shade700
+        : Theme.of(context).colorScheme.onSurface;
     return Material(
-      color: Colors.white,
+      color: Theme.of(context).colorScheme.surface.withAlpha(230),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -446,11 +469,12 @@ class _ProfileOption extends StatelessWidget {
                   style: TextStyle(fontSize: 16, color: color),
                 ),
               ),
-              const Icon(
-                Icons.arrow_forward_ios_rounded,
-                size: 16,
-                color: Colors.grey,
-              ),
+              trailing ??
+                  const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 16,
+                    color: Colors.grey,
+                  ),
             ],
           ),
         ),

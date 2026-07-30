@@ -26,9 +26,9 @@ import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
-import 'package:image_cropper/image_cropper.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 import 'package:path_provider/path_provider.dart';
+import 'package:pro_image_editor/pro_image_editor.dart';
 import 'package:share_plus/share_plus.dart';
 
 const double _homeAppbarBlurSigma = 24;
@@ -1539,31 +1539,49 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
           responseType: ResponseType.bytes,
         ),
       );
-      final edited = await ImageCropper().cropImage(
-        sourcePath: sourcePath,
-        compressQuality: 95,
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: 'Edit Photo',
-            toolbarColor: primaryColor,
-            toolbarWidgetColor: Colors.white,
-          ),
-          IOSUiSettings(title: 'Edit Photo'),
-        ],
-      );
-      if (edited == null) return;
-
-      const albumName = 'HariPrabodham Smruti';
-      var hasGalleryAccess = await Gal.hasAccess(toAlbum: true);
-      if (!hasGalleryAccess) {
-        hasGalleryAccess = await Gal.requestAccess(toAlbum: true);
-      }
-      if (!hasGalleryAccess) {
-        throw Exception('Gallery permission is required to save the photo');
-      }
-      await Gal.putImage(edited.path, album: albumName);
       if (!mounted) return;
-      TopNotification.success('Edited photo saved to "$albumName"');
+      await Navigator.push<void>(
+        context,
+        CupertinoPageRoute(
+          fullscreenDialog: true,
+          builder: (editorContext) => ProImageEditor.file(
+            File(sourcePath),
+            callbacks: ProImageEditorCallbacks(
+              onImageEditingComplete: (bytes) async {
+                try {
+                  const albumName = 'HariPrabodham Smruti';
+                  var hasGalleryAccess = await Gal.hasAccess(toAlbum: true);
+                  if (!hasGalleryAccess) {
+                    hasGalleryAccess = await Gal.requestAccess(toAlbum: true);
+                  }
+                  if (!hasGalleryAccess) {
+                    throw Exception(
+                      'Gallery permission is required to save the photo',
+                    );
+                  }
+                  final editedPath =
+                      '${tempDir.path}${Platform.pathSeparator}'
+                      'edited-${_photo.id}-${DateTime.now().millisecondsSinceEpoch}.jpg';
+                  await File(editedPath).writeAsBytes(bytes, flush: true);
+                  await Gal.putImage(editedPath, album: albumName);
+                  if (editorContext.mounted) Navigator.pop(editorContext);
+                  if (mounted) {
+                    TopNotification.success(
+                      'Edited photo saved to "$albumName"',
+                    );
+                  }
+                } catch (error) {
+                  if (mounted) {
+                    TopNotification.error(
+                      error.toString().replaceFirst('Exception: ', ''),
+                    );
+                  }
+                }
+              },
+            ),
+          ),
+        ),
+      );
     } catch (error) {
       if (!mounted) return;
       TopNotification.error(error.toString().replaceFirst('Exception: ', ''));
@@ -1967,6 +1985,28 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       builder: (_) => CupertinoActionSheet(
         title: const Text('Photo options'),
         actions: [
+          if (_photosList.length > 1)
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(context);
+                _toggleSlideshow();
+              },
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    _isSlideshowPlaying
+                        ? CupertinoIcons.pause
+                        : CupertinoIcons.play,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _isSlideshowPlaying ? 'Pause Slideshow' : 'Start Slideshow',
+                  ),
+                ],
+              ),
+            ),
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.pop(context);
@@ -2265,13 +2305,9 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                       ),
                       _ViewerActions(
                         isFavorite: _controller.isFavorite(_photo.id),
-                        isSlideshowPlaying: _isSlideshowPlaying,
                         onShare: _sharePhoto,
                         onFavorite: _toggleFavorite,
                         onInfo: _toggleInfoPanel,
-                        onSlideshow: _photosList.length > 1
-                            ? _toggleSlideshow
-                            : null,
                         isInfoOpen: _infoPanelOpen,
                         onOptions: _showMoreOptions,
                         onCollection: _openAddCollectionSheet,
@@ -2956,22 +2992,18 @@ class _ViewerThumbStrip extends StatelessWidget {
 class _ViewerActions extends StatelessWidget {
   final bool isFavorite;
   final bool isInfoOpen;
-  final bool isSlideshowPlaying;
   final VoidCallback onShare;
   final VoidCallback onFavorite;
   final VoidCallback onInfo;
-  final VoidCallback? onSlideshow;
   final VoidCallback onOptions;
   final VoidCallback onCollection;
 
   const _ViewerActions({
     required this.isFavorite,
     required this.isInfoOpen,
-    required this.isSlideshowPlaying,
     required this.onShare,
     required this.onFavorite,
     required this.onInfo,
-    required this.onSlideshow,
     required this.onOptions,
     required this.onCollection,
   });
@@ -3016,13 +3048,6 @@ class _ViewerActions extends StatelessWidget {
                       onTap: onFavorite,
                     ),
                     _InfoToggleButton(isOpen: isInfoOpen, onTap: onInfo),
-                    if (onSlideshow != null)
-                      _ViewerPlainButton(
-                        icon: isSlideshowPlaying
-                            ? CupertinoIcons.pause
-                            : CupertinoIcons.play,
-                        onTap: onSlideshow!,
-                      ),
                     _ViewerPlainButton(
                       icon: CupertinoIcons.slider_horizontal_3,
                       onTap: onOptions,

@@ -9,6 +9,7 @@ import 'package:harismruti/services/shorebird_update_service.dart';
 import 'package:harismruti/services/analytics_service.dart';
 import 'package:harismruti/services/deep_link_service.dart';
 import 'package:harismruti/ui/controller/global_binding.dart';
+import 'package:harismruti/ui/controller/theme_controller.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/size_config.dart';
@@ -27,6 +28,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  late final ThemeController _themeController;
   final _messengerKey = GlobalKey<ScaffoldMessengerState>();
   final _shorebirdUpdates = ShorebirdUpdateService();
   late final _lifecycleObserver = _AppLifecycleObserver(
@@ -36,6 +38,7 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
+    _themeController = Get.put(ThemeController(), permanent: true);
     WidgetsBinding.instance.addObserver(_lifecycleObserver);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(bootstrapDeferredServices());
@@ -68,42 +71,48 @@ class _MyAppState extends State<MyApp> {
               : Orientation.portrait;
           SizeConfig().init(constraints, orientation);
 
-          return GetMaterialApp(
-            scaffoldMessengerKey: _messengerKey,
-            debugShowCheckedModeBanner: false,
-            initialBinding: GlobalBindings(),
-            title: 'HariPrabodham Smruti',
+          return Obx(
+            () => GetMaterialApp(
+              scaffoldMessengerKey: _messengerKey,
+              debugShowCheckedModeBanner: false,
+              initialBinding: GlobalBindings(),
+              title: 'HariPrabodham Smruti',
 
-            initialRoute: AppRoutes.splash,
-            getPages: AppRoutes.routes,
-            navigatorObservers: [AnalyticsRouteObserver()],
-            theme: ThemeData(
-              scaffoldBackgroundColor: Colors.transparent,
-              useMaterial3: true,
-              fontFamily: 'Poppins',
-              colorSchemeSeed: primaryColor,
-              brightness: Brightness.light,
-              appBarTheme: const AppBarTheme(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
-                scrolledUnderElevation: 0,
-                elevation: 0,
+              initialRoute: AppRoutes.splash,
+              getPages: AppRoutes.routes,
+              navigatorObservers: [AnalyticsRouteObserver()],
+              theme: ThemeData(
+                scaffoldBackgroundColor: Colors.transparent,
+                useMaterial3: true,
+                fontFamily: 'Poppins',
+                colorSchemeSeed: primaryColor,
+                brightness: Brightness.light,
+                appBarTheme: const AppBarTheme(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  scrolledUnderElevation: 0,
+                  elevation: 0,
+                ),
               ),
-            ),
-            builder: EasyLoading.init(
-              builder: (context, child) {
-                return Stack(children: [child!, InternetStatusWidget()]);
-              },
-            ),
+              themeMode: _themeController.themeMode,
+              builder: EasyLoading.init(
+                builder: (context, child) {
+                  return Stack(children: [child!, InternetStatusWidget()]);
+                },
+              ),
 
-            darkTheme: ThemeData(
-              useMaterial3: true,
-              fontFamily: 'Poppins',
-              brightness: Brightness.light,
-              colorSchemeSeed: primaryColor,
-              appBarTheme: const AppBarTheme(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
+              darkTheme: ThemeData(
+                scaffoldBackgroundColor: Colors.transparent,
+                useMaterial3: true,
+                fontFamily: 'Poppins',
+                brightness: Brightness.dark,
+                colorSchemeSeed: primaryColor,
+                appBarTheme: const AppBarTheme(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  scrolledUnderElevation: 0,
+                  elevation: 0,
+                ),
               ),
             ),
           );

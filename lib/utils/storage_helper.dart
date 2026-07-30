@@ -37,6 +37,7 @@ class StorageKeys {
   static const String showSmrutiStoryLine = 'showSmrutiStoryLine';
   static const String smrutiStoryCount = 'smrutiStoryCount';
   static const String smrutiStoryRefreshHours = 'smrutiStoryRefreshHours';
+  static const String darkMode = 'darkMode';
 }
 
 class StorageHelper {
@@ -69,6 +70,10 @@ class StorageHelper {
     final lastMobileCountryCode = getValue<String>(
       key: StorageKeys.lastMobileCountryCode,
     );
+    final darkMode = getValue<bool>(
+      key: StorageKeys.darkMode,
+      defaultValue: false,
+    );
     _box.erase();
     if (reorderTutorialSeen == true) {
       setValue(key: StorageKeys.reorderTutorialSeen, value: true);
@@ -82,6 +87,7 @@ class StorageHelper {
         value: lastMobileCountryCode,
       );
     }
+    setValue(key: StorageKeys.darkMode, value: darkMode ?? false);
   }
 
   static bool hasKey(String key) {
