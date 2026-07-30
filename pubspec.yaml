@@ -54,7 +54,7 @@ dependencies:
   in_app_review: ^2.0.12
   home_widget: ^0.9.3
   gal: ^2.3.3
-  pro_image_editor: ^13.0.0
+  pro_image_editor: 11.2.3
 
 
 
