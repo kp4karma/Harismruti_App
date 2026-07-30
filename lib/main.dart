@@ -81,19 +81,7 @@ class _MyAppState extends State<MyApp> {
               initialRoute: AppRoutes.splash,
               getPages: AppRoutes.routes,
               navigatorObservers: [AnalyticsRouteObserver()],
-              theme: ThemeData(
-                scaffoldBackgroundColor: Colors.transparent,
-                useMaterial3: true,
-                fontFamily: 'Poppins',
-                colorSchemeSeed: primaryColor,
-                brightness: Brightness.light,
-                appBarTheme: const AppBarTheme(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  scrolledUnderElevation: 0,
-                  elevation: 0,
-                ),
-              ),
+              theme: _buildTheme(Brightness.light),
               themeMode: _themeController.themeMode,
               builder: EasyLoading.init(
                 builder: (context, child) {
@@ -101,25 +89,50 @@ class _MyAppState extends State<MyApp> {
                 },
               ),
 
-              darkTheme: ThemeData(
-                scaffoldBackgroundColor: Colors.transparent,
-                useMaterial3: true,
-                fontFamily: 'Poppins',
-                brightness: Brightness.dark,
-                colorSchemeSeed: primaryColor,
-                appBarTheme: const AppBarTheme(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  scrolledUnderElevation: 0,
-                  elevation: 0,
-                ),
-              ),
+              darkTheme: _buildTheme(Brightness.dark),
             ),
           );
         },
       ),
     );
   }
+}
+
+ThemeData _buildTheme(Brightness brightness) {
+  final isDark = brightness == Brightness.dark;
+  final scheme = ColorScheme.fromSeed(
+    seedColor: primaryColor,
+    brightness: brightness,
+    surface: isDark ? const Color(0xFF181312) : const Color(0xFFFFFBF8),
+  );
+
+  return ThemeData(
+    scaffoldBackgroundColor: Colors.transparent,
+    useMaterial3: true,
+    fontFamily: 'Poppins',
+    brightness: brightness,
+    colorScheme: scheme,
+    canvasColor: scheme.surface,
+    cardColor: scheme.surfaceContainer,
+    dividerColor: scheme.outlineVariant,
+    dialogTheme: DialogThemeData(backgroundColor: scheme.surfaceContainerHigh),
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: scheme.surfaceContainer,
+      modalBackgroundColor: scheme.surfaceContainer,
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: scheme.surfaceContainerHighest,
+    ),
+    appBarTheme: AppBarTheme(
+      backgroundColor: Colors.transparent,
+      foregroundColor: scheme.onSurface,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      scrolledUnderElevation: 0,
+      elevation: 0,
+    ),
+  );
 }
 
 class _AppLifecycleObserver extends WidgetsBindingObserver {

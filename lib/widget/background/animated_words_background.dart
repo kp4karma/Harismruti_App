@@ -148,12 +148,15 @@ class _AnimatedWordsBackgroundState extends State<AnimatedWordsBackground>
 
   @override
   Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFFFFBF5), Color(0xFFF4F7F7), Color(0xFFFFF4EC)],
+          colors: dark
+              ? const [Color(0xFF100E0D), Color(0xFF171313), Color(0xFF111719)]
+              : const [Color(0xFFFFFBF5), Color(0xFFF4F7F7), Color(0xFFFFF4EC)],
         ),
       ),
       child: Stack(
@@ -188,8 +191,10 @@ class _AnimatedWordsBackgroundState extends State<AnimatedWordsBackground>
                 center: Alignment.center,
                 radius: 0.9,
                 colors: [
-                  Colors.white.withAlpha(24),
-                  Colors.white.withAlpha(widget.veilAlpha),
+                  (dark ? Colors.black : Colors.white).withAlpha(24),
+                  (dark ? Colors.black : Colors.white).withAlpha(
+                    dark ? (widget.veilAlpha * 0.72).round() : widget.veilAlpha,
+                  ),
                 ],
               ),
             ),
@@ -258,7 +263,9 @@ class _AnimatedWordLabel extends StatelessWidget {
           fontWeight: FontWeight.w700,
           shadows: [
             Shadow(
-              color: Colors.white.withAlpha(180),
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.black.withAlpha(180)
+                  : Colors.white.withAlpha(180),
               blurRadius: 7,
               offset: const Offset(0, 1),
             ),

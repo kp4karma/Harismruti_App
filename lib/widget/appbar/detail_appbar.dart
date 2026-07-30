@@ -6,7 +6,7 @@ class DetailAppbar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onBackTap;
   final double? elevation;
   final bool centerTitle;
-  final Color iconColor;
+  final Color? iconColor;
   final Color backgroundColor;
 
   const DetailAppbar({
@@ -15,7 +15,7 @@ class DetailAppbar extends StatelessWidget implements PreferredSizeWidget {
     this.onBackTap,
     this.elevation = 0,
     this.centerTitle = true,
-    this.iconColor = const Color(0xFF322318),
+    this.iconColor,
     this.backgroundColor = Colors.transparent,
   });
 
@@ -36,15 +36,15 @@ class DetailAppbar extends StatelessWidget implements PreferredSizeWidget {
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHigh,
                 shape: BoxShape.circle,
               ),
               child: Padding(
                 padding: const EdgeInsets.all(6.0),
                 child: Icon(
                   CupertinoIcons.left_chevron,
-                  color: iconColor,
+                  color: iconColor ?? Theme.of(context).colorScheme.onSurface,
                   size: 18,
                 ),
               ),

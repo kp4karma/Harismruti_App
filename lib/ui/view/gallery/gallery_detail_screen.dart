@@ -1546,6 +1546,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
           fullscreenDialog: true,
           builder: (editorContext) => ProImageEditor.file(
             File(sourcePath),
+            configs: _photoEditorConfigs(editorContext),
             callbacks: ProImageEditorCallbacks(
               onImageEditingComplete: (bytes) async {
                 try {
@@ -1588,6 +1589,61 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     } finally {
       if (mounted) setState(() => _isDownloading = false);
     }
+  }
+
+  ProImageEditorConfigs _photoEditorConfigs(BuildContext context) {
+    const cream = Color(0xFFF8F3EC);
+    const warmSurface = Color(0xFFFFFBF7);
+    const ink = Color(0xFF3B2418);
+    const canvas = Color(0xFF171311);
+    final baseTheme = Theme.of(context);
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: primaryColor,
+      brightness: Brightness.light,
+      surface: warmSurface,
+    );
+
+    return ProImageEditorConfigs(
+      designMode: Platform.isIOS
+          ? ImageEditorDesignMode.cupertino
+          : ImageEditorDesignMode.material,
+      theme: baseTheme.copyWith(
+        brightness: Brightness.light,
+        colorScheme: colorScheme,
+        scaffoldBackgroundColor: cream,
+        canvasColor: cream,
+        dividerColor: primaryColor.withAlpha(28),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: cream,
+          foregroundColor: ink,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          systemOverlayStyle: SystemUiOverlayStyle.dark,
+        ),
+        bottomSheetTheme: const BottomSheetThemeData(
+          backgroundColor: warmSurface,
+          surfaceTintColor: Colors.transparent,
+          showDragHandle: true,
+        ),
+        sliderTheme: baseTheme.sliderTheme.copyWith(
+          activeTrackColor: primaryColor,
+          thumbColor: primaryColor,
+          overlayColor: primaryColor.withAlpha(24),
+          inactiveTrackColor: primaryColor.withAlpha(48),
+        ),
+      ),
+      mainEditor: MainEditorConfigs(
+        style: MainEditorStyle(
+          background: canvas,
+          appBarBackground: cream,
+          appBarColor: ink,
+          bottomBarBackground: cream,
+          bottomBarColor: ink,
+          uiOverlayStyle: SystemUiOverlayStyle.dark,
+          outsideCaptureAreaLayerOpacity: 0.72,
+        ),
+      ),
+    );
   }
 
   Future<void> _setWallpaper(String destination) async {

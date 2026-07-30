@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
@@ -73,7 +74,23 @@ class _AutoSwapRecentCollagesState extends State<_AutoSwapRecentCollages> {
   Timer? _timer;
   int _frontGroup = 0;
 
-  int get _groupCount => (widget.photos.length / 4).ceil();
+  List<List<GalleryPhoto>> get _groups {
+    final groups = <List<GalleryPhoto>>[];
+    var index = 0;
+    while (index < widget.photos.length) {
+      final previewEnd = (index + 4).clamp(0, widget.photos.length);
+      final containsPortrait = widget.photos
+          .sublist(index, previewEnd)
+          .any(_isPortrait);
+      final groupSize = containsPortrait ? 2 : 4;
+      final end = (index + groupSize).clamp(0, widget.photos.length);
+      groups.add(widget.photos.sublist(index, end));
+      index = end;
+    }
+    return groups;
+  }
+
+  int get _groupCount => _groups.length;
 
   @override
   void initState() {
@@ -111,10 +128,13 @@ class _AutoSwapRecentCollagesState extends State<_AutoSwapRecentCollages> {
   }
 
   List<GalleryPhoto> _groupAt(int groupIndex) {
-    final normalized = groupIndex % _groupCount;
-    final start = normalized * 4;
-    final end = (start + 4).clamp(0, widget.photos.length);
-    return widget.photos.sublist(start, end);
+    return _groups[groupIndex % _groupCount];
+  }
+
+  bool _isPortrait(GalleryPhoto photo) {
+    final width = photo.width;
+    final height = photo.height;
+    return width != null && height != null && height > width;
   }
 
   @override
@@ -220,10 +240,7 @@ class _RecentMasonryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _StackSurface(
-      child: Padding(
-        padding: const EdgeInsets.all(7),
-        child: _MasonryPage(photos: photos, headers: headers, onTap: onTap),
-      ),
+      child: _MasonryPage(photos: photos, headers: headers, onTap: onTap),
     );
   }
 }
@@ -241,35 +258,36 @@ class _MasonryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final left = photos.take(2).toList(growable: false);
-    final right = photos.skip(2).take(2).toList(growable: false);
-
-    return Row(
-      children: [
-        Expanded(flex: 6, child: _column(left, reverse: false)),
-        if (right.isNotEmpty) const SizedBox(width: 7),
-        if (right.isNotEmpty)
-          Expanded(flex: 5, child: _column(right, reverse: true)),
-      ],
+    return MasonryGridView.count(
+      padding: EdgeInsets.zero,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      mainAxisSpacing: 0,
+      crossAxisSpacing: 0,
+      itemCount: photos.length,
+      itemBuilder: (context, index) {
+        final photo = photos[index];
+        return AspectRatio(
+          aspectRatio: _aspectRatio(photo),
+          child: _tile(photo),
+        );
+      },
     );
   }
 
-  Widget _column(List<GalleryPhoto> columnPhotos, {required bool reverse}) {
-    if (columnPhotos.length == 1) return _tile(columnPhotos.first);
-
-    return Column(
-      children: [
-        Expanded(flex: reverse ? 4 : 5, child: _tile(columnPhotos.first)),
-        const SizedBox(height: 7),
-        Expanded(flex: reverse ? 5 : 4, child: _tile(columnPhotos.last)),
-      ],
-    );
+  double _aspectRatio(GalleryPhoto photo) {
+    final width = photo.width;
+    final height = photo.height;
+    if (width == null || height == null || width <= 0 || height <= 0) {
+      return 4 / 3;
+    }
+    return (width / height).clamp(0.55, 1.8);
   }
 
   Widget _tile(GalleryPhoto photo) {
     return Material(
       color: const Color(0xFFF4F1EC),
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.zero,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap == null ? null : () => onTap!(photo),

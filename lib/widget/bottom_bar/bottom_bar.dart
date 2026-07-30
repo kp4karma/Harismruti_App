@@ -86,6 +86,7 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final showActions =
         widget.onSearchTap != null || widget.onFilterTap != null;
 
@@ -97,7 +98,7 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
               child: Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   backgroundBlendMode: BlendMode.dstOut,
                   gradient: LinearGradient(
                     begin: Alignment.bottomCenter,
@@ -105,9 +106,9 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
                     stops: [0.5, 0.7, 0.9, 1.0],
                     colors: [
                       Colors.transparent,
-                      Colors.white24,
-                      Colors.white,
-                      Colors.white,
+                      scheme.surface.withAlpha(60),
+                      scheme.surface,
+                      scheme.surface,
                     ],
                   ),
                 ),
@@ -128,11 +129,11 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
                   child: Card(
                     margin: const EdgeInsets.symmetric(vertical: 2),
                     elevation: 12,
-                    shadowColor: Colors.black54,
+                    shadowColor: Theme.of(context).shadowColor.withAlpha(100),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                     ),
-                    color: Colors.white,
+                    color: scheme.surfaceContainerHigh,
                     child: Stack(
                       children: [
                         LayoutBuilder(
@@ -201,7 +202,7 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
                                                 style: TextStyle(
                                                   color: isSelected
                                                       ? Colors.white
-                                                      : Colors.black87,
+                                                      : scheme.onSurface,
                                                   fontWeight: FontWeight.w500,
                                                 ),
                                               ),
@@ -228,10 +229,13 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
                               child: Container(
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(30),
-                                  gradient: const LinearGradient(
+                                  gradient: LinearGradient(
                                     begin: Alignment.centerLeft,
                                     end: Alignment.centerRight,
-                                    colors: [Colors.white24, Colors.white],
+                                    colors: [
+                                      scheme.surfaceContainerHigh.withAlpha(0),
+                                      scheme.surfaceContainerHigh,
+                                    ],
                                   ),
                                 ),
                               ),
@@ -249,10 +253,13 @@ class _SwamiTabBarState extends State<SwamiTabBar> {
                               child: Container(
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(30),
-                                  gradient: const LinearGradient(
+                                  gradient: LinearGradient(
                                     begin: Alignment.centerRight,
                                     end: Alignment.centerLeft,
-                                    colors: [Colors.white24, Colors.white],
+                                    colors: [
+                                      scheme.surfaceContainerHigh.withAlpha(0),
+                                      scheme.surfaceContainerHigh,
+                                    ],
                                   ),
                                 ),
                               ),

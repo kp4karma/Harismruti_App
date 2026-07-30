@@ -36,7 +36,7 @@ class CustomAppbar extends StatelessWidget implements PreferredSizeWidget {
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
               child: Container(
-                color: Colors.white.withAlpha(125), // adjust to 0.0 if needed
+                color: Theme.of(context).colorScheme.surface.withAlpha(190),
               ),
             ),
           ),
@@ -77,7 +77,7 @@ class CustomAppbar extends StatelessWidget implements PreferredSizeWidget {
                         fontSize: 22,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 1,
-                        color: Colors.black,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     if (isShowSubTitle == true) SizedBox(height: 2),
@@ -224,7 +224,9 @@ class _ProfileAppbarButton extends StatelessWidget {
           decoration: BoxDecoration(
             color: primaryColor.withAlpha(22),
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withAlpha(180)),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
           ),
           child: avatarChild,
         ),

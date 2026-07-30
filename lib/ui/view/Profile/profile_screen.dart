@@ -199,6 +199,7 @@ class _ProfileIdCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Obx(() {
       final rows = [
         _ProfileInfoRowData(
@@ -225,9 +226,9 @@ class _ProfileIdCard extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withAlpha(105),
+              color: scheme.surfaceContainer.withAlpha(205),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withAlpha(170)),
+              border: Border.all(color: scheme.outlineVariant),
               boxShadow: [
                 BoxShadow(
                   color: primaryColor.withAlpha(18),
@@ -251,8 +252,8 @@ class _ProfileIdCard extends StatelessWidget {
                             profileController.displayName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.black87,
+                            style: TextStyle(
+                              color: scheme.onSurface,
                               fontSize: 17,
                               fontWeight: FontWeight.w700,
                             ),
@@ -287,12 +288,13 @@ class _ProfileAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final image = profileController.profileImage.value;
     final avatarUrl = profileController.avatarUrl;
     final scale = tabletScale(context);
     return CircleAvatar(
       radius: 28 * scale,
-      backgroundColor: Colors.white.withAlpha(170),
+      backgroundColor: scheme.surfaceContainerHighest,
       child: ClipOval(
         child: SizedBox(
           width: 50 * scale,
@@ -367,6 +369,7 @@ class _ProfileInfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: BackdropFilter(
@@ -375,9 +378,9 @@ class _ProfileInfoRow extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
           decoration: BoxDecoration(
-            color: Colors.white.withAlpha(82),
+            color: scheme.surfaceContainerHighest.withAlpha(185),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withAlpha(130)),
+            border: Border.all(color: scheme.outlineVariant),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -386,9 +389,9 @@ class _ProfileInfoRow extends StatelessWidget {
                 width: 30 * tabletScale(context),
                 height: 30 * tabletScale(context),
                 decoration: BoxDecoration(
-                  color: Colors.white.withAlpha(100),
+                  color: scheme.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(9),
-                  border: Border.all(color: Colors.white.withAlpha(145)),
+                  border: Border.all(color: scheme.outlineVariant),
                 ),
                 child: Icon(
                   data.icon,
@@ -414,8 +417,8 @@ class _ProfileInfoRow extends StatelessWidget {
                       data.value,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.black87,
+                      style: TextStyle(
+                        color: scheme.onSurface,
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
