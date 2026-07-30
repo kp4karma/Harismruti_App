@@ -10,7 +10,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'package:gal/gal.dart';
 import 'package:get/get.dart';
+import 'package:harismruti/api/api_endpoints.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/api/repositories/gallery_repository.dart';
 import 'package:harismruti/helper/auth_redirect_helper.dart';
@@ -842,11 +844,12 @@ class GalleryFullscreenViewer extends StatefulWidget {
 }
 
 class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final PageController _pageController;
   late final ScrollController _thumbnailScrollController;
   late final TransformationController _transformationController;
   late final AnimationController _zoomAnimationController;
+  late final AnimationController _dismissAnimationController;
   Animation<Matrix4>? _zoomAnimation;
   VoidCallback? _zoomAnimationListener;
   AnimationStatusListener? _zoomAnimationStatusListener;
@@ -864,8 +867,14 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   bool _allowIgnore = false;
   bool _isIgnoring = false;
   bool _isSettingWallpaper = false;
+  bool _isDownloading = false;
   Offset _lastDoubleTapPosition = Offset.zero;
   int _gesturePointerCount = 1;
+  double _dismissDragOffset = 0;
+  double _dismissDragStartOffset = 0;
+  double _dismissGestureDx = 0;
+  double _dismissGestureDy = 0;
+  bool _draggingToDismiss = false;
   final Set<int> _activeViewerPointers = <int>{};
   late final List<GalleryPhoto> _localPhotos;
   bool get _isMySmruti =>
@@ -885,6 +894,21 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       vsync: this,
       duration: const Duration(milliseconds: 260),
     );
+    _dismissAnimationController =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 220),
+        )..addListener(() {
+          if (!mounted) return;
+          setState(() {
+            _dismissDragOffset =
+                _dismissDragStartOffset *
+                (1 -
+                    Curves.easeOutCubic.transform(
+                      _dismissAnimationController.value,
+                    ));
+          });
+        });
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -919,6 +943,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     _thumbnailScrollController.dispose();
     _clearZoomAnimation();
     _zoomAnimationController.dispose();
+    _dismissAnimationController.dispose();
     _transformationController.dispose();
     super.dispose();
   }
@@ -1118,6 +1143,144 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     }
   }
 
+  Future<void> _showDownloadOptions() async {
+    if (_isDownloading) return;
+    if (!AuthRedirectHelper.ensureLoggedIn()) return;
+    final quality = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: const Text('Download quality'),
+        message: const Text(
+          'Enhanced versions are prepared only when requested and expire automatically.',
+        ),
+        actions: const [
+          _DownloadQualityAction(
+            value: 'original',
+            title: 'Original',
+            subtitle: 'No enhancement',
+          ),
+          _DownloadQualityAction(
+            value: 'sd',
+            title: 'SD',
+            subtitle: 'Smaller download',
+          ),
+          _DownloadQualityAction(
+            value: 'hd',
+            title: 'HD',
+            subtitle: 'Up to 1280 px',
+          ),
+          _DownloadQualityAction(
+            value: 'fhd',
+            title: 'Full HD',
+            subtitle: 'Enhanced up to 1920 px',
+          ),
+          _DownloadQualityAction(
+            value: '2k',
+            title: 'Enhanced 2K',
+            subtitle: 'Prepared on demand',
+          ),
+          _DownloadQualityAction(
+            value: '4k',
+            title: 'Enhanced 4K',
+            subtitle: 'Largest file · prepared on demand',
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Cancel'),
+        ),
+      ),
+    );
+    if (quality == null || !mounted) return;
+    await _downloadQuality(quality);
+  }
+
+  Future<void> _downloadQuality(String quality) async {
+    if (_isDownloading) return;
+    setState(() => _isDownloading = true);
+    final progress = ValueNotifier<int>(quality == 'original' ? 100 : 0);
+    var dialogOpen = false;
+    try {
+      if (quality != 'original') {
+        dialogOpen = true;
+        unawaited(
+          showCupertinoDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => _EnhancementProgressDialog(progress: progress),
+          ),
+        );
+      }
+
+      var downloadUrl = _photo.fullUrl;
+      if (quality != 'original') {
+        var job = await _repository.createPhotoEnhancement(
+          photoId: _photo.id,
+          quality: quality,
+        );
+        final jobId = int.tryParse('${job['id']}');
+        if (jobId == null) throw Exception('Enhancement job was not created');
+
+        for (var attempt = 0; attempt < 120; attempt++) {
+          final status = job['status']?.toString() ?? '';
+          progress.value = int.tryParse('${job['progress']}') ?? 0;
+          if (status == 'completed') {
+            downloadUrl = ApiEndpoints.photoEnhancementDownload(jobId);
+            break;
+          }
+          if (status == 'failed' || status == 'expired') {
+            throw Exception(
+              job['error_message']?.toString() ??
+                  'The enhanced photo could not be prepared',
+            );
+          }
+          await Future<void>.delayed(const Duration(seconds: 1));
+          job = await _repository.getPhotoEnhancement(jobId);
+        }
+        if (downloadUrl == _photo.fullUrl) {
+          throw Exception('Enhancement is taking longer than expected');
+        }
+      }
+
+      if (dialogOpen && mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        dialogOpen = false;
+      }
+      final tempDir = await getTemporaryDirectory();
+      final fileName =
+          'harismruti-${_photo.id}-${quality == 'original' ? 'original' : '$quality-enhanced'}.jpg';
+      final filePath = '${tempDir.path}${Platform.pathSeparator}$fileName';
+      await Dio().download(
+        downloadUrl,
+        filePath,
+        options: Options(
+          headers: _controller.imageHeaders,
+          responseType: ResponseType.bytes,
+        ),
+      );
+      const albumName = 'HariPrabodham Smruti';
+      var hasGalleryAccess = await Gal.hasAccess(toAlbum: true);
+      if (!hasGalleryAccess) {
+        hasGalleryAccess = await Gal.requestAccess(toAlbum: true);
+      }
+      if (!hasGalleryAccess) {
+        throw Exception('Gallery permission is required to save the photo');
+      }
+      await Gal.putImage(filePath, album: albumName);
+      if (!mounted) return;
+      TopNotification.success('Photo saved to the "$albumName" album');
+    } catch (error) {
+      if (dialogOpen && mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      if (!mounted) return;
+      TopNotification.error(error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      progress.dispose();
+      if (mounted) setState(() => _isDownloading = false);
+    }
+  }
+
   String _shareFileName(String url) {
     final parsed = Uri.tryParse(url);
     final path = parsed?.path ?? '';
@@ -1151,6 +1314,17 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
         message: const Text('Choose where this photo should appear.'),
         actions: [
           CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _showDownloadOptions();
+            },
+            child: Text(_isDownloading ? 'Preparing Download…' : 'Download'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(context, 'editor'),
+            child: const Text('Crop & Adjust with Phone'),
+          ),
+          CupertinoActionSheetAction(
             onPressed: () => Navigator.pop(context, 'home'),
             child: const Text('Home Screen'),
           ),
@@ -1170,7 +1344,52 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       ),
     );
     if (destination == null) return;
-    await _setWallpaper(destination);
+    if (destination == 'editor') {
+      await _openSystemWallpaperEditor();
+    } else {
+      await _setWallpaper(destination);
+    }
+  }
+
+  Future<void> _openSystemWallpaperEditor() async {
+    if (_isSettingWallpaper) return;
+    final url = _photo.fullUrl.isNotEmpty
+        ? _photo.fullUrl
+        : _photo.thumbnailUrl;
+    if (url.isEmpty) {
+      TopNotification.error('Photo is not ready to use as wallpaper');
+      return;
+    }
+
+    setState(() => _isSettingWallpaper = true);
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final wallpaperFile = File(
+        '${tempDir.path}${Platform.pathSeparator}'
+        'wallpaper-editor-${_photo.id}-${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+      await Dio().download(
+        url,
+        wallpaperFile.path,
+        options: Options(
+          headers: _controller.imageHeaders,
+          responseType: ResponseType.bytes,
+        ),
+      );
+      await _wallpaperChannel.invokeMethod<bool>('openWallpaperEditor', {
+        'path': wallpaperFile.path,
+      });
+    } on PlatformException catch (error) {
+      if (!mounted) return;
+      TopNotification.error(
+        error.message ?? 'Unable to open the phone wallpaper editor',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      TopNotification.error('Unable to open the phone wallpaper editor');
+    } finally {
+      if (mounted) setState(() => _isSettingWallpaper = false);
+    }
   }
 
   Future<void> _setWallpaper(String destination) async {
@@ -1346,6 +1565,10 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     _zoomAnimationController.stop();
     _clearZoomAnimation();
     _gesturePointerCount = details.pointerCount;
+    _dismissAnimationController.stop();
+    _dismissGestureDx = 0;
+    _dismissGestureDy = 0;
+    _draggingToDismiss = false;
 
     if (details.pointerCount < 2 && !_isZoomed) return;
     if (_zoomModeActive && !_chromeVisible) return;
@@ -1358,6 +1581,21 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
 
   void _handleZoomInteractionUpdate(ScaleUpdateDetails details) {
     _gesturePointerCount = details.pointerCount;
+    if (details.pointerCount == 1 && !_isZoomed && !_zoomModeActive) {
+      _dismissGestureDx += details.focalPointDelta.dx;
+      _dismissGestureDy += details.focalPointDelta.dy;
+      final verticalIntent =
+          _dismissGestureDy > 8 &&
+          _dismissGestureDy.abs() > _dismissGestureDx.abs() * 1.15;
+      if (_draggingToDismiss || verticalIntent) {
+        setState(() {
+          _draggingToDismiss = true;
+          _dismissDragOffset = _dismissGestureDy.clamp(0.0, 360.0);
+          _chromeVisible = false;
+        });
+        return;
+      }
+    }
     final isZoomed = _transformationController.value.getMaxScaleOnAxis() > 1.05;
     if (!isZoomed || (_isZoomed && _zoomModeActive && !_chromeVisible)) {
       return;
@@ -1371,6 +1609,25 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   }
 
   void _handleZoomInteractionEnd(ScaleEndDetails details) {
+    if (_draggingToDismiss) {
+      final velocity = details.velocity.pixelsPerSecond.dy;
+      final shouldDismiss = _dismissDragOffset > 110 || velocity > 700;
+      if (shouldDismiss) {
+        HapticFeedback.lightImpact();
+        Navigator.pop(context);
+      } else {
+        _dismissDragStartOffset = _dismissDragOffset;
+        _dismissAnimationController.forward(from: 0).whenComplete(() {
+          if (!mounted) return;
+          setState(() {
+            _dismissDragOffset = 0;
+            _draggingToDismiss = false;
+            _chromeVisible = true;
+          });
+        });
+      }
+      return;
+    }
     final isZoomed = _transformationController.value.getMaxScaleOnAxis() > 1.05;
     if (!isZoomed) {
       if (_gesturePointerCount <= 1 &&
@@ -1616,68 +1873,80 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
 
   @override
   Widget build(BuildContext context) {
+    final dismissProgress = (_dismissDragOffset / 320).clamp(0.0, 1.0);
+    final dismissScale = 1 - (dismissProgress * 0.12);
     return Scaffold(
-      backgroundColor: _zoomModeActive ? Colors.black : Colors.white,
+      backgroundColor: Color.lerp(
+        _zoomModeActive ? Colors.black : Colors.white,
+        Colors.black,
+        dismissProgress * 0.7,
+      ),
       body: Stack(
         children: [
-          _reactive(
-            () => Listener(
-              behavior: HitTestBehavior.translucent,
-              onPointerDown: _handleViewerPointerDown,
-              onPointerUp: _handleViewerPointerEnd,
-              onPointerCancel: _handleViewerPointerEnd,
-              child: PageView.builder(
-                controller: _pageController,
-                itemCount: _photosList.length,
-                allowImplicitScrolling: true,
-                physics: _zoomModeActive
-                    ? const NeverScrollableScrollPhysics()
-                    : const PageScrollPhysics(),
-                onPageChanged: (value) {
-                  setState(() {
-                    _index = value;
-                    _resetZoom(animated: false, restoreChrome: false);
-                  });
-                  _precacheAround(value);
-                  _centerThumbnail(value);
-                  _maybeLoadMoreRecent(value);
-                },
-                itemBuilder: (context, index) {
-                  final photo = _photosList[index];
-                  return ClipRect(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: _toggleChrome,
-                      onDoubleTapDown: _rememberDoubleTapPosition,
-                      onDoubleTap: _toggleZoom,
-                      child: InteractiveViewer(
-                        transformationController: _transformationController,
-                        minScale: 1,
-                        maxScale: 5,
-                        scaleEnabled: true,
-                        panEnabled: _zoomModeActive,
-                        boundaryMargin: const EdgeInsets.all(96),
-                        clipBehavior: Clip.hardEdge,
-                        onInteractionStart: _handleZoomInteractionStart,
-                        onInteractionUpdate: _handleZoomInteractionUpdate,
-                        onInteractionEnd: _handleZoomInteractionEnd,
-                        child: Center(
-                          child: Hero(
-                            tag: 'photo-${photo.id}',
-                            child: RepaintBoundary(
-                              child: _FullscreenImage(
-                                photo: photo,
-                                title: widget.title,
-                                headers: _controller.imageHeaders,
-                                chromeVisible: _chromeVisible,
+          Transform.translate(
+            offset: Offset(0, _dismissDragOffset),
+            child: Transform.scale(
+              scale: dismissScale,
+              child: _reactive(
+                () => Listener(
+                  behavior: HitTestBehavior.translucent,
+                  onPointerDown: _handleViewerPointerDown,
+                  onPointerUp: _handleViewerPointerEnd,
+                  onPointerCancel: _handleViewerPointerEnd,
+                  child: PageView.builder(
+                    controller: _pageController,
+                    itemCount: _photosList.length,
+                    allowImplicitScrolling: true,
+                    physics: _zoomModeActive
+                        ? const NeverScrollableScrollPhysics()
+                        : const PageScrollPhysics(),
+                    onPageChanged: (value) {
+                      setState(() {
+                        _index = value;
+                        _resetZoom(animated: false, restoreChrome: false);
+                      });
+                      _precacheAround(value);
+                      _centerThumbnail(value);
+                      _maybeLoadMoreRecent(value);
+                    },
+                    itemBuilder: (context, index) {
+                      final photo = _photosList[index];
+                      return ClipRect(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _toggleChrome,
+                          onDoubleTapDown: _rememberDoubleTapPosition,
+                          onDoubleTap: _toggleZoom,
+                          child: InteractiveViewer(
+                            transformationController: _transformationController,
+                            minScale: 1,
+                            maxScale: 5,
+                            scaleEnabled: true,
+                            panEnabled: _zoomModeActive,
+                            boundaryMargin: const EdgeInsets.all(96),
+                            clipBehavior: Clip.hardEdge,
+                            onInteractionStart: _handleZoomInteractionStart,
+                            onInteractionUpdate: _handleZoomInteractionUpdate,
+                            onInteractionEnd: _handleZoomInteractionEnd,
+                            child: Center(
+                              child: Hero(
+                                tag: 'photo-${photo.id}',
+                                child: RepaintBoundary(
+                                  child: _FullscreenImage(
+                                    photo: photo,
+                                    title: widget.title,
+                                    headers: _controller.imageHeaders,
+                                    chromeVisible: _chromeVisible,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                  );
-                },
+                      );
+                    },
+                  ),
+                ),
               ),
             ),
           ),
@@ -1816,6 +2085,66 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DownloadQualityAction extends StatelessWidget {
+  final String value;
+  final String title;
+  final String subtitle;
+
+  const _DownloadQualityAction({
+    required this.value,
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoActionSheetAction(
+      onPressed: () => Navigator.pop(context, value),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(title),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: TextStyle(
+              color: CupertinoColors.secondaryLabel.resolveFrom(context),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EnhancementProgressDialog extends StatelessWidget {
+  final ValueListenable<int> progress;
+
+  const _EnhancementProgressDialog({required this.progress});
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoAlertDialog(
+      title: const Text('Enhancing photo'),
+      content: Padding(
+        padding: const EdgeInsets.only(top: 14),
+        child: ValueListenableBuilder<int>(
+          valueListenable: progress,
+          builder: (_, value, __) => Column(
+            children: [
+              const CupertinoActivityIndicator(radius: 13),
+              const SizedBox(height: 12),
+              Text('$value% · You can keep the app open while it is prepared.'),
+            ],
+          ),
+        ),
       ),
     );
   }

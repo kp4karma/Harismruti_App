@@ -218,6 +218,25 @@ class GalleryRepository {
     await ApiClient.delete(ApiEndpoints.myTag(photoId, tag));
   }
 
+  Future<Map<String, dynamic>> createPhotoEnhancement({
+    required int photoId,
+    required String quality,
+  }) async {
+    final response = await ApiClient.post(
+      ApiEndpoints.photoEnhancements(photoId),
+      data: {'quality': quality},
+    );
+    return asJsonMap(response.data);
+  }
+
+  Future<Map<String, dynamic>> getPhotoEnhancement(int jobId) async {
+    final response = await ApiClient.get(
+      ApiEndpoints.photoEnhancement(jobId),
+      forceRefresh: true,
+    );
+    return asJsonMap(response.data);
+  }
+
   Future<void> addPhotoToCollection({
     required String name,
     required int photoId,

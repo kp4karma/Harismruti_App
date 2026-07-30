@@ -53,6 +53,7 @@ dependencies:
   app_links: ^7.0.0
   in_app_review: ^2.0.12
   home_widget: ^0.9.3
+  gal: ^2.3.3
 
 
 

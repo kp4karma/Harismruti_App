@@ -1,8 +1,10 @@
 package org.hp.harismruti
 
 import android.app.WallpaperManager
+import android.content.Intent
 import android.graphics.BitmapFactory
 import android.os.Build
+import androidx.core.content.FileProvider
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.plugin.common.MethodChannel
@@ -19,15 +21,45 @@ class MainActivity : FlutterActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             WALLPAPER_CHANNEL,
         ).setMethodCallHandler { call, result ->
+            val path = call.argument<String>("path")
+            if (path.isNullOrBlank()) {
+                result.error("INVALID_ARGUMENT", "A wallpaper image file is required.", null)
+                return@setMethodCallHandler
+            }
+
+            if (call.method == "openWallpaperEditor") {
+                try {
+                    val imageFile = File(path)
+                    val imageUri = FileProvider.getUriForFile(
+                        this,
+                        "$packageName.wallpaper_files",
+                        imageFile,
+                    )
+                    val intent = Intent(Intent.ACTION_ATTACH_DATA).apply {
+                        setDataAndType(imageUri, "image/*")
+                        putExtra("mimeType", "image/*")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    startActivity(intent)
+                    result.success(true)
+                } catch (error: Exception) {
+                    result.error(
+                        "OPEN_WALLPAPER_EDITOR_FAILED",
+                        error.message ?: "The phone's wallpaper editor could not be opened.",
+                        null,
+                    )
+                }
+                return@setMethodCallHandler
+            }
+
             if (call.method != "setWallpaper") {
                 result.notImplemented()
                 return@setMethodCallHandler
             }
 
-            val path = call.argument<String>("path")
             val destination = call.argument<String>("destination")
-            if (path.isNullOrBlank() || destination.isNullOrBlank()) {
-                result.error("INVALID_ARGUMENT", "A file and destination are required.", null)
+            if (destination.isNullOrBlank()) {
+                result.error("INVALID_ARGUMENT", "A wallpaper destination is required.", null)
                 return@setMethodCallHandler
             }
 

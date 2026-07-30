@@ -95,4 +95,9 @@ class ApiEndpoints {
   static String photoThumbnail(int photoId) =>
       "$mainDomain/photos/$photoId/thumbnail";
   static String photoFull(int photoId) => "$mainDomain/photos/$photoId/full";
+  static String photoEnhancements(int photoId) =>
+      "/me/photos/$photoId/enhancements";
+  static String photoEnhancement(int jobId) => "/me/enhancements/$jobId";
+  static String photoEnhancementDownload(int jobId) =>
+      "$mainDomain/me/enhancements/$jobId/download";
 }

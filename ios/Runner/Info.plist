@@ -47,6 +47,8 @@
 	<string>Used to enable motion-based visual effects.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>HariPrabodham Smruti uses your photo library to select training photos for My Smruti.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>HariPrabodham Smruti uses your photo library to save downloaded and enhanced Smruti photos.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
