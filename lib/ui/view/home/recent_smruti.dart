@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
@@ -149,49 +148,82 @@ class _RecentMasonryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pageCount = (photos.length / 4).ceil();
+
     return _StackSurface(
       child: Padding(
         padding: const EdgeInsets.all(7),
-        child: MasonryGridView.count(
-          scrollDirection: Axis.horizontal,
+        child: PageView.builder(
           physics: const BouncingScrollPhysics(),
-          crossAxisCount: 2,
-          mainAxisSpacing: 7,
-          crossAxisSpacing: 7,
-          itemCount: photos.length,
-          itemBuilder: (context, index) {
-            final photo = photos[index];
-            final aspectRatio = _safeAspectRatio(photo);
-            return SizedBox(
-              width: (112 * aspectRatio).clamp(82, 168),
-              child: Material(
-                color: const Color(0xFFF4F1EC),
-                borderRadius: BorderRadius.circular(10),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () => onTap(photo),
-                  child: NetworkImageWithLoader(
-                    imageUrl: photo.thumbnailUrl,
-                    title: photo.title ?? 'Recent Smruti',
-                    headers: headers,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ),
+          itemCount: pageCount,
+          itemBuilder: (context, pageIndex) {
+            final start = pageIndex * 4;
+            final end = (start + 4).clamp(0, photos.length);
+            return _MasonryPage(
+              photos: photos.sublist(start, end),
+              headers: headers,
+              onTap: onTap,
             );
           },
         ),
       ),
     );
   }
+}
 
-  double _safeAspectRatio(GalleryPhoto photo) {
-    final width = photo.width;
-    final height = photo.height;
-    if (width == null || height == null || width <= 0 || height <= 0) {
-      return 1;
-    }
-    return (width / height).clamp(0.72, 1.45);
+class _MasonryPage extends StatelessWidget {
+  final List<GalleryPhoto> photos;
+  final Map<String, String>? headers;
+  final ValueChanged<GalleryPhoto> onTap;
+
+  const _MasonryPage({
+    required this.photos,
+    required this.headers,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final left = photos.take(2).toList(growable: false);
+    final right = photos.skip(2).take(2).toList(growable: false);
+
+    return Row(
+      children: [
+        Expanded(flex: 6, child: _column(left, reverse: false)),
+        if (right.isNotEmpty) const SizedBox(width: 7),
+        if (right.isNotEmpty)
+          Expanded(flex: 5, child: _column(right, reverse: true)),
+      ],
+    );
+  }
+
+  Widget _column(List<GalleryPhoto> columnPhotos, {required bool reverse}) {
+    if (columnPhotos.length == 1) return _tile(columnPhotos.first);
+
+    return Column(
+      children: [
+        Expanded(flex: reverse ? 4 : 5, child: _tile(columnPhotos.first)),
+        const SizedBox(height: 7),
+        Expanded(flex: reverse ? 5 : 4, child: _tile(columnPhotos.last)),
+      ],
+    );
+  }
+
+  Widget _tile(GalleryPhoto photo) {
+    return Material(
+      color: const Color(0xFFF4F1EC),
+      borderRadius: BorderRadius.circular(10),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => onTap(photo),
+        child: NetworkImageWithLoader(
+          imageUrl: photo.thumbnailUrl,
+          title: photo.title ?? 'Recent Smruti',
+          headers: headers,
+          fit: BoxFit.contain,
+        ),
+      ),
+    );
   }
 }
 
