@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
@@ -29,31 +28,23 @@ class RecentSmruti extends StatelessWidget {
 
       return SizedBox(
         height: 320 * scale,
-        child: MasonryGridView.count(
+        child: GridView.builder(
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-          crossAxisCount: 2,
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
+          padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 10 * scale,
+            crossAxisSpacing: 10 * scale,
+            childAspectRatio: 0.82,
+          ),
           itemCount: photos.length,
           itemBuilder: (context, index) {
             final photo = photos[index];
-            final width = switch (index % 5) {
-              0 => 205.0,
-              1 => 158.0,
-              2 => 184.0,
-              3 => 224.0,
-              _ => 174.0,
-            };
-
-            return SizedBox(
-              width: width * scale,
-              child: _RecentPhotoCard(
-                photo: photo,
-                headers: galleryController.imageHeaders,
-                onTap: () => _openDetail(context, galleryController, photo),
-              ),
+            return _RecentPhotoCard(
+              photo: photo,
+              headers: galleryController.imageHeaders,
+              onTap: () => _openDetail(context, galleryController, photo),
             );
           },
         ),
