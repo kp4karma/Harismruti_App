@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
@@ -242,95 +243,22 @@ class _MasonryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (photos.length == 1) return _tile(photos.first);
-    if (photos.length == 2) {
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(child: _tile(photos[0])),
-          Expanded(child: _tile(photos[1])),
-        ],
-      );
-    }
-
     final ordered = [...photos]
       ..sort((a, b) => _aspectRatio(a).compareTo(_aspectRatio(b)));
-    final hasPortrait = _aspectRatio(ordered.first) < 0.95;
-
-    if (hasPortrait) {
-      final feature = ordered.first;
-      final remaining = ordered.skip(1).toList(growable: false);
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          final portraitFraction =
-              (_aspectRatio(feature) *
-                      constraints.maxHeight /
-                      constraints.maxWidth)
-                  .clamp(0.42, 0.60);
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(
-                width: constraints.maxWidth * portraitFraction,
-                height: constraints.maxHeight,
-                child: _tile(feature),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (final photo in remaining)
-                      Expanded(flex: _heightWeight(photo), child: _tile(photo)),
-                  ],
-                ),
-              ),
-            ],
-          );
-        },
-      );
-    }
-
-    if (ordered.length == 3) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(flex: 5, child: _tile(ordered[0])),
-          Expanded(
-            flex: 4,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(child: _tile(ordered[1])),
-                Expanded(child: _tile(ordered[2])),
-              ],
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: _tile(ordered[0])),
-              Expanded(child: _tile(ordered[3])),
-            ],
-          ),
-        ),
-        Expanded(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: _tile(ordered[1])),
-              Expanded(child: _tile(ordered[2])),
-            ],
-          ),
-        ),
-      ],
+    return MasonryGridView.count(
+      padding: EdgeInsets.zero,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      mainAxisSpacing: 0,
+      crossAxisSpacing: 0,
+      itemCount: ordered.length,
+      itemBuilder: (context, index) {
+        final photo = ordered[index];
+        return AspectRatio(
+          aspectRatio: _aspectRatio(photo),
+          child: _tile(photo),
+        );
+      },
     );
   }
 
@@ -343,22 +271,17 @@ class _MasonryPage extends StatelessWidget {
     return (width / height).clamp(0.55, 1.8);
   }
 
-  int _heightWeight(GalleryPhoto photo) =>
-      (100 / _aspectRatio(photo)).round().clamp(55, 180);
-
   Widget _tile(GalleryPhoto photo) {
-    return SizedBox.expand(
-      child: ClipRect(
-        child: Material(
-          color: const Color(0xFFF4F1EC),
-          child: InkWell(
-            onTap: onTap == null ? null : () => onTap!(photo),
-            child: NetworkImageWithLoader(
-              imageUrl: photo.thumbnailUrl,
-              title: photo.title ?? 'Recent Smruti',
-              headers: headers,
-              fit: BoxFit.cover,
-            ),
+    return ClipRect(
+      child: Material(
+        color: const Color(0xFFF4F1EC),
+        child: InkWell(
+          onTap: onTap == null ? null : () => onTap!(photo),
+          child: NetworkImageWithLoader(
+            imageUrl: photo.thumbnailUrl,
+            title: photo.title ?? 'Recent Smruti',
+            headers: headers,
+            fit: BoxFit.contain,
           ),
         ),
       ),
