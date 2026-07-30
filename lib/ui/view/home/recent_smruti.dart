@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
@@ -28,74 +30,13 @@ class RecentSmruti extends StatelessWidget {
 
       return SizedBox(
         height: 320 * scale,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final ratio = constraints.maxWidth / 380;
-              return Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  if (photos.length > 1)
-                    _backCard(
-                      photo: photos[1],
-                      headers: controller.imageHeaders,
-                      left: 6 * ratio,
-                      right: 96 * ratio,
-                      rotation: -0.07,
-                    ),
-                  if (photos.length > 2)
-                    _backCard(
-                      photo: photos[2],
-                      headers: controller.imageHeaders,
-                      left: 96 * ratio,
-                      right: 6 * ratio,
-                      rotation: 0.07,
-                    ),
-                  Positioned(
-                    left: 46 * ratio,
-                    right: 46 * ratio,
-                    top: 0,
-                    bottom: 0,
-                    child: _RecentMasonryCard(
-                      photos: photos,
-                      headers: controller.imageHeaders,
-                      onTap: (photo) => _openDetail(context, controller, photo),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
+        child: _AutoSwapRecentCollages(
+          photos: photos,
+          headers: controller.imageHeaders,
+          autoplay: autoplay,
         ),
       );
     });
-  }
-
-  Widget _backCard({
-    required GalleryPhoto photo,
-    required Map<String, String>? headers,
-    required double left,
-    required double right,
-    required double rotation,
-  }) {
-    return Positioned(
-      left: left,
-      right: right,
-      top: 38,
-      bottom: 22,
-      child: Transform.rotate(
-        angle: rotation,
-        child: _StackSurface(
-          child: NetworkImageWithLoader(
-            imageUrl: photo.thumbnailUrl,
-            title: photo.title ?? 'Recent Smruti',
-            headers: headers,
-            fit: BoxFit.contain,
-          ),
-        ),
-      ),
-    );
   }
 
   List<GalleryPhoto> _uniquePhotos(Iterable<GalleryPhoto> photos) {
@@ -107,12 +48,142 @@ class RecentSmruti extends StatelessWidget {
     }
     return unique;
   }
+}
 
-  void _openDetail(
-    BuildContext context,
-    GalleryController controller,
-    GalleryPhoto tappedPhoto,
-  ) {
+class _AutoSwapRecentCollages extends StatefulWidget {
+  final List<GalleryPhoto> photos;
+  final Map<String, String>? headers;
+  final bool autoplay;
+
+  const _AutoSwapRecentCollages({
+    required this.photos,
+    required this.headers,
+    required this.autoplay,
+  });
+
+  @override
+  State<_AutoSwapRecentCollages> createState() =>
+      _AutoSwapRecentCollagesState();
+}
+
+class _AutoSwapRecentCollagesState extends State<_AutoSwapRecentCollages> {
+  static const _swapInterval = Duration(seconds: 3);
+  static const _animationDuration = Duration(milliseconds: 650);
+
+  Timer? _timer;
+  int _frontGroup = 0;
+
+  int get _groupCount => (widget.photos.length / 4).ceil();
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AutoSwapRecentCollages oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_frontGroup >= _groupCount) _frontGroup = 0;
+    if (oldWidget.photos.length != widget.photos.length ||
+        oldWidget.autoplay != widget.autoplay) {
+      _startTimer();
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+    if (!widget.autoplay || _groupCount <= 1) return;
+    _timer = Timer.periodic(_swapInterval, (_) => _move(1));
+  }
+
+  void _move(int direction) {
+    if (!mounted || _groupCount <= 1) return;
+    setState(() {
+      _frontGroup = (_frontGroup + direction + _groupCount) % _groupCount;
+    });
+  }
+
+  List<GalleryPhoto> _groupAt(int groupIndex) {
+    final normalized = groupIndex % _groupCount;
+    final start = normalized * 4;
+    final end = (start + 4).clamp(0, widget.photos.length);
+    return widget.photos.sublist(start, end);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleCount = _groupCount.clamp(1, 3);
+
+    return GestureDetector(
+      onHorizontalDragEnd: (details) {
+        final velocity = details.primaryVelocity ?? 0;
+        if (velocity < -120) {
+          _timer?.cancel();
+          _move(1);
+        } else if (velocity > 120) {
+          _timer?.cancel();
+          _move(-1);
+        }
+      },
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final ratio = constraints.maxWidth / 380;
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                for (var depth = visibleCount - 1; depth >= 0; depth--)
+                  _positionedCollage(depth, ratio),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _positionedCollage(int depth, double ratio) {
+    final layout = switch (depth) {
+      0 => (46.0, 46.0, 0.0, 0.0, 0.0, 1.0),
+      1 => (6.0, 96.0, 38.0, 22.0, -0.07, 0.92),
+      _ => (96.0, 6.0, 38.0, 22.0, 0.07, 0.92),
+    };
+    final groupIndex = (_frontGroup + depth) % _groupCount;
+
+    return AnimatedPositioned(
+      key: ValueKey('recent-collage-$groupIndex-$depth'),
+      duration: _animationDuration,
+      curve: Curves.easeOutCubic,
+      left: layout.$1 * ratio,
+      right: layout.$2 * ratio,
+      top: layout.$3 * ratio,
+      bottom: layout.$4 * ratio,
+      child: AnimatedRotation(
+        duration: _animationDuration,
+        turns: layout.$5 / 6.283185307179586,
+        child: AnimatedOpacity(
+          duration: _animationDuration,
+          opacity: layout.$6,
+          child: _RecentMasonryCard(
+            photos: _groupAt(groupIndex),
+            headers: widget.headers,
+            onTap: depth == 0 ? (photo) => _openDetail(context, photo) : null,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openDetail(BuildContext context, GalleryPhoto tappedPhoto) {
+    final controller = Get.find<GalleryController>();
     final photos = controller.recentPhotos.toList(growable: false);
     final index = photos.indexWhere(
       (photo) => tappedPhoto.id > 0
@@ -138,7 +209,7 @@ class RecentSmruti extends StatelessWidget {
 class _RecentMasonryCard extends StatelessWidget {
   final List<GalleryPhoto> photos;
   final Map<String, String>? headers;
-  final ValueChanged<GalleryPhoto> onTap;
+  final ValueChanged<GalleryPhoto>? onTap;
 
   const _RecentMasonryCard({
     required this.photos,
@@ -148,24 +219,10 @@ class _RecentMasonryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pageCount = (photos.length / 4).ceil();
-
     return _StackSurface(
       child: Padding(
         padding: const EdgeInsets.all(7),
-        child: PageView.builder(
-          physics: const BouncingScrollPhysics(),
-          itemCount: pageCount,
-          itemBuilder: (context, pageIndex) {
-            final start = pageIndex * 4;
-            final end = (start + 4).clamp(0, photos.length);
-            return _MasonryPage(
-              photos: photos.sublist(start, end),
-              headers: headers,
-              onTap: onTap,
-            );
-          },
-        ),
+        child: _MasonryPage(photos: photos, headers: headers, onTap: onTap),
       ),
     );
   }
@@ -174,7 +231,7 @@ class _RecentMasonryCard extends StatelessWidget {
 class _MasonryPage extends StatelessWidget {
   final List<GalleryPhoto> photos;
   final Map<String, String>? headers;
-  final ValueChanged<GalleryPhoto> onTap;
+  final ValueChanged<GalleryPhoto>? onTap;
 
   const _MasonryPage({
     required this.photos,
@@ -215,7 +272,7 @@ class _MasonryPage extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => onTap(photo),
+        onTap: onTap == null ? null : () => onTap!(photo),
         child: NetworkImageWithLoader(
           imageUrl: photo.thumbnailUrl,
           title: photo.title ?? 'Recent Smruti',
