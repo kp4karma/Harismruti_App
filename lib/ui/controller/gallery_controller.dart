@@ -192,6 +192,11 @@ class GalleryController extends GetxController {
   List<GalleryFilterGroup> get filtersWithUserTags =>
       filtersWithUserTagsForSelection(const {});
 
+  bool get shouldShowMySmrutiFilterCategory =>
+      StorageHelper.isLogin() ||
+      areMySmrutiFiltersLoading.value ||
+      mySmrutiPhotos.isNotEmpty;
+
   List<GalleryFilterGroup> filtersWithUserTagsForSelection(
     Map<String, List<String>> selected,
   ) {
