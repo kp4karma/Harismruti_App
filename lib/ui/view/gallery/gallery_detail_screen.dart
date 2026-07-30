@@ -26,6 +26,7 @@ import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -1516,15 +1517,59 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   }
 
   Future<void> _openPhotoEditor() async {
-    if (Platform.isAndroid) {
-      await _openSystemWallpaperEditor();
+    if (_isDownloading) return;
+    final url = _photo.fullUrl.isNotEmpty
+        ? _photo.fullUrl
+        : _photo.thumbnailUrl;
+    if (url.isEmpty) {
+      TopNotification.error('Photo is not ready to edit');
       return;
     }
-    if (Platform.isIOS) {
-      await _openIosWallpaperFlow();
-      return;
+
+    setState(() => _isDownloading = true);
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final sourcePath =
+          '${tempDir.path}${Platform.pathSeparator}edit-${_shareFileName(url)}';
+      await Dio().download(
+        url,
+        sourcePath,
+        options: Options(
+          headers: _controller.imageHeaders,
+          responseType: ResponseType.bytes,
+        ),
+      );
+      final edited = await ImageCropper().cropImage(
+        sourcePath: sourcePath,
+        compressQuality: 95,
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: 'Edit Photo',
+            toolbarColor: primaryColor,
+            toolbarWidgetColor: Colors.white,
+          ),
+          IOSUiSettings(title: 'Edit Photo'),
+        ],
+      );
+      if (edited == null) return;
+
+      const albumName = 'HariPrabodham Smruti';
+      var hasGalleryAccess = await Gal.hasAccess(toAlbum: true);
+      if (!hasGalleryAccess) {
+        hasGalleryAccess = await Gal.requestAccess(toAlbum: true);
+      }
+      if (!hasGalleryAccess) {
+        throw Exception('Gallery permission is required to save the photo');
+      }
+      await Gal.putImage(edited.path, album: albumName);
+      if (!mounted) return;
+      TopNotification.success('Edited photo saved to "$albumName"');
+    } catch (error) {
+      if (!mounted) return;
+      TopNotification.error(error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _isDownloading = false);
     }
-    TopNotification.error('Photo editing is not supported on this device');
   }
 
   Future<void> _setWallpaper(String destination) async {
@@ -2228,7 +2273,6 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                             ? _toggleSlideshow
                             : null,
                         isInfoOpen: _infoPanelOpen,
-                        onEdit: _openPhotoEditor,
                         onOptions: _showMoreOptions,
                         onCollection: _openAddCollectionSheet,
                       ),
@@ -2917,7 +2961,6 @@ class _ViewerActions extends StatelessWidget {
   final VoidCallback onFavorite;
   final VoidCallback onInfo;
   final VoidCallback? onSlideshow;
-  final VoidCallback? onEdit;
   final VoidCallback onOptions;
   final VoidCallback onCollection;
 
@@ -2929,7 +2972,6 @@ class _ViewerActions extends StatelessWidget {
     required this.onFavorite,
     required this.onInfo,
     required this.onSlideshow,
-    this.onEdit,
     required this.onOptions,
     required this.onCollection,
   });
@@ -2980,11 +3022,6 @@ class _ViewerActions extends StatelessWidget {
                             ? CupertinoIcons.pause
                             : CupertinoIcons.play,
                         onTap: onSlideshow!,
-                      ),
-                    if (onEdit != null)
-                      _ViewerPlainButton(
-                        icon: CupertinoIcons.crop,
-                        onTap: onEdit!,
                       ),
                     _ViewerPlainButton(
                       icon: CupertinoIcons.slider_horizontal_3,
