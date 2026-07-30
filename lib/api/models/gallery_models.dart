@@ -43,7 +43,16 @@ List<String> _readTags(Map<String, dynamic> json) {
     if (text.isNotEmpty && text.toLowerCase() != 'null') tags.add(text);
   }
 
-  for (final key in const ['tags', 'tag', 'labels', 'keywords']) {
+  for (final key in const [
+    'tags',
+    'tag',
+    'tag_names',
+    'tagNames',
+    'smruti_tags',
+    'smrutiTags',
+    'labels',
+    'keywords',
+  ]) {
     final value = json[key];
     if (value is List) {
       for (final item in value) {
@@ -55,6 +64,31 @@ List<String> _readTags(Map<String, dynamic> json) {
       }
     } else {
       add(value);
+    }
+  }
+
+  final attributes = json['attributes'] ?? json['metadata'];
+  if (attributes is Map) {
+    for (final key in const [
+      'tags',
+      'tag',
+      'tag_names',
+      'smruti_tags',
+      'labels',
+      'keywords',
+    ]) {
+      final value = attributes[key];
+      if (value is List) {
+        for (final item in value) {
+          add(item);
+        }
+      } else if (value is String) {
+        for (final item in value.split(',')) {
+          add(item);
+        }
+      } else {
+        add(value);
+      }
     }
   }
 
@@ -105,6 +139,7 @@ class GalleryPhoto {
   final String? subtitle;
   final DateTime? takenAt;
   final DateTime? eventDate;
+  final DateTime? createdAt;
   final int? width;
   final int? height;
   final int? fileSizeBytes;
@@ -112,6 +147,13 @@ class GalleryPhoto {
   final String? fileName;
   final double? latitude;
   final double? longitude;
+  final String? country;
+  final String? location;
+  final String? subLocation;
+  final String? album;
+  final String? smrutiWith;
+  final String? darshanOf;
+  final String? smrutiOf;
   final List<String> tags;
 
   const GalleryPhoto({
@@ -122,6 +164,7 @@ class GalleryPhoto {
     this.subtitle,
     this.takenAt,
     this.eventDate,
+    this.createdAt,
     this.width,
     this.height,
     this.fileSizeBytes,
@@ -129,6 +172,13 @@ class GalleryPhoto {
     this.fileName,
     this.latitude,
     this.longitude,
+    this.country,
+    this.location,
+    this.subLocation,
+    this.album,
+    this.smrutiWith,
+    this.darshanOf,
+    this.smrutiOf,
     this.tags = const [],
   });
 
@@ -173,6 +223,9 @@ class GalleryPhoto {
       subtitle: _readString(json, const ['subtitle']),
       takenAt: displayDate,
       eventDate: displayDate,
+      createdAt: DateTime.tryParse(
+        _readString(json, const ['created_at', 'createdAt']) ?? '',
+      ),
       width: _readInt(json, const ['width', 'image_width', 'imageWidth', 'w']),
       height: _readInt(json, const [
         'height',
@@ -215,6 +268,22 @@ class GalleryPhoto {
         'gps_longitude',
         'gpsLongitude',
       ]),
+      country: _readString(json, const ['country']),
+      location: _readString(json, const ['location', 'city']),
+      subLocation: _readString(json, const [
+        'sub_location',
+        'subLocation',
+        'place',
+      ]),
+      album: _readString(json, const ['album']),
+      smrutiWith: _readString(json, const [
+        'smruti_with',
+        'smrutiWith',
+        'with',
+        'with_attr',
+      ]),
+      darshanOf: _readString(json, const ['darshan_of', 'darshanOf', 'person']),
+      smrutiOf: _readString(json, const ['smruti_of', 'smrutiOf', 'subject']),
       tags: _readTags(json),
     );
   }
@@ -227,6 +296,7 @@ class GalleryPhoto {
       if (title != null) 'title': title,
       if (subtitle != null) 'subtitle': subtitle,
       if (eventDate != null) 'event_date': eventDate!.toIso8601String(),
+      if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
       if (width != null) 'width': width,
       if (height != null) 'height': height,
       if (fileSizeBytes != null) 'file_size_bytes': fileSizeBytes,
@@ -234,6 +304,13 @@ class GalleryPhoto {
       if (fileName != null) 'filename': fileName,
       if (latitude != null) 'latitude': latitude,
       if (longitude != null) 'longitude': longitude,
+      if (country != null) 'country': country,
+      if (location != null) 'location': location,
+      if (subLocation != null) 'sub_location': subLocation,
+      if (album != null) 'album': album,
+      if (smrutiWith != null) 'smruti_with': smrutiWith,
+      if (darshanOf != null) 'darshan_of': darshanOf,
+      if (smrutiOf != null) 'smruti_of': smrutiOf,
       if (tags.isNotEmpty) 'tags': tags,
     };
   }
@@ -358,7 +435,10 @@ class GalleryCard {
         'representative_face_id',
         'cover_face_id',
       ]),
-      photos: _newestPhotosFirst(samplePhotos),
+      // The home API intentionally orders sample_photos with its selected
+      // section cover first. Preserve that order so cover selection stays
+      // server-controlled.
+      photos: samplePhotos,
     );
   }
 

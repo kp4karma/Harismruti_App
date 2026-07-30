@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/story_tile"
+    android:layout_width="0dp"
+    android:layout_height="match_parent"
+    android:layout_margin="3dp"
+    android:layout_weight="1"
+    android:background="@drawable/smruti_widget_tile"
+    android:clipToOutline="true">
+
+    <ImageView
+        android:id="@+id/story_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:adjustViewBounds="true"
+        android:contentDescription="@string/smruti_widget_open_story"
+        android:scaleType="centerCrop" />
+
+    <TextView
+        android:id="@+id/story_title"
+        style="@style/SmrutiMasonryCaption"
+        android:layout_gravity="bottom" />
+
+    <TextView
+        android:id="@+id/story_badge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:layout_margin="6dp"
+        android:background="@drawable/smruti_widget_badge"
+        android:paddingHorizontal="7dp"
+        android:paddingVertical="3dp"
+        android:textColor="#FFFFFFFF"
+        android:textSize="9sp"
+        android:textStyle="bold" />
+</FrameLayout>

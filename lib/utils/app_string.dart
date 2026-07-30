@@ -4,6 +4,7 @@ class AppText {
 
 class SmrutiSectionKeys {
   static const recent = "Recent Smruti";
+  static const onThisDay = "On This Day";
   static const withSmruti = "Smruti with";
   static const ofDarshan = "Darshan of";
   static const location = "Location";

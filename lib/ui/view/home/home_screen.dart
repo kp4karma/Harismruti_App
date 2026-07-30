@@ -8,6 +8,7 @@ import 'package:harismruti/api/repositories/live_stream_repository.dart';
 import 'package:harismruti/helper/auth_redirect_helper.dart';
 import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
+import 'package:harismruti/ui/controller/auth_controller.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/controller/my_photos_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_filter_sheet.dart';
@@ -35,10 +36,10 @@ class _HomeScreenState extends State<HomeScreen>
       Get.find<SmrutiSectionController>();
   final GalleryController galleryController = Get.find<GalleryController>();
   final MyPhotosController myPhotosController = Get.find<MyPhotosController>();
+  final AuthController authController = Get.find<AuthController>();
   final LiveStreamRepository _liveStreamRepository =
       const LiveStreamRepository();
   String? _liveStreamUrl;
-  late bool _isLoggedIn;
   bool _isLoadingLiveStream = false;
 
   late AnimationController _appBarAnimationController;
@@ -48,8 +49,6 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void initState() {
     super.initState();
-    _isLoggedIn = StorageHelper.isLogin();
-
     // streamController.stream.listen((data) {
     //   debugPrint("Tilt updated via stream: ${data}");
     // });
@@ -60,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen>
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       myPhotosController.refreshSmrutiFlow();
-      if (_isLoggedIn) _loadLiveStream();
+      if (authController.isLoggedIn.value) _loadLiveStream();
     });
     _scrollController.addListener(() {
       final offset = _scrollController.offset;
@@ -83,11 +82,14 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   Widget build(BuildContext context) {
     return Obx(() {
+      final isLoggedIn = authController.isLoggedIn.value;
       final sortedVisibleSections =
           sectionController.sections
               .where(
                 (section) =>
                     section['is_show'] == true &&
+                    (isLoggedIn ||
+                        !_isLoginOnlySection(section['title'].toString())) &&
                     _hasHomeSectionContent(section['title'].toString()),
               )
               .toList()
@@ -139,8 +141,10 @@ class _HomeScreenState extends State<HomeScreen>
                           constraints: const BoxConstraints(maxWidth: 680),
                           child: SwamiTabBar(
                             tabs: [
-                              "P.P.Prabodh Swamiji",
-                              "P.P.Hariprasad Swamiji",
+                              sectionController.optionLabels['prabodh'] ??
+                                  'P.P.Prabodh Swamiji',
+                              sectionController.optionLabels['hariprasad'] ??
+                                  'P.P.Hariprasad Swamiji',
                             ],
                             initialIndex:
                                 galleryController.selectedSwami.value.index,
@@ -168,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                       _LiveNowCard(
                         isLoading: _isLoadingLiveStream,
-                        isLoggedIn: _isLoggedIn,
+                        isLoggedIn: isLoggedIn,
                         isLive: _liveStreamUrl != null,
                         onTap: _openLiveStream,
                       ),
@@ -176,7 +180,14 @@ class _HomeScreenState extends State<HomeScreen>
                         (section) => Column(
                           children: [
                             SubHeader(
-                              title: section['title'],
+                              title:
+                                  section['display_name']
+                                          ?.toString()
+                                          .trim()
+                                          .isNotEmpty ==
+                                      true
+                                  ? section['display_name'].toString()
+                                  : section['title'].toString(),
                               showAction: _hasSectionDetailAction(
                                 section['title'].toString(),
                               ),
@@ -203,7 +214,6 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _refreshHome() async {
     await Future.wait([
       galleryController.refreshHome(),
-      sectionController.refreshGlobalVisibility(),
       myPhotosController.refreshSmrutiFlow(),
       _refreshLiveStreamForAuth(),
     ]);
@@ -213,7 +223,6 @@ class _HomeScreenState extends State<HomeScreen>
     final isLoggedIn = StorageHelper.isLogin();
     if (mounted) {
       setState(() {
-        _isLoggedIn = isLoggedIn;
         if (!isLoggedIn) _liveStreamUrl = null;
       });
     }
@@ -243,7 +252,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _openLiveStream() async {
-    if (!_isLoggedIn) {
+    if (!authController.isLoggedIn.value) {
       AuthRedirectHelper.ensureLoggedIn();
       return;
     }
@@ -321,6 +330,9 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   bool _hasHomeSectionContent(String title) {
+    if (title == SmrutiSectionKeys.onThisDay) {
+      return galleryController.onThisDayPhotos.isNotEmpty;
+    }
     if (title == SmrutiSectionKeys.myFavorite ||
         title == 'My Favot' ||
         title == 'My Favorites') {
@@ -332,6 +344,19 @@ class _HomeScreenState extends State<HomeScreen>
     }
 
     return true;
+  }
+
+  bool _isLoginOnlySection(String title) {
+    return title == SmrutiSectionKeys.myPhotos ||
+        title == SmrutiSectionKeys.myDiary ||
+        title == SmrutiSectionKeys.myFavorite ||
+        title == SmrutiSectionKeys.myCollection ||
+        title == 'My Phone' ||
+        title == 'My Photos' ||
+        title == 'My Diray' ||
+        title == 'My Favot' ||
+        title == 'My Favorites' ||
+        title == 'My Collectino';
   }
 }
 

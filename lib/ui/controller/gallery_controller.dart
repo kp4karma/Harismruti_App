@@ -1,10 +1,14 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
+import 'package:harismruti/api/models/app_section_setting.dart';
 import 'package:harismruti/api/repositories/gallery_repository.dart';
 import 'package:harismruti/services/analytics_service.dart';
+import 'package:harismruti/services/phone_smruti_widget_service.dart';
+import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 
 const bool kShowFavoriteCountOnImages = false;
@@ -49,12 +53,16 @@ class UserPhotoCollection {
 
 class _GalleryTabSnapshot {
   final GalleryHomeBundle bundle;
+  final List<GalleryPhoto> onThisDayPhotos;
+  final bool hasLoadedOnThisDay;
   final DateTime loadedAt;
   final int recentPage;
   final bool hasMoreRecentPhotos;
 
   const _GalleryTabSnapshot({
     required this.bundle,
+    required this.onThisDayPhotos,
+    required this.hasLoadedOnThisDay,
     required this.loadedAt,
     required this.recentPage,
     required this.hasMoreRecentPhotos,
@@ -77,6 +85,7 @@ class GalleryController extends GetxController {
   final Rx<GallerySwami> selectedSwami = GallerySwami.prabodh.obs;
 
   final RxList<GalleryPhoto> recentPhotos = <GalleryPhoto>[].obs;
+  final RxList<GalleryPhoto> onThisDayPhotos = <GalleryPhoto>[].obs;
   final RxList<GalleryCard> collections = <GalleryCard>[].obs;
   final RxList<GalleryCard> smrutiWith = <GalleryCard>[].obs;
   final RxList<GalleryCard> smrutiOf = <GalleryCard>[].obs;
@@ -87,6 +96,7 @@ class GalleryController extends GetxController {
   final RxList<GalleryCard> wallpapers = <GalleryCard>[].obs;
   final RxList<GalleryFilterGroup> filters = <GalleryFilterGroup>[].obs;
   final RxBool areFiltersLoading = false.obs;
+  final RxBool areFiltersRefreshing = false.obs;
   final RxBool isMyLibraryLoading = false.obs;
   final RxBool areMySmrutiFiltersLoading = false.obs;
   final RxString filtersError = ''.obs;
@@ -100,15 +110,18 @@ class GalleryController extends GetxController {
 
   DateTime? _lastLoadedAt;
   Future<void>? _inFlightLoad;
+  bool _hasLoadedOnThisDay = false;
   int _recentPage = 1;
   int _favoriteMutationVersion = 0;
   final Map<GallerySwami, _GalleryTabSnapshot> _tabSnapshots = {};
   final Map<GallerySwami, List<GalleryFilterGroup>> _filterSnapshots = {};
   int _filtersRequestId = 0;
+  int _mySmrutiFiltersRequestId = 0;
 
   Map<String, String> get imageHeaders => _repository.imageHeaders;
   bool get hasAnyData =>
       recentPhotos.isNotEmpty ||
+      onThisDayPhotos.isNotEmpty ||
       collections.isNotEmpty ||
       smrutiWith.isNotEmpty ||
       smrutiOf.isNotEmpty ||
@@ -124,9 +137,22 @@ class GalleryController extends GetxController {
     _restorePersistedSwami();
     _restoreSnapshots();
     loadMyLibrary();
-    // Render the persisted snapshot immediately, but always validate it once
-    // per app launch so newly imported/edited photos appear on this restart.
-    loadHome(force: true);
+    // Render a recent persisted snapshot immediately without spending network
+    // data. Stale or missing snapshots are refreshed in the background.
+    final snapshot = _tabSnapshots[selectedSwami.value];
+    unawaited(
+      _loadAndSyncHomeWidget(
+        force: snapshot == null || _isSnapshotStale(snapshot),
+      ),
+    );
+  }
+
+  Future<void> _loadAndSyncHomeWidget({required bool force}) async {
+    await loadHome(force: force);
+    await PhoneSmrutiWidgetService.syncInstalledWidget(
+      photos: recentPhotos.toList(growable: false),
+      imageHeaders: imageHeaders,
+    );
   }
 
   void _restorePersistedSwami() {
@@ -163,15 +189,32 @@ class GalleryController extends GetxController {
     return tags;
   }
 
-  List<GalleryFilterGroup> get filtersWithUserTags {
-    final groups = filters.toList();
-    final mySmrutiGroup = _buildMySmrutiFilterGroup();
-    final customTagGroup = _buildUserTagFilterGroup();
+  List<GalleryFilterGroup> get filtersWithUserTags =>
+      filtersWithUserTagsForSelection(const {});
+
+  List<GalleryFilterGroup> filtersWithUserTagsForSelection(
+    Map<String, List<String>> selected,
+  ) {
+    final customGroups = _buildMySmrutiFilterGroups(selected);
+    final userTagGroup = _buildUserTagFilterGroup();
     return [
-      mySmrutiGroup,
-      if (customTagGroup != null) customTagGroup,
-      ...groups,
+      ...customGroups,
+      if (userTagGroup != null) userTagGroup,
+      ...filters,
     ];
+  }
+
+  Future<void> handleAuthChanged() async {
+    if (!StorageHelper.isLogin()) {
+      favoritePhotoIds.clear();
+      savedPhotos.clear();
+      userTags.clear();
+      userTagNames.clear();
+      userCollections.clear();
+      mySmrutiPhotos.clear();
+      return;
+    }
+    await loadMyLibrary();
   }
 
   List<String> get allUserCollectionNames {
@@ -196,13 +239,138 @@ class GalleryController extends GetxController {
   }
 
   bool isPhotoInSelectedSwami(GalleryPhoto photo) {
-    final date = photo.takenAt;
+    return _isPhotoInSwami(photo, selectedSwami.value);
+  }
+
+  bool _isPhotoInSwami(GalleryPhoto photo, GallerySwami swami) {
+    final date = photo.eventDate ?? photo.takenAt;
     if (date == null) return false;
     final calendarDate = DateTime(date.year, date.month, date.day);
     final cutoff = DateTime(2022, 4, 21);
-    return selectedSwami.value == GallerySwami.hariprasad
+    return swami == GallerySwami.hariprasad
         ? calendarDate.isBefore(cutoff)
         : !calendarDate.isBefore(cutoff);
+  }
+
+  List<GalleryPhoto> _photosForSwami(
+    Iterable<GalleryPhoto> photos,
+    GallerySwami swami,
+  ) => photos.where((photo) => _isPhotoInSwami(photo, swami)).toList();
+
+  List<GalleryPhoto> _previewPhotosForSwami(
+    Iterable<GalleryPhoto> photos,
+    GallerySwami swami,
+  ) {
+    return photos.where((photo) {
+      // Collection preview payloads currently contain only an id and URLs.
+      // Their parent bucket has already been checked against the selected
+      // Swami, so an absent date must not make an otherwise valid cover vanish.
+      final date = photo.eventDate ?? photo.takenAt;
+      return date == null || _isPhotoInSwami(photo, swami);
+    }).toList();
+  }
+
+  List<GalleryCard> _cardsForSwami(
+    Iterable<GalleryCard> cards,
+    GallerySwami swami,
+  ) {
+    return cards
+        .map((card) {
+          final photos = _photosForSwami(card.photos, swami);
+          if (card.photos.isNotEmpty && photos.isEmpty) return null;
+          return GalleryCard(
+            id: card.id,
+            title: card.title,
+            subtitle: card.subtitle,
+            type: card.type,
+            value: card.value,
+            count: card.count,
+            locationCount: card.locationCount,
+            tagCount: card.tagCount,
+            faceId: card.faceId,
+            photos: photos,
+          );
+        })
+        .whereType<GalleryCard>()
+        .toList();
+  }
+
+  List<GalleryCard> _collectionCardsForSwami(
+    Iterable<GalleryCard> cards,
+    GallerySwami swami,
+  ) {
+    const cutoffYear = 2022;
+
+    return cards
+        .where((card) {
+          final year = int.tryParse(card.value) ?? int.tryParse(card.title);
+          if (year == null) return true;
+          if (year == cutoffYear) return true;
+          return swami == GallerySwami.hariprasad
+              ? year < cutoffYear
+              : year > cutoffYear;
+        })
+        .map(
+          (card) => GalleryCard(
+            id: card.id,
+            title: card.title,
+            subtitle: card.subtitle,
+            type: card.type,
+            value: card.value,
+            count: card.count,
+            locationCount: card.locationCount,
+            tagCount: card.tagCount,
+            faceId: card.faceId,
+            photos: _previewPhotosForSwami(card.photos, swami),
+          ),
+        )
+        .toList();
+  }
+
+  List<GalleryTimeBucket> _timeBucketsForSwami(
+    Iterable<GalleryTimeBucket> buckets,
+    GallerySwami swami,
+  ) {
+    const cutoffYear = 2022;
+    const cutoffMonth = 4;
+    const cutoffDay = 21;
+
+    bool includesSelectedPeriod(GalleryTimeBucket bucket) {
+      if (bucket.year != cutoffYear) {
+        return swami == GallerySwami.hariprasad
+            ? bucket.year < cutoffYear
+            : bucket.year > cutoffYear;
+      }
+      final month = bucket.month;
+      if (month == null) return true;
+      if (month != cutoffMonth) {
+        return swami == GallerySwami.hariprasad
+            ? month < cutoffMonth
+            : month > cutoffMonth;
+      }
+      final day = bucket.day;
+      if (day == null) return true;
+      return swami == GallerySwami.hariprasad
+          ? day < cutoffDay
+          : day >= cutoffDay;
+    }
+
+    return buckets
+        .where(includesSelectedPeriod)
+        .map((bucket) {
+          final photos = _previewPhotosForSwami(bucket.photos, swami);
+          return GalleryTimeBucket(
+            year: bucket.year,
+            month: bucket.month,
+            day: bucket.day,
+            count: bucket.count,
+            locationCount: bucket.locationCount,
+            tagCount: bucket.tagCount,
+            photos: photos,
+          );
+        })
+        .whereType<GalleryTimeBucket>()
+        .toList();
   }
 
   Future<void> selectSwami(int index) async {
@@ -572,7 +740,7 @@ class GalleryController extends GetxController {
         _lastLoadedAt != null &&
         DateTime.now().difference(_lastLoadedAt!) < const Duration(minutes: 10);
 
-    if (!force && loadedRecently && hasAnyData) {
+    if (!force && loadedRecently && hasAnyData && _hasLoadedOnThisDay) {
       return Future.value();
     }
 
@@ -603,12 +771,18 @@ class GalleryController extends GetxController {
     Map<String, List<String>> selected = const {},
     bool force = false,
   }) async {
-    final serverSelected = Map<String, List<String>>.from(selected)
-      ..remove(_userTagFilterSlug)
-      ..remove(_mySmrutiFilterSlug);
+    final serverSelected = _serverFilterSelection(selected);
     if (!force && serverSelected.isEmpty && filters.isNotEmpty) return;
     final requestId = ++_filtersRequestId;
-    areFiltersLoading.value = true;
+    final isInitialLoad = filters.isEmpty;
+    if (isInitialLoad) {
+      areFiltersLoading.value = true;
+      areFiltersRefreshing.value = false;
+    } else {
+      // Keep the existing facets visible while the server recalculates counts
+      // and removes options that are incompatible with the new selection.
+      areFiltersRefreshing.value = true;
+    }
     filtersError.value = '';
     try {
       final loadedFilters = await _repository.getFilters(
@@ -625,6 +799,7 @@ class GalleryController extends GetxController {
     } finally {
       if (requestId == _filtersRequestId) {
         areFiltersLoading.value = false;
+        areFiltersRefreshing.value = false;
       }
     }
   }
@@ -632,18 +807,33 @@ class GalleryController extends GetxController {
   Future<void> resetFiltersForSheet() async {
     filters.assignAll(_filterSnapshots[selectedSwami.value] ?? const []);
     filtersError.value = '';
-    await Future.wait([
-      loadFilters(force: true),
-      loadMyLibrary(),
-      loadMySmrutiFilterPhotos(),
-    ]);
+    unawaited(loadMySmrutiFilterPhotos());
+    await loadFilters(force: true);
+  }
+
+  Future<Set<String>> loadAvailableFilterDates({
+    required Map<String, List<String>> selected,
+  }) async {
+    final groups = await _repository.getFilters(
+      selected: _serverFilterSelection(selected),
+      includeDates: true,
+    );
+    return groups
+        .where((group) => group.slug.trim().toLowerCase() == 'date')
+        .expand((group) => group.options)
+        .map((option) => option.value)
+        .toSet();
   }
 
   Future<void> loadMySmrutiFilterPhotos() async {
     if (!StorageHelper.isLogin()) {
+      _mySmrutiFiltersRequestId++;
       mySmrutiPhotos.clear();
+      areMySmrutiFiltersLoading.value = false;
       return;
     }
+    final requestId = ++_mySmrutiFiltersRequestId;
+    final requestedSwami = selectedSwami.value;
     areMySmrutiFiltersLoading.value = true;
     try {
       const pageSize = 50;
@@ -659,6 +849,8 @@ class GalleryController extends GetxController {
           offset: offset,
           limit: pageSize,
         );
+        if (requestId != _mySmrutiFiltersRequestId) return;
+        final beforeCount = photos.length;
         final pagePhotos =
             (data['photos'] is List ? data['photos'] as List : const [])
                 .map(GalleryPhoto.fromJson)
@@ -668,94 +860,109 @@ class GalleryController extends GetxController {
         total = int.tryParse('${data['total']}') ?? photos.length;
         pagesFetched++;
         offset += pageSize;
-        if (pagePhotos.isEmpty) break;
+        if (pagePhotos.isEmpty || photos.length == beforeCount) break;
       } while (photos.length < total && pagesFetched < maxPages);
 
-      mySmrutiPhotos.assignAll(photos);
+      if (requestId != _mySmrutiFiltersRequestId ||
+          selectedSwami.value != requestedSwami) {
+        return;
+      }
+      mySmrutiPhotos.assignAll(_photosForSwami(photos, requestedSwami));
     } catch (_) {
-      mySmrutiPhotos.clear();
+      if (requestId == _mySmrutiFiltersRequestId) {
+        mySmrutiPhotos.clear();
+      }
     } finally {
-      areMySmrutiFiltersLoading.value = false;
+      if (requestId == _mySmrutiFiltersRequestId) {
+        areMySmrutiFiltersLoading.value = false;
+      }
     }
   }
 
   Future<List<GalleryPhoto>> loadPhotosForCard(
     GalleryCard card, {
     int page = 1,
-  }) {
+  }) async {
+    final requestedSwami = selectedSwami.value;
+    late final List<GalleryPhoto> photos;
     if (card.type == 'person' && card.id > 0) {
-      return _repository.getPersonPhotos(
+      photos = await _repository.getPersonPhotos(
         groupId: card.id,
         page: page,
-        perPage: 120,
+        perPage: 60,
       );
-    }
-    if (card.type == 'collection') {
+    } else if (card.type == 'collection') {
       final year = int.tryParse(card.value) ?? card.id;
       if (year > 0) {
-        return _repository.getCollectionYearPhotos(
+        photos = await _repository.getCollectionYearPhotos(
           year: year,
           page: page,
-          perPage: 120,
+          perPage: 60,
         );
+      } else {
+        photos = const [];
       }
+    } else {
+      photos = await _repository.getByAttributePhotos(
+        slug: card.type,
+        value: card.value,
+        page: page,
+        perPage: 60,
+      );
     }
-    return _repository.getByAttributePhotos(
-      slug: card.type,
-      value: card.value,
-      page: page,
-      perPage: 120,
-    );
+    return _photosForSwami(photos, requestedSwami);
   }
 
   Future<List<GalleryPhoto>> loadPhotosForFilter({
     required String slug,
     required String value,
     int page = 1,
-  }) {
+  }) async {
+    final requestedSwami = selectedSwami.value;
+    late final List<GalleryPhoto> photos;
     if (slug == 'duration') {
-      return _repository.getCollectionYearPhotos(
-        year: int.tryParse(value) ?? 0,
+      final exactDate = DateTime.tryParse(value);
+      if (exactDate != null && value.contains('-')) {
+        photos = await _repository.getCollectionDayPhotos(
+          year: exactDate.year,
+          month: exactDate.month,
+          day: exactDate.day,
+          page: page,
+          perPage: 120,
+        );
+      } else {
+        photos = await _repository.getCollectionYearPhotos(
+          year: int.tryParse(value) ?? 0,
+          page: page,
+          perPage: 60,
+        );
+      }
+    } else {
+      photos = await _repository.getByAttributePhotos(
+        slug: slug,
+        value: value,
         page: page,
-        perPage: 120,
+        perPage: 60,
       );
     }
-    return _repository.getByAttributePhotos(
-      slug: slug,
-      value: value,
-      page: page,
-      perPage: 120,
-    );
+    return _photosForSwami(photos, requestedSwami);
   }
 
   Future<List<GalleryPhoto>> loadPhotosForFilters({
     required Map<String, List<String>> selected,
     int page = 1,
-  }) {
-    if (selected.length == 1) {
-      final entry = selected.entries.first;
-      if (entry.key != _userTagFilterSlug &&
-          entry.key != _mySmrutiFilterSlug &&
-          entry.value.length == 1) {
-        return loadPhotosForFilter(
-          slug: entry.key,
-          value: entry.value.first,
-          page: page,
-        );
+  }) async {
+    if (selected.keys.any(_mySmrutiFilterSlugs.contains)) {
+      if (mySmrutiPhotos.isEmpty) {
+        await loadMySmrutiFilterPhotos();
       }
-    }
-
-    final selectedUserTags = selected[_userTagFilterSlug] ?? const <String>[];
-    final selectedMySmrutiTags =
-        selected[_mySmrutiFilterSlug] ?? const <String>[];
-    if (selectedMySmrutiTags.isNotEmpty) {
-      return _loadPhotosForMySmrutiTags(
+      return _loadPhotosForMySmrutiFilters(
         selected: selected,
-        selectedTags: selectedMySmrutiTags,
         page: page,
         perPage: 120,
       );
     }
+    final selectedUserTags = selected[_userTagFilterSlug] ?? const <String>[];
     if (selectedUserTags.isNotEmpty) {
       return _loadPhotosForUserTags(
         selected: selected,
@@ -764,30 +971,38 @@ class GalleryController extends GetxController {
         perPage: 120,
       );
     }
-    return _repository.getFilteredPhotos(
+    final requestedSwami = selectedSwami.value;
+    final photos = await _repository.getFilteredPhotos(
       selected: selected,
       page: page,
       perPage: 120,
     );
+    return _photosForSwami(photos, requestedSwami);
   }
 
-  Future<List<GalleryPhoto>> _loadPhotosForMySmrutiTags({
+  Future<List<GalleryPhoto>> _loadPhotosForMySmrutiFilters({
     required Map<String, List<String>> selected,
-    required List<String> selectedTags,
     required int page,
     required int perPage,
   }) async {
-    final wantedTags = selectedTags
-        .map((tag) => tag.trim().toLowerCase())
-        .where((tag) => tag.isNotEmpty)
-        .toSet();
-    var matches = mySmrutiPhotos
-        .where(
-          (photo) => photo.tags.any(
-            (tag) => wantedTags.contains(tag.trim().toLowerCase()),
-          ),
-        )
-        .toList();
+    var matches = mySmrutiPhotos.toList();
+    for (final entry in selected.entries) {
+      if (!_mySmrutiFilterSlugs.contains(entry.key) || entry.value.isEmpty) {
+        continue;
+      }
+      final wantedValues = entry.value
+          .map(_normalizeFilterValue)
+          .where((value) => value.isNotEmpty)
+          .toSet();
+      matches = matches
+          .where(
+            (photo) => _mySmrutiValuesForPhoto(
+              photo,
+              entry.key,
+            ).map(_normalizeFilterValue).any(wantedValues.contains),
+          )
+          .toList();
+    }
 
     final selectedUserTags = selected[_userTagFilterSlug] ?? const <String>[];
     if (selectedUserTags.isNotEmpty) {
@@ -805,26 +1020,37 @@ class GalleryController extends GetxController {
     }
 
     final serverSelected = Map<String, List<String>>.from(selected)
-      ..remove(_mySmrutiFilterSlug)
       ..remove(_userTagFilterSlug);
+    for (final slug in _mySmrutiFilterSlugs) {
+      serverSelected.remove(slug);
+    }
     if (serverSelected.isNotEmpty && matches.isNotEmpty) {
       final matchingIds = matches.map((photo) => photo.id).toSet();
-      final filtered = <GalleryPhoto>[];
+      final filteredById = <int, GalleryPhoto>{};
+      final seenServerPhotoIds = <int>{};
       var serverPage = 1;
       const serverPageSize = 200;
-      while (true) {
+      const maxServerPages = 100;
+      while (serverPage <= maxServerPages) {
         final photos = await _repository.getFilteredPhotos(
           selected: serverSelected,
           page: serverPage,
           perPage: serverPageSize,
         );
-        filtered.addAll(
-          photos.where((photo) => matchingIds.contains(photo.id)),
-        );
+        var hasNewServerPhotos = false;
+        for (final photo in photos) {
+          if (seenServerPhotoIds.add(photo.id)) hasNewServerPhotos = true;
+          if (matchingIds.contains(photo.id)) {
+            filteredById[photo.id] = photo;
+          }
+        }
         if (photos.length < serverPageSize) break;
+        // Protect the filter screen from a backend that ignores `page` and
+        // keeps returning the same full page.
+        if (!hasNewServerPhotos) break;
         serverPage++;
       }
-      matches = filtered;
+      matches = filteredById.values.toList();
     }
 
     matches.sort((a, b) {
@@ -869,20 +1095,31 @@ class GalleryController extends GetxController {
           .where(isPhotoInSelectedSwami)
           .toList();
     } else {
-      matches = [];
+      final matchesById = <int, GalleryPhoto>{};
+      final seenServerPhotoIds = <int>{};
       var serverPage = 1;
       const serverPageSize = 200;
-      while (true) {
+      const maxServerPages = 100;
+      while (serverPage <= maxServerPages) {
         final photos = await _repository.getFilteredPhotos(
           selected: serverSelected,
           page: serverPage,
           perPage: serverPageSize,
         );
-        matches.addAll(photos.where((photo) => matchingIds.contains(photo.id)));
+        var hasNewServerPhotos = false;
+        for (final photo in photos) {
+          if (seenServerPhotoIds.add(photo.id)) hasNewServerPhotos = true;
+          if (matchingIds.contains(photo.id)) {
+            matchesById[photo.id] = photo;
+          }
+        }
         if (photos.length < serverPageSize) break;
+        if (!hasNewServerPhotos) break;
         serverPage++;
       }
+      matches = matchesById.values.toList();
     }
+    matches = _photosForSwami(matches, selectedSwami.value);
     matches.sort((a, b) {
       final first = a.eventDate ?? a.takenAt;
       final second = b.eventDate ?? b.takenAt;
@@ -904,17 +1141,20 @@ class GalleryController extends GetxController {
   Future<void> loadMoreRecentPhotos() async {
     if (isRecentPageLoading.value || !hasMoreRecentPhotos.value) return;
     isRecentPageLoading.value = true;
+    final requestedSwami = selectedSwami.value;
     final nextPage = _recentPage + 1;
     try {
       final photos = await _repository.getRecent(
         page: nextPage,
         perPage: _recentPerPage,
       );
+      if (selectedSwami.value != requestedSwami) return;
+      final tabPhotos = _photosForSwami(photos, requestedSwami);
       debugPrint(
         'loadMoreRecentPhotos: page=$nextPage perPage=$_recentPerPage '
-        'returned=${photos.length} totalLoaded=${recentPhotos.length + photos.length}',
+        'returned=${tabPhotos.length} totalLoaded=${recentPhotos.length + tabPhotos.length}',
       );
-      if (photos.isEmpty) {
+      if (tabPhotos.isEmpty) {
         hasMoreRecentPhotos.value = false;
         debugPrint('loadMoreRecentPhotos: page=$nextPage empty, no more pages');
         return;
@@ -928,14 +1168,16 @@ class GalleryController extends GetxController {
           .where((photo) => photo.id <= 0)
           .map((photo) => photo.thumbnailUrl)
           .toSet();
-      final newPhotos = photos.where((photo) {
+      final newPhotos = tabPhotos.where((photo) {
         if (photo.id > 0) return existingIds.add(photo.id);
         return photo.thumbnailUrl.isNotEmpty &&
             existingUrls.add(photo.thumbnailUrl);
       }).toList();
 
       if (newPhotos.isNotEmpty) {
-        recentPhotos.addAll(newPhotos);
+        recentPhotos.assignAll(
+          _orderPhotos('recent', [...recentPhotos, ...newPhotos]),
+        );
       }
       _recentPage = nextPage;
       hasMoreRecentPhotos.value = photos.length >= _recentPerPage;
@@ -952,27 +1194,36 @@ class GalleryController extends GetxController {
     }
   }
 
-  Future<List<GalleryTimeBucket>> loadMonthsForYear(int year) {
-    return _repository.getCollectionMonths(year: year);
+  Future<List<GalleryTimeBucket>> loadMonthsForYear(int year) async {
+    final requestedSwami = selectedSwami.value;
+    final buckets = await _repository.getCollectionMonths(year: year);
+    return _timeBucketsForSwami(buckets, requestedSwami);
   }
 
   Future<List<GalleryTimeBucket>> loadDaysForMonth({
     required int year,
     required int month,
-  }) {
-    return _repository.getCollectionDays(year: year, month: month);
+  }) async {
+    final requestedSwami = selectedSwami.value;
+    final buckets = await _repository.getCollectionDays(
+      year: year,
+      month: month,
+    );
+    return _timeBucketsForSwami(buckets, requestedSwami);
   }
 
   Future<List<GalleryPhoto>> loadPhotosForDay({
     required int year,
     required int month,
     required int day,
-  }) {
-    return _repository.getCollectionDayPhotos(
+  }) async {
+    final requestedSwami = selectedSwami.value;
+    final photos = await _repository.getCollectionDayPhotos(
       year: year,
       month: month,
       day: day,
     );
+    return _photosForSwami(photos, requestedSwami);
   }
 
   Future<void> _loadHomeInternal({
@@ -985,12 +1236,34 @@ class GalleryController extends GetxController {
     errorMessage.value = '';
 
     try {
+      final cacheRevisionChanged = await _refreshSectionSettings();
+      if (cacheRevisionChanged) {
+        _tabSnapshots.remove(requestedSwami);
+      }
+      final forceDataRefresh = force || cacheRevisionChanged;
       final bundle = await _repository.getHomeBundle(
         samples: 4,
-        forceRefresh: force,
+        forceRefresh: forceDataRefresh,
       );
       if (selectedSwami.value != requestedSwami) return;
       _applyBundle(bundle);
+      try {
+        final loadedOnThisDay = await _repository.getOnThisDay(
+          forceRefresh: forceDataRefresh,
+        );
+        if (selectedSwami.value != requestedSwami) return;
+        onThisDayPhotos.assignAll(
+          _orderPhotos(
+            'on_this_day',
+            _photosForSwami(loadedOnThisDay, requestedSwami),
+          ),
+        );
+        _hasLoadedOnThisDay = true;
+      } catch (error) {
+        onThisDayPhotos.clear();
+        _hasLoadedOnThisDay = false;
+        debugPrint('On This Day load failed: $error');
+      }
       _recentPage = 1;
       hasMoreRecentPhotos.value = bundle.recent.length >= _recentPerPage;
       _lastLoadedAt = DateTime.now();
@@ -1003,8 +1276,19 @@ class GalleryController extends GetxController {
     }
   }
 
+  Future<bool> _refreshSectionSettings() async {
+    if (!Get.isRegistered<SmrutiSectionController>()) return false;
+    final controller = Get.find<SmrutiSectionController>();
+    await controller.refreshGlobalVisibility(
+      optionKey: selectedSwami.value.apiValue,
+    );
+    return controller.consumeCacheRefresh(selectedSwami.value.apiValue);
+  }
+
   void _clearGallerySections() {
     recentPhotos.clear();
+    onThisDayPhotos.clear();
+    _hasLoadedOnThisDay = false;
     collections.clear();
     smrutiWith.clear();
     smrutiOf.clear();
@@ -1022,25 +1306,156 @@ class GalleryController extends GetxController {
 
   void _applySnapshot(_GalleryTabSnapshot snapshot) {
     _applyBundle(snapshot.bundle);
+    onThisDayPhotos.assignAll(
+      _photosForSwami(snapshot.onThisDayPhotos, selectedSwami.value),
+    );
+    _hasLoadedOnThisDay = snapshot.hasLoadedOnThisDay;
     _lastLoadedAt = snapshot.loadedAt;
     _recentPage = snapshot.recentPage;
     hasMoreRecentPhotos.value = snapshot.hasMoreRecentPhotos;
   }
 
   void _applyBundle(GalleryHomeBundle bundle) {
-    recentPhotos.assignAll(bundle.recent);
-    collections.assignAll(_shuffled(bundle.collections));
-    smrutiWith.assignAll(_shuffled(bundle.smrutiWith));
-    smrutiOf.assignAll(_shuffled(bundle.smrutiOf));
-    locations.assignAll(_shuffled(bundle.locations));
-    albums.assignAll(_shuffled(bundle.albums));
-    subjects.assignAll(_shuffled(bundle.subjects));
-    people.assignAll(_shuffled(bundle.people));
-    wallpapers.assignAll(_shuffled(bundle.wallpapers));
+    final swami = selectedSwami.value;
+    recentPhotos.assignAll(
+      _orderPhotos('recent', _photosForSwami(bundle.recent, swami)),
+    );
+    collections.assignAll(
+      _orderCards('year', _collectionCardsForSwami(bundle.collections, swami)),
+    );
+    smrutiWith.assignAll(
+      _orderCards('smruti_with', _cardsForSwami(bundle.smrutiWith, swami)),
+    );
+    smrutiOf.assignAll(
+      _orderCards('darshan_of', _cardsForSwami(bundle.smrutiOf, swami)),
+    );
+    locations.assignAll(
+      _orderCards('location', _cardsForSwami(bundle.locations, swami)),
+    );
+    albums.assignAll(
+      _orderCards('smruti_category', _cardsForSwami(bundle.albums, swami)),
+    );
+    subjects.assignAll(
+      _orderCards('smruti_of', _cardsForSwami(bundle.subjects, swami)),
+    );
+    people.assignAll(
+      _orderCards('darshan_of', _cardsForSwami(bundle.people, swami)),
+    );
+    wallpapers.assignAll(_cardsForSwami(bundle.wallpapers, swami));
   }
 
-  List<T> _shuffled<T>(List<T> items) {
-    return items.toList()..shuffle(Random());
+  AppSectionSetting? _sectionSetting(String sectionKey) {
+    final configurations = StorageHelper.getValue<Map>(
+      key: StorageKeys.appSectionSettingsByOption,
+    );
+    final raw = configurations?[selectedSwami.value.apiValue];
+    if (raw is! List) return null;
+    for (final item in raw.whereType<Map>()) {
+      final setting = AppSectionSetting.fromJson(
+        Map<String, dynamic>.from(item),
+      );
+      if (setting.sectionKey == sectionKey) return setting;
+    }
+    return null;
+  }
+
+  List<GalleryPhoto> _orderPhotos(String sectionKey, List<GalleryPhoto> items) {
+    final setting = _sectionSetting(sectionKey);
+    final ordered = _applyConfiguredOrder<GalleryPhoto>(
+      sectionKey,
+      items,
+      setting,
+      // Gallery order means the date of the Smruti, not when its database row
+      // happened to be uploaded. Imported old photos often have a new
+      // `created_at`, which previously made "Oldest first" look newest-first.
+      (photo) => photo.eventDate ?? photo.takenAt ?? photo.createdAt,
+      (photo) => photo.id,
+    );
+    return ordered.take(setting?.itemLimit ?? ordered.length).toList();
+  }
+
+  List<GalleryPhoto> orderedSectionPhotos(
+    String sectionKey,
+    Iterable<GalleryPhoto> items,
+  ) => _orderPhotos(sectionKey, items.toList());
+
+  List<GalleryCard> _orderCards(String sectionKey, List<GalleryCard> items) {
+    final setting = _sectionSetting(sectionKey);
+    final ordered = _applyConfiguredOrder<GalleryCard>(
+      sectionKey,
+      items,
+      setting,
+      (card) => card.photos
+          .map((photo) => photo.eventDate ?? photo.takenAt ?? photo.createdAt)
+          .whereType<DateTime>()
+          .fold<DateTime?>(
+            null,
+            (latest, date) =>
+                latest == null || date.isAfter(latest) ? date : latest,
+          ),
+      (card) => card.id,
+    );
+    return ordered.take(setting?.itemLimit ?? ordered.length).toList();
+  }
+
+  List<T> _applyConfiguredOrder<T>(
+    String sectionKey,
+    List<T> items,
+    AppSectionSetting? setting,
+    DateTime? Function(T item) dateOf,
+    int Function(T item) idOf,
+  ) {
+    final result = items.toList();
+    final mode = setting?.orderMode ?? 'newest_first';
+    int compareNewest(T first, T second) {
+      final firstDate = dateOf(first)?.millisecondsSinceEpoch ?? 0;
+      final secondDate = dateOf(second)?.millisecondsSinceEpoch ?? 0;
+      final dateResult = secondDate.compareTo(firstDate);
+      return dateResult != 0 ? dateResult : idOf(second).compareTo(idOf(first));
+    }
+
+    if (mode == 'newest_first') {
+      result.sort(compareNewest);
+      return result;
+    }
+    if (mode == 'oldest_first') {
+      result.sort((first, second) => compareNewest(second, first));
+      return result;
+    }
+    if (mode == 'random') {
+      result.shuffle(_dailyRandom(sectionKey));
+      return result;
+    }
+
+    final cutoff = DateTime.now().subtract(
+      Duration(days: setting?.freshnessDays ?? 7),
+    );
+    final fresh =
+        result.where((item) => dateOf(item)?.isAfter(cutoff) == true).toList()
+          ..sort(compareNewest);
+    final old =
+        result.where((item) => dateOf(item)?.isAfter(cutoff) != true).toList()
+          ..shuffle(_dailyRandom(sectionKey));
+    return [...fresh, ...old];
+  }
+
+  Random _dailyRandom(String sectionKey) {
+    final now = DateTime.now();
+    final revisions = StorageHelper.getValue<Map>(
+      key: StorageKeys.appSectionCacheRevisions,
+    );
+    final revision =
+        int.tryParse(
+          revisions?[selectedSwami.value.apiValue]?.toString() ?? '',
+        ) ??
+        0;
+    final seedText =
+        '$sectionKey:$revision:${now.year}-${now.month}-${now.day}';
+    var seed = 17;
+    for (final unit in seedText.codeUnits) {
+      seed = 0x1fffffff & (seed * 31 + unit);
+    }
+    return Random(seed);
   }
 
   void _saveCurrentSnapshot() {
@@ -1057,6 +1472,8 @@ class GalleryController extends GetxController {
         people: people.toList(),
         wallpapers: wallpapers.toList(),
       ),
+      onThisDayPhotos: onThisDayPhotos.toList(),
+      hasLoadedOnThisDay: _hasLoadedOnThisDay,
       loadedAt: loadedAt,
       recentPage: _recentPage,
       hasMoreRecentPhotos: hasMoreRecentPhotos.value,
@@ -1078,8 +1495,17 @@ class GalleryController extends GetxController {
       if (loadedAt == null || bundleRaw is! Map) continue;
       final bundle = GalleryHomeBundle.fromJson(bundleRaw);
       if (!_bundleHasData(bundle)) continue;
+      final onThisDayRaw = entry['on_this_day'];
+      final hasLoadedOnThisDay = entry.containsKey('on_this_day');
+      final restoredOnThisDay = onThisDayRaw is List
+          ? onThisDayRaw
+                .map((photo) => GalleryPhoto.fromJson(asJsonMap(photo)))
+                .toList()
+          : <GalleryPhoto>[];
       _tabSnapshots[swami] = _GalleryTabSnapshot(
         bundle: bundle,
+        onThisDayPhotos: restoredOnThisDay,
+        hasLoadedOnThisDay: hasLoadedOnThisDay,
         loadedAt: loadedAt,
         recentPage: 1,
         hasMoreRecentPhotos: bundle.recent.length >= _recentPerPage,
@@ -1098,6 +1524,9 @@ class GalleryController extends GetxController {
           entry.key.apiValue: {
             'loaded_at': entry.value.loadedAt.toIso8601String(),
             'bundle': entry.value.bundle.toJson(),
+            'on_this_day': entry.value.onThisDayPhotos
+                .map((photo) => photo.toJson())
+                .toList(),
           },
       },
     );
@@ -1122,38 +1551,151 @@ class GalleryController extends GetxController {
   }
 
   static const String _userTagFilterSlug = 'user_tag';
-  static const String _mySmrutiFilterSlug = 'my_smruti';
+  static const String _mySmrutiWithFilterSlug = 'my_smruti_with';
+  static const String _mySmrutiCountryFilterSlug = 'my_smruti_country';
+  static const String _mySmrutiLocationFilterSlug = 'my_smruti_location';
+  static const String _mySmrutiPlaceFilterSlug = 'my_smruti_place';
+  static const String _mySmrutiAlbumFilterSlug = 'my_smruti_album';
+  static const String _mySmrutiDarshanOfFilterSlug = 'my_smruti_darshan_of';
+  static const String _mySmrutiSmrutiOfFilterSlug = 'my_smruti_smruti_of';
+  static const String _mySmrutiTagsFilterSlug = 'my_smruti_tags';
+  static const Set<String> _mySmrutiFilterSlugs = {
+    _mySmrutiWithFilterSlug,
+    _mySmrutiCountryFilterSlug,
+    _mySmrutiLocationFilterSlug,
+    _mySmrutiPlaceFilterSlug,
+    _mySmrutiAlbumFilterSlug,
+    _mySmrutiDarshanOfFilterSlug,
+    _mySmrutiSmrutiOfFilterSlug,
+    _mySmrutiTagsFilterSlug,
+  };
 
-  GalleryFilterGroup _buildMySmrutiFilterGroup() {
+  static Map<String, List<String>> _serverFilterSelection(
+    Map<String, List<String>> selected,
+  ) {
+    return Map<String, List<String>>.fromEntries(
+      selected.entries.where(
+        (entry) =>
+            entry.key != _userTagFilterSlug &&
+            !_mySmrutiFilterSlugs.contains(entry.key),
+      ),
+    );
+  }
+
+  List<GalleryFilterGroup> _buildMySmrutiFilterGroups(
+    Map<String, List<String>> selected,
+  ) {
+    if (mySmrutiPhotos.isEmpty) return const [];
+    final groups = <GalleryFilterGroup>[];
+    for (final definition in const [
+      (_mySmrutiWithFilterSlug, 'With'),
+      (_mySmrutiCountryFilterSlug, 'Country'),
+      (_mySmrutiLocationFilterSlug, 'Location'),
+      (_mySmrutiPlaceFilterSlug, 'Place'),
+      (_mySmrutiAlbumFilterSlug, 'Album'),
+      (_mySmrutiDarshanOfFilterSlug, 'Darshan Of'),
+      (_mySmrutiSmrutiOfFilterSlug, 'Smruti Of'),
+      (_mySmrutiTagsFilterSlug, 'Tags'),
+    ]) {
+      final options = _buildMySmrutiOptions(definition.$1, selected: selected);
+      if (options.isNotEmpty) {
+        groups.add(
+          GalleryFilterGroup(
+            slug: definition.$1,
+            title: definition.$2,
+            options: options,
+          ),
+        );
+      }
+    }
+    return groups;
+  }
+
+  List<GalleryFilterOption> _buildMySmrutiOptions(
+    String slug, {
+    required Map<String, List<String>> selected,
+  }) {
     final labels = <String, String>{};
     final counts = <String, int>{};
-    for (final photo in mySmrutiPhotos) {
-      final photoTags = <String>{};
-      for (final rawTag in photo.tags) {
-        final tag = rawTag.trim();
-        final key = tag.toLowerCase();
-        if (key.isEmpty || !photoTags.add(key)) continue;
-        labels.putIfAbsent(key, () => tag);
+    final applicablePhotos = mySmrutiPhotos.where(
+      (photo) =>
+          _matchesMySmrutiSelections(photo, selected, excludingSlug: slug),
+    );
+    for (final photo in applicablePhotos) {
+      final photoValues = <String>{};
+      for (final rawValue in _mySmrutiValuesForPhoto(photo, slug)) {
+        final value = rawValue.trim();
+        final key = _normalizeFilterValue(value);
+        if (key.isEmpty || !photoValues.add(key)) continue;
+        labels.putIfAbsent(key, () => value);
         counts[key] = (counts[key] ?? 0) + 1;
       }
     }
-    final options =
-        labels.entries
-            .map(
-              (entry) => GalleryFilterOption(
-                value: entry.value,
-                label: entry.value,
-                count: counts[entry.key] ?? 0,
-              ),
-            )
-            .toList()
-          ..sort(_compareGalleryFilterOptions);
-    return GalleryFilterGroup(
-      slug: _mySmrutiFilterSlug,
-      title: 'My Smruti',
-      options: options,
-    );
+    return labels.entries
+        .map(
+          (entry) => GalleryFilterOption(
+            value: entry.value,
+            label: entry.value,
+            count: counts[entry.key] ?? 0,
+          ),
+        )
+        .toList()
+      ..sort(_compareGalleryFilterOptions);
   }
+
+  static bool _matchesMySmrutiSelections(
+    GalleryPhoto photo,
+    Map<String, List<String>> selected, {
+    String? excludingSlug,
+  }) {
+    // "Tags" is an independent facet: attribute selections do not reduce its
+    // options, and tag selections do not reduce the attribute facet options.
+    if (excludingSlug == _mySmrutiTagsFilterSlug) return true;
+    for (final entry in selected.entries) {
+      if (entry.key == excludingSlug ||
+          entry.key == _mySmrutiTagsFilterSlug ||
+          !_mySmrutiFilterSlugs.contains(entry.key) ||
+          entry.value.isEmpty) {
+        continue;
+      }
+      final wantedValues = entry.value
+          .map(_normalizeFilterValue)
+          .where((value) => value.isNotEmpty)
+          .toSet();
+      if (wantedValues.isEmpty) continue;
+      final matches = _mySmrutiValuesForPhoto(
+        photo,
+        entry.key,
+      ).map(_normalizeFilterValue).any(wantedValues.contains);
+      if (!matches) return false;
+    }
+    return true;
+  }
+
+  static Iterable<String> _mySmrutiValuesForPhoto(
+    GalleryPhoto photo,
+    String slug,
+  ) {
+    final values = switch (slug) {
+      _mySmrutiWithFilterSlug => [photo.smrutiWith],
+      _mySmrutiCountryFilterSlug => [photo.country],
+      _mySmrutiLocationFilterSlug => [photo.location],
+      _mySmrutiPlaceFilterSlug => [photo.subLocation],
+      _mySmrutiAlbumFilterSlug => [photo.album],
+      _mySmrutiDarshanOfFilterSlug => [photo.darshanOf],
+      _mySmrutiSmrutiOfFilterSlug => [photo.smrutiOf],
+      _mySmrutiTagsFilterSlug => photo.tags,
+      _ => const <String?>[],
+    };
+    return values
+        .whereType<String>()
+        .expand((value) => value.split(RegExp(r'[,;|]')))
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty);
+  }
+
+  static String _normalizeFilterValue(String value) =>
+      value.trim().toLowerCase();
 
   GalleryFilterGroup? _buildUserTagFilterGroup() {
     final tags = allUserTags;
@@ -1170,7 +1712,7 @@ class GalleryController extends GetxController {
 
     return GalleryFilterGroup(
       slug: _userTagFilterSlug,
-      title: 'MyTag',
+      title: 'My Tags',
       options: tags
           .map(
             (tag) => GalleryFilterOption(

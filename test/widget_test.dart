@@ -1,30 +1,84 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
+import 'package:harismruti/api/models/gallery_models.dart';
+import 'package:harismruti/api/repositories/gallery_repository.dart';
+import 'package:harismruti/ui/controller/gallery_controller.dart';
+import 'package:harismruti/ui/view/gallery/gallery_filter_sheet.dart';
 
-import 'package:harismruti/main.dart';
+class _FilterWidgetController extends GalleryController {
+  _FilterWidgetController() : super(repository: const GalleryRepository());
+
+  // Deliberately isolate this widget test from GalleryController network and
+  // storage startup work.
+  @override
+  // ignore: must_call_super
+  void onInit() {}
+
+  @override
+  Future<void> resetFiltersForSheet() async {}
+
+  @override
+  Future<void> loadFilters({
+    Map<String, List<String>> selected = const {},
+    bool force = false,
+  }) async {}
+
+  @override
+  List<GalleryFilterGroup> filtersWithUserTagsForSelection(
+    Map<String, List<String>> selected,
+  ) {
+    const option = GalleryFilterOption(
+      value: 'value',
+      label: 'Example',
+      count: 3,
+    );
+    return const [
+      GalleryFilterGroup(
+        slug: 'my_smruti_with',
+        title: 'With',
+        options: [option],
+      ),
+      GalleryFilterGroup(
+        slug: 'my_smruti_location',
+        title: 'Location',
+        options: [option],
+      ),
+      GalleryFilterGroup(
+        slug: 'my_smruti_smruti_of',
+        title: 'Smruti Of',
+        options: [option],
+      ),
+      GalleryFilterGroup(
+        slug: 'my_smruti_darshan_of',
+        title: 'Darshan Of',
+        options: [option],
+      ),
+      GalleryFilterGroup(slug: 'subject', title: 'Smruti', options: [option]),
+    ];
+  }
+}
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  setUp(() {
+    Get.testMode = true;
+    Get.put<GalleryController>(_FilterWidgetController());
+  });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  tearDown(Get.reset);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+  testWidgets('groups My Smruti under matching main-category subheaders', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: GalleryFilterSheet())),
+    );
     await tester.pump();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('My Smruti'), findsOneWidget);
+    expect(find.text('Darshan With'), findsOneWidget);
+    expect(find.text('City'), findsOneWidget);
+    expect(find.text('Smruti'), findsWidgets);
+    expect(find.text('Darshan Of'), findsOneWidget);
   });
 }

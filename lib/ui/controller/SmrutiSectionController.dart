@@ -8,10 +8,12 @@ import 'package:harismruti/ui/view/home/my_diary_smruti.dart';
 import 'package:harismruti/ui/view/home/my_favorite_smruti.dart';
 import 'package:harismruti/ui/view/home/my_photos_smruti.dart';
 import 'package:harismruti/ui/view/home/recent_smruti.dart';
+import 'package:harismruti/ui/view/home/on_this_day_smruti.dart';
 import 'package:harismruti/ui/view/home/smruti_of.dart';
 import 'package:harismruti/ui/view/home/smruti_with.dart';
 import 'package:harismruti/ui/view/home/subject_smruti.dart';
 import 'package:harismruti/api/repositories/app_section_repository.dart';
+import 'package:harismruti/api/models/app_section_setting.dart';
 import 'package:harismruti/utils/app_string.dart';
 import 'package:harismruti/utils/size_config.dart';
 import 'package:harismruti/utils/storage_helper.dart';
@@ -23,15 +25,46 @@ class SmrutiSectionController extends GetxController {
 
   final AppSectionRepository _appSectionRepository;
   RxList<Map<String, dynamic>> sections = <Map<String, dynamic>>[].obs;
+  final RxMap<String, String> optionLabels = <String, String>{
+    'prabodh': 'P.P.Prabodh Swamiji',
+    'hariprasad': 'P.P.Hariprasad Swamiji',
+  }.obs;
+  final Set<String> _pendingCacheRefresh = {};
   final RxInt visibleCount = 3.obs;
   final RxBool showBottomBar = true.obs;
+  final RxBool showSmrutiStoryLine = false.obs;
+  final RxInt smrutiStoryCount = 8.obs;
+  final RxInt smrutiStoryRefreshHours = 1.obs;
   double lastOffset = 0;
 
   @override
   void onInit() {
     super.onInit();
+    _loadCachedOptionLabels();
+    showSmrutiStoryLine.value =
+        StorageHelper.getValue<bool>(
+          key: StorageKeys.showSmrutiStoryLine,
+          defaultValue: false,
+        ) ??
+        false;
+    smrutiStoryCount.value =
+        StorageHelper.getValue<int>(
+          key: StorageKeys.smrutiStoryCount,
+          defaultValue: 8,
+        ) ??
+        8;
+    smrutiStoryRefreshHours.value =
+        StorageHelper.getValue<int>(
+          key: StorageKeys.smrutiStoryRefreshHours,
+          defaultValue: 1,
+        ) ??
+        1;
     loadSections();
-    refreshGlobalVisibility();
+    final cachedSettings = _loadCachedGlobalSettings(_selectedOptionKey());
+    if (cachedSettings.isNotEmpty) {
+      _applyGlobalSettings(cachedSettings);
+    }
+    refreshGlobalVisibility(optionKey: _selectedOptionKey());
   }
 
   void increaseVisibleCount([int step = 3]) {
@@ -85,30 +118,65 @@ class SmrutiSectionController extends GetxController {
           .where((section) => !storedTitles.contains(section['title']))
           .toList();
 
-      sections.assignAll([
-        ...stored.map((e) {
-          final title = e['title'].toString();
-          final localVisibility = e['user_is_show'] ?? e['is_show'] ?? true;
-          return {
-            ...e,
-            'user_is_show': localVisibility,
-            'is_show':
-                (cachedGlobalVisibility[_sectionKeyForTitle(title)] ?? true) &&
-                (localVisibility == true),
-            "widget": _getWidgetByTitle(title),
-          };
-        }),
-        ...missingDefaults.map(
-          (e) => {
-            ...e,
-            'order_index': stored.length + missingDefaults.indexOf(e) + 1,
+      final restoredSections = stored.map((e) {
+        final title = e['title'].toString();
+        final localVisibility = e['user_is_show'] ?? e['is_show'] ?? true;
+        return {
+          ...e,
+          'user_is_show': localVisibility,
+          'is_show':
+              (cachedGlobalVisibility[_sectionKeyForTitle(title)] ?? true) &&
+              (localVisibility == true),
+          "widget": _getWidgetByTitle(title),
+        };
+      }).toList();
+      final shouldPromoteOnThisDay =
+          StorageHelper.getValue<bool>(
+            key: StorageKeys.onThisDaySectionOrderMigrated,
+          ) !=
+          true;
+      if (shouldPromoteOnThisDay) {
+        restoredSections.removeWhere(
+          (section) => section['title'] == SmrutiSectionKeys.onThisDay,
+        );
+      }
+      final isOnThisDayNew =
+          shouldPromoteOnThisDay ||
+          missingDefaults.any(
+            (section) => section['title'] == SmrutiSectionKeys.onThisDay,
+          );
+      final remainingMissing = missingDefaults
+          .where((section) => section['title'] != SmrutiSectionKeys.onThisDay)
+          .toList();
+      final mergedSections = <Map<String, dynamic>>[
+        if (isOnThisDayNew)
+          {
+            ...defaults.firstWhere(
+              (section) => section['title'] == SmrutiSectionKeys.onThisDay,
+            ),
+            'user_is_show': true,
           },
+        ...restoredSections,
+        ...remainingMissing.map(
+          (e) => {...e, 'user_is_show': e['is_show'] ?? true},
         ),
-      ]);
+      ];
+      for (var index = 0; index < mergedSections.length; index++) {
+        mergedSections[index]['order_index'] = index + 1;
+      }
+      sections.assignAll(mergedSections);
       saveSectionsToStorage();
+      StorageHelper.setValue(
+        key: StorageKeys.onThisDaySectionOrderMigrated,
+        value: true,
+      );
       _applyGlobalVisibility(cachedGlobalVisibility);
     } else {
       sections.assignAll(_defaultSections());
+      StorageHelper.setValue(
+        key: StorageKeys.onThisDaySectionOrderMigrated,
+        value: true,
+      );
       _applyGlobalVisibility(cachedGlobalVisibility);
     }
   }
@@ -121,6 +189,25 @@ class SmrutiSectionController extends GetxController {
         (globalVisibility[sectionKey] ?? true) && value;
     saveSectionsToStorage();
     sections.refresh();
+  }
+
+  void saveSmrutiStorySettings({
+    required bool visible,
+    required int count,
+    required int refreshHours,
+  }) {
+    showSmrutiStoryLine.value = visible;
+    smrutiStoryCount.value = count;
+    smrutiStoryRefreshHours.value = refreshHours;
+    StorageHelper.setValue(
+      key: StorageKeys.showSmrutiStoryLine,
+      value: visible,
+    );
+    StorageHelper.setValue(key: StorageKeys.smrutiStoryCount, value: count);
+    StorageHelper.setValue(
+      key: StorageKeys.smrutiStoryRefreshHours,
+      value: refreshHours,
+    );
   }
 
   List<Map<String, dynamic>> customizableSections() {
@@ -213,6 +300,7 @@ class SmrutiSectionController extends GetxController {
         .map(
           (e) => {
             "title": e['title'],
+            "display_name": e['display_name'] ?? e['title'],
             "order_index": e['order_index'],
             "is_show": e['user_is_show'] ?? e['is_show'],
             "user_is_show": e['user_is_show'] ?? e['is_show'],
@@ -229,6 +317,8 @@ class SmrutiSectionController extends GetxController {
     switch (title) {
       case SmrutiSectionKeys.recent:
         return const RecentSmruti();
+      case SmrutiSectionKeys.onThisDay:
+        return const OnThisDaySmruti();
       case SmrutiSectionKeys.withSmruti:
         return const SmrutiWith();
       case SmrutiSectionKeys.ofDarshan:
@@ -262,76 +352,93 @@ class SmrutiSectionController extends GetxController {
 
   List<Map<String, dynamic>> _defaultSections() => [
     {
-      "title": SmrutiSectionKeys.recent,
+      "title": SmrutiSectionKeys.onThisDay,
       "order_index": 1,
+      "is_show": true,
+      "widget": const OnThisDaySmruti(),
+    },
+    {
+      "title": SmrutiSectionKeys.recent,
+      "order_index": 2,
       "is_show": true,
       "widget": const RecentSmruti(),
     },
     {
       "title": SmrutiSectionKeys.withSmruti,
-      "order_index": 2,
+      "order_index": 3,
       "is_show": true,
       "widget": const SmrutiWith(),
     },
     {
       "title": SmrutiSectionKeys.ofDarshan,
-      "order_index": 3,
+      "order_index": 4,
       "is_show": true,
       "widget": const SmrutiOf(),
     },
     {
       "title": SmrutiSectionKeys.location,
-      "order_index": 4,
+      "order_index": 5,
       "is_show": true,
       "widget": const LocationSmruti(),
     },
     {
       "title": SmrutiSectionKeys.album,
-      "order_index": 5,
+      "order_index": 6,
       "is_show": true,
       "widget": const AlbumSmruti(),
     },
     {
       "title": SmrutiSectionKeys.ofSmruti,
-      "order_index": 6,
+      "order_index": 7,
       "is_show": true,
       "widget": const SubjectSmruti(),
     },
     {
       "title": SmrutiSectionKeys.yearCollection,
-      "order_index": 7,
+      "order_index": 8,
       "is_show": true,
       "widget": const CollectionSmruti(),
     },
     {
       "title": SmrutiSectionKeys.myPhotos,
-      "order_index": 8,
+      "order_index": 9,
       "is_show": true,
       "widget": const MyPhotosSmruti(),
     },
     {
       "title": SmrutiSectionKeys.myDiary,
-      "order_index": 9,
+      "order_index": 10,
       "is_show": true,
       "widget": const MyDiarySmruti(),
     },
     {
       "title": SmrutiSectionKeys.myFavorite,
-      "order_index": 10,
+      "order_index": 11,
       "is_show": true,
       "widget": const MyFavoriteSmruti(),
     },
     {
       "title": SmrutiSectionKeys.myCollection,
-      "order_index": 11,
+      "order_index": 12,
       "is_show": true,
       "widget": const MyCollectionSmruti(),
     },
   ];
 
-  Future<void> refreshGlobalVisibility() async {
+  Future<void> refreshGlobalVisibility({required String optionKey}) async {
     try {
-      final remoteSections = await _appSectionRepository.getSections();
+      final configuration = await _appSectionRepository.getConfiguration(
+        optionKey: optionKey,
+      );
+      final revisions = _loadCachedCacheRevisions();
+      if (revisions[optionKey] != configuration.cacheRevision) {
+        _pendingCacheRefresh.add(optionKey);
+      }
+      StorageHelper.setValue(
+        key: StorageKeys.appSectionCacheRevisions,
+        value: {...revisions, optionKey: configuration.cacheRevision},
+      );
+      final remoteSections = configuration.sections;
       final visibility = {
         for (final section in remoteSections)
           section.sectionKey: section.enabled,
@@ -340,10 +447,107 @@ class SmrutiSectionController extends GetxController {
         key: StorageKeys.appSectionVisibility,
         value: visibility,
       );
-      _applyGlobalVisibility(visibility);
+      StorageHelper.setValue(
+        key: StorageKeys.appSectionSettingsByOption,
+        value: {
+          ..._loadCachedSettingsMap(),
+          optionKey: remoteSections.map((section) => section.toJson()).toList(),
+        },
+      );
+      optionLabels.assignAll({
+        for (final option in configuration.options)
+          option.optionKey: option.displayName,
+      });
+      StorageHelper.setValue(
+        key: StorageKeys.appSectionOptionLabels,
+        value: Map<String, String>.from(optionLabels),
+      );
+      _applyGlobalSettings(remoteSections);
     } catch (_) {
-      _applyGlobalVisibility(_loadCachedGlobalVisibility());
+      final cachedSettings = _loadCachedGlobalSettings(optionKey);
+      if (cachedSettings.isNotEmpty) {
+        _applyGlobalSettings(cachedSettings);
+      } else {
+        _applyGlobalVisibility(_loadCachedGlobalVisibility());
+      }
     }
+  }
+
+  bool consumeCacheRefresh(String optionKey) {
+    return _pendingCacheRefresh.remove(optionKey);
+  }
+
+  Map<String, int> _loadCachedCacheRevisions() {
+    final raw = StorageHelper.getValue<Map>(
+      key: StorageKeys.appSectionCacheRevisions,
+    );
+    if (raw == null) return {};
+    return raw.map(
+      (key, value) =>
+          MapEntry(key.toString(), int.tryParse(value.toString()) ?? 0),
+    );
+  }
+
+  Map<String, dynamic> _loadCachedSettingsMap() {
+    final raw = StorageHelper.getValue<Map>(
+      key: StorageKeys.appSectionSettingsByOption,
+    );
+    if (raw == null) return {};
+    return raw.map((key, value) => MapEntry(key.toString(), value));
+  }
+
+  List<AppSectionSetting> _loadCachedGlobalSettings(String optionKey) {
+    final raw = _loadCachedSettingsMap()[optionKey];
+    if (raw is! List) return const [];
+    final items = raw;
+    return items
+        .whereType<Map>()
+        .map(
+          (item) => AppSectionSetting.fromJson(Map<String, dynamic>.from(item)),
+        )
+        .where((item) => item.sectionKey.isNotEmpty)
+        .toList();
+  }
+
+  void _loadCachedOptionLabels() {
+    final raw = StorageHelper.getValue<Map>(
+      key: StorageKeys.appSectionOptionLabels,
+    );
+    if (raw == null) return;
+    optionLabels.assignAll(
+      raw.map((key, value) => MapEntry(key.toString(), value.toString())),
+    );
+  }
+
+  String _selectedOptionKey() {
+    return StorageHelper.getValue<String>(key: StorageKeys.selectedSwami) ??
+        'prabodh';
+  }
+
+  void _applyGlobalSettings(List<AppSectionSetting> settings) {
+    final settingsByKey = {
+      for (final setting in settings) setting.sectionKey: setting,
+    };
+    for (final section in sections) {
+      final sectionKey = _sectionKeyForTitle(section['title'].toString());
+      final setting = settingsByKey[sectionKey];
+      if (setting == null) continue;
+      final userValue = section['user_is_show'] ?? section['is_show'] ?? true;
+      section['is_show'] = setting.enabled && (userValue == true);
+      section['display_name'] = setting.displayName.isEmpty
+          ? section['title']
+          : setting.displayName;
+      section['order_index'] = setting.orderIndex;
+      section['order_mode'] = setting.orderMode;
+      section['freshness_days'] = setting.freshnessDays;
+      section['item_limit'] = setting.itemLimit;
+    }
+    sections.sort(
+      (first, second) =>
+          (first['order_index'] as int).compareTo(second['order_index'] as int),
+    );
+    resetVisibleCount();
+    sections.refresh();
   }
 
   Map<String, bool> _loadCachedGlobalVisibility() {
@@ -371,6 +575,7 @@ class SmrutiSectionController extends GetxController {
   String _sectionKeyForTitle(String title) {
     return switch (title) {
       SmrutiSectionKeys.recent => 'recent',
+      SmrutiSectionKeys.onThisDay => 'on_this_day',
       SmrutiSectionKeys.withSmruti => 'smruti_with',
       SmrutiSectionKeys.ofDarshan => 'darshan_of',
       SmrutiSectionKeys.location => 'location',

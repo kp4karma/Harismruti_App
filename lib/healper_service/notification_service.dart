@@ -11,12 +11,17 @@ import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/firebase_options.dart';
+import 'package:harismruti/utils/storage_helper.dart';
+import 'package:harismruti/services/notification_history_service.dart';
+import 'package:harismruti/services/phone_smruti_widget_service.dart';
+import 'package:harismruti/ui/view/notification/notification_image_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 @pragma('vm:entry-point')
 class NotificationService {
   static const String developerTopic = 'developer_only';
+  static const int _topicSubscriptionVersion = 1;
 
   static const List<String> topics = [
     'recent',
@@ -43,14 +48,16 @@ class NotificationService {
   static bool _initialised = false;
   static bool _foregroundListenerAttached = false;
   static bool _tokenRefreshListenerAttached = false;
-  static Future<void>? _topicSubscriptionInFlight;
 
   @pragma('vm:entry-point')
   static Future<void> firebaseBackgroundHandler(RemoteMessage message) async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    await StorageHelper.init();
     await setupFlutterNotifications();
+    _saveMessage(message);
+    await PhoneSmrutiWidgetService.markNotificationReceived();
   }
 
   static Future<void> setupFlutterNotifications() async {
@@ -102,7 +109,7 @@ class NotificationService {
     if (!_tokenRefreshListenerAttached) {
       FirebaseMessaging.instance.onTokenRefresh.listen((fcmToken) async {
         debugPrint('FCM token refreshed: $fcmToken');
-        await _subscribeToTopics();
+        await _subscribeToTopics(force: true);
       });
       _tokenRefreshListenerAttached = true;
     }
@@ -129,37 +136,60 @@ class NotificationService {
     _initialised = true;
   }
 
-  static Future<void> _subscribeToTopics() {
-    final existingSubscription = _topicSubscriptionInFlight;
-    if (existingSubscription != null) return existingSubscription;
+  static Future<void> _subscribeToTopics({bool force = false}) async {
+    final savedVersion = StorageHelper.getValue<int>(
+      key: StorageKeys.fcmTopicsSubscriptionVersion,
+      defaultValue: 0,
+    );
+    if (!force && savedVersion == _topicSubscriptionVersion) return;
 
-    final subscription = _performTopicSubscriptions();
-    _topicSubscriptionInFlight = subscription;
-    return subscription.whenComplete(() {
-      if (identical(_topicSubscriptionInFlight, subscription)) {
-        _topicSubscriptionInFlight = null;
-      }
-    });
-  }
-
-  static Future<void> _performTopicSubscriptions() async {
+    final subscriptions = <Future<void>>[];
     if (!kDebugMode) {
       // Remove a subscription left behind if this installation was upgraded
       // from a developer build to a release build.
-      await FirebaseMessaging.instance.unsubscribeFromTopic(developerTopic);
+      subscriptions.add(
+        FirebaseMessaging.instance.unsubscribeFromTopic(developerTopic),
+      );
     }
 
     for (final topic in _topicsToSubscribe) {
-      try {
-        await FirebaseMessaging.instance.subscribeToTopic(topic);
+      subscriptions.add(FirebaseMessaging.instance.subscribeToTopic(topic));
+    }
+
+    final results = await Future.wait(
+      subscriptions.map((subscription) async {
+        try {
+          await subscription;
+          return null;
+        } catch (error) {
+          return error;
+        }
+      }),
+    );
+
+    for (var index = 0; index < results.length; index++) {
+      final error = results[index];
+      final isDeveloperUnsubscribe = !kDebugMode && index == 0;
+      final topicIndex = index - (!kDebugMode ? 1 : 0);
+      final topic = isDeveloperUnsubscribe
+          ? developerTopic
+          : _topicsToSubscribe[topicIndex];
+      if (error == null) {
         if (kDebugMode) {
           debugPrint('Subscribed to FCM topic "$topic".');
         }
-      } catch (error) {
+      } else {
         // One transient subscription failure must not disable the remaining
         // notification topics.
         debugPrint('Could not subscribe to FCM topic "$topic": $error');
       }
+    }
+
+    if (results.every((error) => error == null)) {
+      StorageHelper.setValue(
+        key: StorageKeys.fcmTopicsSubscriptionVersion,
+        value: _topicSubscriptionVersion,
+      );
     }
   }
 
@@ -186,6 +216,8 @@ class NotificationService {
   }
 
   static Future<void> _showNotification(RemoteMessage message) async {
+    _saveMessage(message);
+    await PhoneSmrutiWidgetService.markNotificationReceived();
     final notification = message.notification;
     if (notification == null || kIsWeb || _channel == null) return;
 
@@ -286,7 +318,63 @@ class NotificationService {
   }
 
   static void _navigateFromMessage(RemoteMessage message) {
+    _saveMessage(message);
+    final imageUrl = _imageUrl(message);
+    if (imageUrl.isNotEmpty) {
+      _openImage(imageUrl, message.notification?.title);
+      return;
+    }
     _navigateFromData(message.data);
+  }
+
+  static void openSavedNotification(Map<String, dynamic> entry) {
+    final imageUrl = entry['image_url']?.toString().trim() ?? '';
+    if (imageUrl.isNotEmpty) {
+      _openImage(imageUrl, entry['title']?.toString());
+      return;
+    }
+    final data = entry['data'];
+    if (data is Map) {
+      _navigateFromData(Map<String, dynamic>.from(data));
+    }
+  }
+
+  static void _openImage(String imageUrl, String? title) {
+    if (Get.key.currentContext == null) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _openImage(imageUrl, title),
+      );
+      return;
+    }
+    Get.to(
+      () => NotificationImageScreen(imageUrl: imageUrl, title: title),
+      transition: Transition.cupertino,
+    );
+  }
+
+  static void _saveMessage(RemoteMessage message) {
+    final notification = message.notification;
+    final data = Map<String, dynamic>.from(message.data);
+    final imageUrl = _imageUrl(message);
+    if (imageUrl.isNotEmpty) data['image_url'] = imageUrl;
+    NotificationHistoryService.save(
+      id:
+          message.messageId ??
+          '${notification?.hashCode ?? message.data.hashCode}',
+      title:
+          notification?.title ??
+          message.data['title']?.toString() ??
+          'Notification',
+      body: notification?.body ?? message.data['body']?.toString() ?? '',
+      data: data,
+    );
+  }
+
+  static String _imageUrl(RemoteMessage message) {
+    return message.data['image_url']?.toString().trim() ??
+        message.notification?.android?.imageUrl?.trim() ??
+        message.notification?.apple?.imageUrl?.trim() ??
+        '';
   }
 
   static void listenForInitialAndOpenedApp() {

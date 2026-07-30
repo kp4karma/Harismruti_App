@@ -13,6 +13,12 @@ import 'package:harismruti/utils/storage_helper.dart';
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Photo-heavy screens can otherwise retain hundreds of decoded,
+  // full-resolution images. Keep a modest cache; disk caching still handles
+  // repeat visits without another download.
+  PaintingBinding.instance.imageCache
+    ..maximumSize = 120
+    ..maximumSizeBytes = 48 * 1024 * 1024;
   await SystemChrome.setPreferredOrientations(defaultOrientationsForDevice());
 
   _configureLoadingUI();
@@ -20,8 +26,12 @@ Future<void> bootstrap() async {
 
   await StorageHelper.init();
   await ApiClient.init();
-  await AnalyticsService.instance.initialize();
+}
 
+/// Notification permissions, token creation, and topic subscriptions can take
+/// several seconds on a fresh install. Run them after the first frame so they
+/// never hold up the native splash screen or Flutter UI.
+Future<void> bootstrapNotifications() async {
   final firebaseOptions = DefaultFirebaseOptions.currentPlatform;
   final hasFirebaseConfig =
       firebaseOptions.apiKey != '---' &&
@@ -37,13 +47,11 @@ Future<void> bootstrap() async {
     return;
   }
 
-  await Firebase.initializeApp(options: firebaseOptions);
-
-  FirebaseMessaging.onBackgroundMessage(
-    NotificationService.firebaseBackgroundHandler,
-  );
-
   try {
+    await Firebase.initializeApp(options: firebaseOptions);
+    FirebaseMessaging.onBackgroundMessage(
+      NotificationService.firebaseBackgroundHandler,
+    );
     await NotificationService.setupFlutterNotifications();
     await NotificationService.attachForegroundListener();
     NotificationService.listenForInitialAndOpenedApp();
@@ -52,6 +60,13 @@ Future<void> bootstrap() async {
       debugPrint('Notification bootstrap failed, continuing without it: $e');
     }
   }
+}
+
+Future<void> bootstrapDeferredServices() async {
+  await Future.wait([
+    AnalyticsService.instance.initialize(),
+    bootstrapNotifications(),
+  ]);
 }
 
 /// Phones stay portrait-locked (existing behavior, unchanged). Tablets

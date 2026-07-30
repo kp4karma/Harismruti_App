@@ -44,6 +44,7 @@ class GalleryLocationScreen extends StatefulWidget {
 class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
   static final LatLng _fallbackCenter = LatLng(20.5937, 78.9629);
   static const double _minMapZoom = 4.5;
+  static const double _maxMapZoom = 17;
   static const double _maxFitZoom = 15;
   static const double _cityChipWidth = 132;
   static const double _selectedCityChipWidth = 156;
@@ -293,6 +294,7 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
               Positioned(
                 left: 0,
                 right: 0,
+                top: 0,
                 bottom: 0,
                 child: _LocationSheet(
                   controller: _searchController,
@@ -354,7 +356,7 @@ class _PhotoCoordinateMap extends StatelessWidget {
               initialCenter: center,
               initialZoom: clusters.length <= 1 ? 13 : 11,
               minZoom: _GalleryLocationScreenState._minMapZoom,
-              maxZoom: 18,
+              maxZoom: _GalleryLocationScreenState._maxMapZoom,
               onPositionChanged: (camera, _) => onZoomChanged(camera.zoom),
               interactionOptions: const InteractionOptions(
                 flags:
@@ -371,7 +373,7 @@ class _PhotoCoordinateMap extends StatelessWidget {
                 fallbackUrl: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.harismruti.app',
                 minZoom: _GalleryLocationScreenState._minMapZoom,
-                maxZoom: 18,
+                maxZoom: _GalleryLocationScreenState._maxMapZoom,
                 tileBuilder: (context, tileWidget, tile) => tileWidget,
               ),
               MarkerLayer(
@@ -639,23 +641,17 @@ class _LocationSheet extends StatefulWidget {
   State<_LocationSheet> createState() => _LocationSheetState();
 }
 
-class _LocationSheetState extends State<_LocationSheet>
-    with SingleTickerProviderStateMixin {
+class _LocationSheetState extends State<_LocationSheet> {
   static const double _collapsedHeight = 210;
-  static const double _expandedFraction = 0.82;
-  static const double _flingVelocity = 260;
+  static const double _expandedFraction = 0.70;
 
-  late final AnimationController _controller;
+  final DraggableScrollableController _sheetController =
+      DraggableScrollableController();
   late final FocusNode _searchFocusNode;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 260),
-      value: 0,
-    );
     _searchFocusNode = FocusNode()..addListener(_handleSearchFocus);
     widget.controller.addListener(_handleSearchText);
   }
@@ -666,47 +662,42 @@ class _LocationSheetState extends State<_LocationSheet>
     _searchFocusNode
       ..removeListener(_handleSearchFocus)
       ..dispose();
-    _controller.dispose();
+    _sheetController.dispose();
     super.dispose();
   }
 
   void _handleSearchFocus() {
     if (_searchFocusNode.hasFocus) {
-      _controller.animateTo(1, curve: Curves.easeOutCubic);
+      _expandSheet();
     }
   }
 
   void _handleSearchText() {
-    if (widget.controller.text.trim().isNotEmpty && _controller.value < 1) {
-      _controller.animateTo(1, curve: Curves.easeOutCubic);
+    if (widget.controller.text.trim().isNotEmpty) {
+      _expandSheet();
     }
   }
 
-  void _onHandleDragUpdate(DragUpdateDetails details, double range) {
-    if (range <= 0) return;
-    _controller.value = (_controller.value - details.delta.dy / range).clamp(
-      0.0,
-      1.0,
+  void _expandSheet() {
+    if (!_sheetController.isAttached) return;
+    _sheetController.animateTo(
+      _expandedFraction,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
     );
   }
 
-  void _onHandleDragEnd(DragEndDetails details) {
-    final velocity = details.primaryVelocity ?? 0;
-    if (velocity < -_flingVelocity) {
-      _controller.animateTo(1, curve: Curves.easeOutCubic);
-      return;
-    }
-    if (velocity > _flingVelocity) {
-      _controller.animateTo(0, curve: Curves.easeOutCubic);
-      return;
-    }
-    final target = _controller.value >= 0.5 ? 1.0 : 0.0;
-    _controller.animateTo(target, curve: Curves.easeOutCubic);
-  }
-
-  void _toggle() {
-    final target = _controller.value >= 0.5 ? 0.0 : 1.0;
-    _controller.animateTo(target, curve: Curves.easeOutCubic);
+  void _toggle(double collapsedFraction) {
+    if (!_sheetController.isAttached) return;
+    final target =
+        _sheetController.size > (collapsedFraction + _expandedFraction) / 2
+        ? collapsedFraction
+        : _expandedFraction;
+    _sheetController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   @override
@@ -714,12 +705,11 @@ class _LocationSheetState extends State<_LocationSheet>
     final mediaQuery = MediaQuery.of(context);
     final keyboardInset = mediaQuery.viewInsets.bottom;
     final visibleHeight = mediaQuery.size.height - keyboardInset;
-    final expandedHeight = visibleHeight * _expandedFraction;
-    final collapsedHeight = (_collapsedHeight * tabletScale(context)).clamp(
-      0.0,
-      expandedHeight,
-    );
-    final range = expandedHeight - collapsedHeight;
+    final collapsedFraction =
+        (_collapsedHeight * tabletScale(context) / visibleHeight).clamp(
+          0.0,
+          _expandedFraction,
+        );
     // Kept as a separate, non-animated outer layer so the keyboard inset
     // (which changes independently of the expand/collapse gesture) never
     // drives the same AnimatedPadding that BackdropFilter's clip/blur
@@ -727,35 +717,29 @@ class _LocationSheetState extends State<_LocationSheet>
     // blank right as the keyboard opened.
     return Padding(
       padding: EdgeInsets.only(bottom: keyboardInset),
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          final t = _controller.value;
-          final height = collapsedHeight + range * t;
-          final horizontalMargin = lerpDouble(12, 0, t)!;
-          final bottomMargin = lerpDouble(14, 0, t)!;
-          final radius = lerpDouble(28, 24, t)!;
-
-          return AnimatedPadding(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            padding: EdgeInsets.fromLTRB(
-              horizontalMargin,
-              0,
-              horizontalMargin,
-              bottomMargin,
-            ),
+      child: DraggableScrollableSheet(
+        controller: _sheetController,
+        initialChildSize: collapsedFraction,
+        minChildSize: collapsedFraction,
+        maxChildSize: _expandedFraction,
+        snap: true,
+        snapSizes: [collapsedFraction, _expandedFraction],
+        snapAnimationDuration: const Duration(milliseconds: 260),
+        builder: (context, scrollController) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
             child: ClipRRect(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(radius)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
                 child: Container(
-                  height: height,
                   padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
                   decoration: BoxDecoration(
                     color: Colors.white.withAlpha(188),
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(radius),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(28),
                     ),
                     border: Border.all(color: Colors.white.withAlpha(220)),
                     boxShadow: [
@@ -770,10 +754,7 @@ class _LocationSheetState extends State<_LocationSheet>
                     children: [
                       GestureDetector(
                         behavior: HitTestBehavior.opaque,
-                        onTap: _toggle,
-                        onVerticalDragUpdate: (details) =>
-                            _onHandleDragUpdate(details, range),
-                        onVerticalDragEnd: _onHandleDragEnd,
+                        onTap: () => _toggle(collapsedFraction),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           child: Container(
@@ -803,13 +784,15 @@ class _LocationSheetState extends State<_LocationSheet>
                               query,
                             );
                             return _CityListView(
+                              scrollController: scrollController,
                               cities: filteredCities,
                               activeCard: widget.activeCard,
                               onCityTap: (city) {
                                 widget.onCityTap(city);
                                 _searchFocusNode.unfocus();
-                                _controller.animateTo(
-                                  0,
+                                _sheetController.animateTo(
+                                  collapsedFraction,
+                                  duration: const Duration(milliseconds: 260),
                                   curve: Curves.easeOutCubic,
                                 );
                               },
@@ -817,7 +800,7 @@ class _LocationSheetState extends State<_LocationSheet>
                           },
                         ),
                       ),
-                      SizedBox(height: lerpDouble(14, 10, t)),
+                      const SizedBox(height: 10),
                     ],
                   ),
                 ),
@@ -831,11 +814,13 @@ class _LocationSheetState extends State<_LocationSheet>
 }
 
 class _CityListView extends StatelessWidget {
+  final ScrollController scrollController;
   final List<GalleryCard> cities;
   final GalleryCard activeCard;
   final ValueChanged<GalleryCard> onCityTap;
 
   const _CityListView({
+    required this.scrollController,
     required this.cities,
     required this.activeCard,
     required this.onCityTap,
@@ -855,6 +840,7 @@ class _CityListView extends StatelessWidget {
       );
     }
     return ListView.separated(
+      controller: scrollController,
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.only(bottom: 4),
       itemCount: cities.length,

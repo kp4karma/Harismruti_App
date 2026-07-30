@@ -64,21 +64,48 @@ class GalleryRepository {
       ApiEndpoints.recent,
       queryParams: _latestQueryParams({'page': page, 'per_page': perPage}),
     );
+    return _sortPhotosNewestFirst(
+      GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items,
+    );
+  }
+
+  Future<List<GalleryPhoto>> getOnThisDay({
+    int limit = 60,
+    bool forceRefresh = false,
+  }) async {
+    final response = await ApiClient.get(
+      ApiEndpoints.onThisDay,
+      queryParams: _scopedQueryParams({'limit': limit}),
+      cacheDuration: const Duration(hours: 1),
+      forceRefresh: forceRefresh,
+    );
     return GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items;
   }
 
   Future<List<GalleryFilterGroup>> getFilters({
     int limit = 200,
     Map<String, List<String>> selected = const {},
+    bool includeDates = false,
   }) async {
-    final queryParams = _latestQueryParams({'limit': limit});
+    final queryParams = _latestQueryParams({
+      'limit': limit,
+      if (includeDates) 'include_dates': true,
+    });
+    final mobile = currentPhoneNumber();
+    if (mobile.isNotEmpty) queryParams['mobile'] = mobile;
     selected.forEach((slug, values) {
       if (values.isNotEmpty) queryParams[slug] = values;
     });
-    final response = await ApiClient.get(
+    var response = await ApiClient.get(
       ApiEndpoints.filters,
       queryParams: queryParams,
     );
+    if (_isHtmlResponse(response.data)) {
+      response = await ApiClient.get(
+        ApiEndpoints.legacyFilters,
+        queryParams: queryParams,
+      );
+    }
     return GalleryPage.fromJson(
       response.data,
       GalleryFilterGroup.fromJson,
@@ -88,6 +115,11 @@ class GalleryRepository {
   Future<GalleryPhotoAttributes> getPhotoAttributes(int photoId) async {
     final response = await ApiClient.get(ApiEndpoints.photoAttributes(photoId));
     return GalleryPhotoAttributes.fromJson(response.data);
+  }
+
+  Future<GalleryPhoto> getSharedPhoto(String token) async {
+    final response = await ApiClient.get(ApiEndpoints.sharedPhoto(token));
+    return GalleryPhoto.fromJson(response.data);
   }
 
   Future<Map<String, dynamic>> getMyLibrary() async {
@@ -186,6 +218,25 @@ class GalleryRepository {
     await ApiClient.delete(ApiEndpoints.myTag(photoId, tag));
   }
 
+  Future<Map<String, dynamic>> createPhotoEnhancement({
+    required int photoId,
+    required String quality,
+  }) async {
+    final response = await ApiClient.post(
+      ApiEndpoints.photoEnhancements(photoId),
+      data: {'quality': quality},
+    );
+    return asJsonMap(response.data);
+  }
+
+  Future<Map<String, dynamic>> getPhotoEnhancement(int jobId) async {
+    final response = await ApiClient.get(
+      ApiEndpoints.photoEnhancement(jobId),
+      forceRefresh: true,
+    );
+    return asJsonMap(response.data);
+  }
+
   Future<void> addPhotoToCollection({
     required String name,
     required int photoId,
@@ -280,12 +331,10 @@ class GalleryRepository {
       ApiEndpoints.collections,
       queryParams: _latestQueryParams({'samples': samples}),
     );
-    return _sortCardsNewestFirst(
-      GalleryPage.fromJson(
-        response.data,
-        (raw) => GalleryCard.fromJson(raw, fallbackType: 'collection'),
-      ).items,
-    );
+    return GalleryPage.fromJson(
+      response.data,
+      (raw) => GalleryCard.fromJson(raw, fallbackType: 'collection'),
+    ).items.where((card) => card.hasValue).toList();
   }
 
   Future<List<GalleryCard>> getSmrutiOf({
@@ -359,13 +408,21 @@ class GalleryRepository {
     int perPage = 60,
   }) async {
     final queryParams = _latestQueryParams({'page': page, 'per_page': perPage});
+    final mobile = currentPhoneNumber();
+    if (mobile.isNotEmpty) queryParams['mobile'] = mobile;
     selected.forEach((slug, values) {
       if (values.isNotEmpty) queryParams[slug] = values;
     });
-    final response = await ApiClient.get(
+    var response = await ApiClient.get(
       ApiEndpoints.filteredPhotos,
       queryParams: queryParams,
     );
+    if (_isHtmlResponse(response.data)) {
+      response = await ApiClient.get(
+        ApiEndpoints.legacyFilteredPhotos,
+        queryParams: queryParams,
+      );
+    }
     return _sortPhotosNewestFirst(
       GalleryPage.fromJson(response.data, GalleryPhoto.fromJson).items,
     );
@@ -448,19 +505,39 @@ class GalleryRepository {
       'sort': params['sort'] ?? _latestSort,
       'order': params['order'] ?? _descendingOrder,
       'swami': activeSwami.apiValue,
+      'cache_revision': _activeCacheRevision,
     };
+  }
+
+  static bool _isHtmlResponse(dynamic data) {
+    if (data is! String) return false;
+    final normalized = data.trimLeft().toLowerCase();
+    return normalized.startsWith('<!doctype html') ||
+        normalized.startsWith('<html');
   }
 
   Map<String, dynamic> _scopedQueryParams([
     Map<String, dynamic> params = const {},
   ]) {
-    return {...params, 'swami': activeSwami.apiValue};
+    return {
+      ...params,
+      'swami': activeSwami.apiValue,
+      'cache_revision': _activeCacheRevision,
+    };
+  }
+
+  int get _activeCacheRevision {
+    final revisions = StorageHelper.getValue<Map<dynamic, dynamic>>(
+      key: StorageKeys.appSectionCacheRevisions,
+    );
+    return int.tryParse(revisions?[activeSwami.apiValue]?.toString() ?? '') ??
+        0;
   }
 
   GalleryHomeBundle _sortHomeBundleNewestFirst(GalleryHomeBundle bundle) {
     return GalleryHomeBundle(
-      recent: bundle.recent,
-      collections: _sortCardsNewestFirst(bundle.collections),
+      recent: _sortPhotosNewestFirst(bundle.recent),
+      collections: bundle.collections.where((card) => card.hasValue).toList(),
       smrutiWith: _sortCardsNewestFirst(bundle.smrutiWith),
       smrutiOf: _sortCardsNewestFirst(bundle.smrutiOf),
       locations: _sortCardsNewestFirst(bundle.locations),

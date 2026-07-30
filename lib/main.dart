@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -5,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:harismruti/bootstrap.dart';
 import 'package:harismruti/services/shorebird_update_service.dart';
 import 'package:harismruti/services/analytics_service.dart';
+import 'package:harismruti/services/deep_link_service.dart';
 import 'package:harismruti/ui/controller/global_binding.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_routes.dart';
@@ -35,6 +38,8 @@ class _MyAppState extends State<MyApp> {
     super.initState();
     WidgetsBinding.instance.addObserver(_lifecycleObserver);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(bootstrapDeferredServices());
+      unawaited(DeepLinkService.instance.start());
       _checkForShorebirdUpdate();
     });
   }
@@ -67,7 +72,7 @@ class _MyAppState extends State<MyApp> {
             scaffoldMessengerKey: _messengerKey,
             debugShowCheckedModeBanner: false,
             initialBinding: GlobalBindings(),
-            title: 'Hari Smurti',
+            title: 'HariPrabodham Smruti',
 
             initialRoute: AppRoutes.splash,
             getPages: AppRoutes.routes,

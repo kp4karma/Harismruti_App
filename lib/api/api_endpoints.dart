@@ -32,14 +32,21 @@ class ApiEndpoints {
     return _localDomain;
   }
 
+  static const String shareBaseUrl = "https://hpsmruti.suhrad.digital";
+  static String sharedPhoto(String token) =>
+      "$shareBaseUrl/api/public/hps/${Uri.encodeComponent(token)}";
+
   static String get home => "/home";
   static String get recent => "/recent";
+  static String get onThisDay => "/on-this-day";
   static String get collections => "/collections";
   static String get attributes => "/attributes";
-  static String get filters => "/filters";
+  static String get filters => "/me/filters";
+  static String get legacyFilters => "/filters";
   static String get smrutiOf => "/smruti-of";
   static String get people => "/people";
-  static String get filteredPhotos => "/filtered/photos";
+  static String get filteredPhotos => "/me/filtered/photos";
+  static String get legacyFilteredPhotos => "/filtered/photos";
   static String get login => "/auth/login";
   static String get verifyOtp => "/auth/verify-otp";
   static String get register => "/auth/register";
@@ -88,4 +95,9 @@ class ApiEndpoints {
   static String photoThumbnail(int photoId) =>
       "$mainDomain/photos/$photoId/thumbnail";
   static String photoFull(int photoId) => "$mainDomain/photos/$photoId/full";
+  static String photoEnhancements(int photoId) =>
+      "/me/photos/$photoId/enhancements";
+  static String photoEnhancement(int jobId) => "/me/enhancements/$jobId";
+  static String photoEnhancementDownload(int jobId) =>
+      "$mainDomain/me/enhancements/$jobId/download";
 }

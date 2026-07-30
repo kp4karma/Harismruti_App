@@ -167,7 +167,10 @@ class MyPhotosController extends GetxController {
   final RxnInt faceSearchRequestId = RxnInt();
   final RxString helperMessage = ''.obs;
   Timer? _statusTimer;
-  final FaceDetector _faceDetector = FaceDetector(
+  FaceDetector? _faceDetector;
+  FaceDetector? _lenientFaceDetector;
+
+  FaceDetector get _accurateDetector => _faceDetector ??= FaceDetector(
     options: FaceDetectorOptions(
       enableClassification: true,
       enableLandmarks: true,
@@ -175,7 +178,8 @@ class MyPhotosController extends GetxController {
       performanceMode: FaceDetectorMode.accurate,
     ),
   );
-  final FaceDetector _lenientFaceDetector = FaceDetector(
+
+  FaceDetector get _fallbackDetector => _lenientFaceDetector ??= FaceDetector(
     options: FaceDetectorOptions(
       minFaceSize: 0.03,
       performanceMode: FaceDetectorMode.fast,
@@ -253,8 +257,8 @@ class MyPhotosController extends GetxController {
   @override
   void onClose() {
     _statusTimer?.cancel();
-    _faceDetector.close();
-    _lenientFaceDetector.close();
+    _faceDetector?.close();
+    _lenientFaceDetector?.close();
     super.onClose();
   }
 
@@ -759,9 +763,9 @@ class MyPhotosController extends GetxController {
   }) async {
     try {
       final inputImage = InputImage.fromFilePath(path);
-      var faces = await _faceDetector.processImage(inputImage);
+      var faces = await _accurateDetector.processImage(inputImage);
       if (faces.isEmpty) {
-        faces = await _lenientFaceDetector.processImage(inputImage);
+        faces = await _fallbackDetector.processImage(inputImage);
       }
 
       if (faces.isEmpty) {

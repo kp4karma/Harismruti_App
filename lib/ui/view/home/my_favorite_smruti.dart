@@ -18,7 +18,10 @@ class MyFavoriteSmruti extends StatelessWidget {
     final galleryController = Get.find<GalleryController>();
 
     return Obx(() {
-      final photos = galleryController.favoritePhotos;
+      final photos = galleryController.orderedSectionPhotos(
+        'my_favorite',
+        galleryController.favoritePhotos,
+      );
       final scale = tabletScale(context);
       if (!StorageHelper.isLogin()) {
         return GestureDetector(
