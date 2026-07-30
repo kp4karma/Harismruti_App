@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
@@ -14,12 +15,12 @@ class RecentSmruti extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final galleryController = Get.find<GalleryController>();
+    final controller = Get.find<GalleryController>();
 
     return Obx(() {
-      final photos = _uniquePhotos(galleryController.recentPhotos);
+      final photos = _uniquePhotos(controller.recentPhotos);
       final scale = tabletScale(context);
-      if (galleryController.isLoading.value && photos.isEmpty) {
+      if (controller.isLoading.value && photos.isEmpty) {
         return GallerySectionLoader(height: 300 * scale);
       }
       if (photos.isEmpty) {
@@ -28,50 +29,93 @@ class RecentSmruti extends StatelessWidget {
 
       return SizedBox(
         height: 320 * scale,
-        child: GridView.builder(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
+        child: Padding(
           padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 10 * scale,
-            crossAxisSpacing: 10 * scale,
-            childAspectRatio: 0.82,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final ratio = constraints.maxWidth / 380;
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  if (photos.length > 1)
+                    _backCard(
+                      photo: photos[1],
+                      headers: controller.imageHeaders,
+                      left: 6 * ratio,
+                      right: 96 * ratio,
+                      rotation: -0.07,
+                    ),
+                  if (photos.length > 2)
+                    _backCard(
+                      photo: photos[2],
+                      headers: controller.imageHeaders,
+                      left: 96 * ratio,
+                      right: 6 * ratio,
+                      rotation: 0.07,
+                    ),
+                  Positioned(
+                    left: 46 * ratio,
+                    right: 46 * ratio,
+                    top: 0,
+                    bottom: 0,
+                    child: _RecentMasonryCard(
+                      photos: photos,
+                      headers: controller.imageHeaders,
+                      onTap: (photo) => _openDetail(context, controller, photo),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
-          itemCount: photos.length,
-          itemBuilder: (context, index) {
-            final photo = photos[index];
-            return _RecentPhotoCard(
-              photo: photo,
-              headers: galleryController.imageHeaders,
-              onTap: () => _openDetail(context, galleryController, photo),
-            );
-          },
         ),
       );
     });
   }
 
+  Widget _backCard({
+    required GalleryPhoto photo,
+    required Map<String, String>? headers,
+    required double left,
+    required double right,
+    required double rotation,
+  }) {
+    return Positioned(
+      left: left,
+      right: right,
+      top: 38,
+      bottom: 22,
+      child: Transform.rotate(
+        angle: rotation,
+        child: _StackSurface(
+          child: NetworkImageWithLoader(
+            imageUrl: photo.thumbnailUrl,
+            title: photo.title ?? 'Recent Smruti',
+            headers: headers,
+            fit: BoxFit.contain,
+          ),
+        ),
+      ),
+    );
+  }
+
   List<GalleryPhoto> _uniquePhotos(Iterable<GalleryPhoto> photos) {
     final seen = <String>{};
-    final uniquePhotos = <GalleryPhoto>[];
-
+    final unique = <GalleryPhoto>[];
     for (final photo in photos) {
       final key = photo.id > 0 ? 'id:${photo.id}' : photo.thumbnailUrl;
-      if (key.isEmpty || !seen.add(key)) continue;
-      uniquePhotos.add(photo);
+      if (key.isNotEmpty && seen.add(key)) unique.add(photo);
     }
-
-    return uniquePhotos;
+    return unique;
   }
 
   void _openDetail(
     BuildContext context,
-    GalleryController galleryController,
+    GalleryController controller,
     GalleryPhoto tappedPhoto,
   ) {
-    final recentPhotos = galleryController.recentPhotos.toList(growable: false);
-    final tappedIndex = recentPhotos.indexWhere(
+    final photos = controller.recentPhotos.toList(growable: false);
+    final index = photos.indexWhere(
       (photo) => tappedPhoto.id > 0
           ? photo.id == tappedPhoto.id
           : photo.thumbnailUrl == tappedPhoto.thumbnailUrl,
@@ -82,8 +126,8 @@ class RecentSmruti extends StatelessWidget {
       MaterialPageRoute(
         settings: const RouteSettings(name: 'Photo Viewer'),
         builder: (_) => GalleryFullscreenViewer(
-          photos: recentPhotos,
-          initialIndex: tappedIndex >= 0 ? tappedIndex : 0,
+          photos: photos,
+          initialIndex: index < 0 ? 0 : index,
           title: 'Recent Smruti',
           isRecentFeed: true,
         ),
@@ -92,35 +136,86 @@ class RecentSmruti extends StatelessWidget {
   }
 }
 
-class _RecentPhotoCard extends StatelessWidget {
-  final GalleryPhoto photo;
+class _RecentMasonryCard extends StatelessWidget {
+  final List<GalleryPhoto> photos;
   final Map<String, String>? headers;
-  final VoidCallback onTap;
+  final ValueChanged<GalleryPhoto> onTap;
 
-  const _RecentPhotoCard({
-    required this.photo,
+  const _RecentMasonryCard({
+    required this.photos,
     required this.headers,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final title = photo.title ?? 'Recent Smruti';
-
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      elevation: 3,
-      shadowColor: Colors.black.withAlpha(48),
-      child: InkWell(
-        onTap: onTap,
-        child: NetworkImageWithLoader(
-          imageUrl: photo.thumbnailUrl,
-          title: title,
-          headers: headers,
+    return _StackSurface(
+      child: Padding(
+        padding: const EdgeInsets.all(7),
+        child: MasonryGridView.count(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          crossAxisCount: 2,
+          mainAxisSpacing: 7,
+          crossAxisSpacing: 7,
+          itemCount: photos.length,
+          itemBuilder: (context, index) {
+            final photo = photos[index];
+            final aspectRatio = _safeAspectRatio(photo);
+            return SizedBox(
+              width: (112 * aspectRatio).clamp(82, 168),
+              child: Material(
+                color: const Color(0xFFF4F1EC),
+                borderRadius: BorderRadius.circular(10),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => onTap(photo),
+                  child: NetworkImageWithLoader(
+                    imageUrl: photo.thumbnailUrl,
+                    title: photo.title ?? 'Recent Smruti',
+                    headers: headers,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ),
+    );
+  }
+
+  double _safeAspectRatio(GalleryPhoto photo) {
+    final width = photo.width;
+    final height = photo.height;
+    if (width == null || height == null || width <= 0 || height <= 0) {
+      return 1;
+    }
+    return (width / height).clamp(0.72, 1.45);
+  }
+}
+
+class _StackSurface extends StatelessWidget {
+  final Widget child;
+
+  const _StackSurface({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(32),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: child,
     );
   }
 }
