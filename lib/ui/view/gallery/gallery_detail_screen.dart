@@ -1349,9 +1349,13 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   }
 
   Future<void> _showWallpaperOptions() async {
+    if (Platform.isIOS) {
+      await _openIosWallpaperFlow();
+      return;
+    }
     if (!Platform.isAndroid) {
       TopNotification.error(
-        'Setting wallpaper directly is currently available on Android only',
+        'Wallpaper setup is not supported on this device',
       );
       return;
     }
@@ -1397,6 +1401,73 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       await _openSystemWallpaperEditor();
     } else {
       await _setWallpaper(destination);
+    }
+  }
+
+  Future<void> _openIosWallpaperFlow() async {
+    if (_isSettingWallpaper) return;
+    final continueToShare = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('Set as Wallpaper'),
+        content: const Text(
+          'On the next screen, scroll down and tap “Use as Wallpaper”. '
+          'If that option is not shown, tap “Save Image”, then open the photo '
+          'in Photos and choose Share > Use as Wallpaper.',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+    if (continueToShare != true || !mounted) return;
+
+    final url = _photo.fullUrl.isNotEmpty
+        ? _photo.fullUrl
+        : _photo.thumbnailUrl;
+    if (url.isEmpty) {
+      TopNotification.error('Photo is not ready to use as wallpaper');
+      return;
+    }
+
+    setState(() => _isSettingWallpaper = true);
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final fileName = _shareFileName(url);
+      final wallpaperFile = File(
+        '${tempDir.path}${Platform.pathSeparator}ios-wallpaper-$fileName',
+      );
+      await Dio().download(
+        url,
+        wallpaperFile.path,
+        options: Options(
+          headers: _controller.imageHeaders,
+          responseType: ResponseType.bytes,
+        ),
+      );
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [
+            XFile(
+              wallpaperFile.path,
+              mimeType: _shareMimeType(wallpaperFile.path),
+            ),
+          ],
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      TopNotification.error('Unable to prepare this wallpaper');
+    } finally {
+      if (mounted) setState(() => _isSettingWallpaper = false);
     }
   }
 
