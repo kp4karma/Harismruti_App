@@ -1354,9 +1354,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       return;
     }
     if (!Platform.isAndroid) {
-      TopNotification.error(
-        'Wallpaper setup is not supported on this device',
-      );
+      TopNotification.error('Wallpaper setup is not supported on this device');
       return;
     }
 
