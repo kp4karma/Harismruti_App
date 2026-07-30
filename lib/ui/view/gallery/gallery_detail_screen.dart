@@ -868,6 +868,8 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   bool _isIgnoring = false;
   bool _isSettingWallpaper = false;
   bool _isDownloading = false;
+  bool _isSlideshowPlaying = false;
+  Timer? _slideshowTimer;
   Offset _lastDoubleTapPosition = Offset.zero;
   int _gesturePointerCount = 1;
   double _dismissDragOffset = 0;
@@ -932,6 +934,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
 
   @override
   void dispose() {
+    _slideshowTimer?.cancel();
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -952,6 +955,33 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       widget.isRecentFeed ? _controller.recentPhotos : _localPhotos;
 
   GalleryPhoto get _photo => _photosList[_index];
+
+  void _toggleSlideshow() {
+    if (_photosList.length < 2) return;
+
+    setState(() {
+      _isSlideshowPlaying = !_isSlideshowPlaying;
+      _infoPanelOpen = false;
+      _chromeVisible = true;
+    });
+
+    _slideshowTimer?.cancel();
+    _slideshowTimer = null;
+    if (!_isSlideshowPlaying) return;
+
+    _slideshowTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted || !_pageController.hasClients || _photosList.length < 2) {
+        return;
+      }
+
+      final nextIndex = (_index + 1) % _photosList.length;
+      _pageController.animateToPage(
+        nextIndex,
+        duration: const Duration(milliseconds: 650),
+        curve: Curves.easeInOutCubic,
+      );
+    });
+  }
 
   void _maybeLoadMoreRecent(int viewedIndex) {
     if (!widget.isRecentFeed) return;
@@ -1787,6 +1817,21 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       builder: (_) => CupertinoActionSheet(
         title: const Text('Photo options'),
         actions: [
+          if (Platform.isAndroid)
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(context);
+                _openSystemWallpaperEditor();
+              },
+              child: const Text('Edit Photo'),
+            ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _showDownloadOptions();
+            },
+            child: Text(_isDownloading ? 'Preparing Download…' : 'Download'),
+          ),
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.pop(context);
@@ -2071,10 +2116,17 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                       ),
                       _ViewerActions(
                         isFavorite: _controller.isFavorite(_photo.id),
+                        isSlideshowPlaying: _isSlideshowPlaying,
                         onShare: _sharePhoto,
                         onFavorite: _toggleFavorite,
                         onInfo: _toggleInfoPanel,
+                        onSlideshow: _photosList.length > 1
+                            ? _toggleSlideshow
+                            : null,
                         isInfoOpen: _infoPanelOpen,
+                        onEdit: Platform.isAndroid
+                            ? _openSystemWallpaperEditor
+                            : null,
                         onOptions: _showMoreOptions,
                         onCollection: _openAddCollectionSheet,
                       ),
@@ -2758,18 +2810,24 @@ class _ViewerThumbStrip extends StatelessWidget {
 class _ViewerActions extends StatelessWidget {
   final bool isFavorite;
   final bool isInfoOpen;
+  final bool isSlideshowPlaying;
   final VoidCallback onShare;
   final VoidCallback onFavorite;
   final VoidCallback onInfo;
+  final VoidCallback? onSlideshow;
+  final VoidCallback? onEdit;
   final VoidCallback onOptions;
   final VoidCallback onCollection;
 
   const _ViewerActions({
     required this.isFavorite,
     required this.isInfoOpen,
+    required this.isSlideshowPlaying,
     required this.onShare,
     required this.onFavorite,
     required this.onInfo,
+    required this.onSlideshow,
+    this.onEdit,
     required this.onOptions,
     required this.onCollection,
   });
@@ -2808,6 +2866,15 @@ class _ViewerActions extends StatelessWidget {
                   onTap: onFavorite,
                 ),
                 _InfoToggleButton(isOpen: isInfoOpen, onTap: onInfo),
+                if (onSlideshow != null)
+                  _ViewerPlainButton(
+                    icon: isSlideshowPlaying
+                        ? CupertinoIcons.pause_fill
+                        : CupertinoIcons.play_fill,
+                    onTap: onSlideshow!,
+                  ),
+                if (onEdit != null)
+                  _ViewerPlainButton(icon: CupertinoIcons.crop, onTap: onEdit!),
                 _ViewerPlainButton(
                   icon: CupertinoIcons.slider_horizontal_3,
                   onTap: onOptions,
