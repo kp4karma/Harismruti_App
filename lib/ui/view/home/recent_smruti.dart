@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
@@ -74,21 +73,10 @@ class _AutoSwapRecentCollagesState extends State<_AutoSwapRecentCollages> {
   Timer? _timer;
   int _frontGroup = 0;
 
-  List<List<GalleryPhoto>> get _groups {
-    final groups = <List<GalleryPhoto>>[];
-    var index = 0;
-    while (index < widget.photos.length) {
-      final previewEnd = (index + 4).clamp(0, widget.photos.length);
-      final containsPortrait = widget.photos
-          .sublist(index, previewEnd)
-          .any(_isPortrait);
-      final groupSize = containsPortrait ? 2 : 4;
-      final end = (index + groupSize).clamp(0, widget.photos.length);
-      groups.add(widget.photos.sublist(index, end));
-      index = end;
-    }
-    return groups;
-  }
+  List<List<GalleryPhoto>> get _groups => [
+    for (var index = 0; index < widget.photos.length; index += 4)
+      widget.photos.sublist(index, (index + 4).clamp(0, widget.photos.length)),
+  ];
 
   int get _groupCount => _groups.length;
 
@@ -129,12 +117,6 @@ class _AutoSwapRecentCollagesState extends State<_AutoSwapRecentCollages> {
 
   List<GalleryPhoto> _groupAt(int groupIndex) {
     return _groups[groupIndex % _groupCount];
-  }
-
-  bool _isPortrait(GalleryPhoto photo) {
-    final width = photo.width;
-    final height = photo.height;
-    return width != null && height != null && height > width;
   }
 
   @override
@@ -258,20 +240,86 @@ class _MasonryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MasonryGridView.count(
-      padding: EdgeInsets.zero,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      mainAxisSpacing: 0,
-      crossAxisSpacing: 0,
-      itemCount: photos.length,
-      itemBuilder: (context, index) {
-        final photo = photos[index];
-        return AspectRatio(
-          aspectRatio: _aspectRatio(photo),
-          child: _tile(photo),
-        );
-      },
+    if (photos.length == 1) return _tile(photos.first);
+    if (photos.length == 2) {
+      return Row(
+        children: [
+          Expanded(child: _tile(photos[0])),
+          Expanded(child: _tile(photos[1])),
+        ],
+      );
+    }
+
+    final ordered = [...photos]
+      ..sort((a, b) => _aspectRatio(a).compareTo(_aspectRatio(b)));
+    final hasPortrait = _aspectRatio(ordered.first) < 0.95;
+
+    if (hasPortrait) {
+      final feature = ordered.first;
+      final remaining = ordered.skip(1).toList(growable: false);
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final portraitFraction =
+              (_aspectRatio(feature) *
+                      constraints.maxHeight /
+                      constraints.maxWidth)
+                  .clamp(0.42, 0.60);
+          return Row(
+            children: [
+              SizedBox(
+                width: constraints.maxWidth * portraitFraction,
+                child: _tile(feature),
+              ),
+              Expanded(
+                child: Column(
+                  children: [
+                    for (final photo in remaining)
+                      Expanded(flex: _heightWeight(photo), child: _tile(photo)),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    }
+
+    if (ordered.length == 3) {
+      return Column(
+        children: [
+          Expanded(flex: 5, child: _tile(ordered[0])),
+          Expanded(
+            flex: 4,
+            child: Row(
+              children: [
+                Expanded(child: _tile(ordered[1])),
+                Expanded(child: _tile(ordered[2])),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        Expanded(
+          child: Row(
+            children: [
+              Expanded(child: _tile(ordered[0])),
+              Expanded(child: _tile(ordered[3])),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Row(
+            children: [
+              Expanded(child: _tile(ordered[1])),
+              Expanded(child: _tile(ordered[2])),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -284,18 +332,21 @@ class _MasonryPage extends StatelessWidget {
     return (width / height).clamp(0.55, 1.8);
   }
 
+  int _heightWeight(GalleryPhoto photo) =>
+      (100 / _aspectRatio(photo)).round().clamp(55, 180);
+
   Widget _tile(GalleryPhoto photo) {
-    return Material(
-      color: const Color(0xFFF4F1EC),
-      borderRadius: BorderRadius.zero,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap == null ? null : () => onTap!(photo),
-        child: NetworkImageWithLoader(
-          imageUrl: photo.thumbnailUrl,
-          title: photo.title ?? 'Recent Smruti',
-          headers: headers,
-          fit: BoxFit.contain,
+    return ClipRect(
+      child: Material(
+        color: const Color(0xFFF4F1EC),
+        child: InkWell(
+          onTap: onTap == null ? null : () => onTap!(photo),
+          child: NetworkImageWithLoader(
+            imageUrl: photo.thumbnailUrl,
+            title: photo.title ?? 'Recent Smruti',
+            headers: headers,
+            fit: BoxFit.cover,
+          ),
         ),
       ),
     );
@@ -309,20 +360,23 @@ class _StackSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      clipBehavior: Clip.antiAlias,
+    const radius = BorderRadius.all(Radius.circular(22));
+    return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: radius,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(32),
-            blurRadius: 24,
+            color: Colors.black.withAlpha(28),
+            blurRadius: 26,
             offset: const Offset(0, 12),
           ),
         ],
       ),
-      child: child,
+      child: ClipRRect(
+        borderRadius: radius,
+        clipBehavior: Clip.antiAlias,
+        child: ColoredBox(color: Colors.white, child: child),
+      ),
     );
   }
 }
