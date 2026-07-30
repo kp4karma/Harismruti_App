@@ -43,6 +43,7 @@ class NotificationService {
   static bool _initialised = false;
   static bool _foregroundListenerAttached = false;
   static bool _tokenRefreshListenerAttached = false;
+  static Future<void>? _topicSubscriptionInFlight;
 
   @pragma('vm:entry-point')
   static Future<void> firebaseBackgroundHandler(RemoteMessage message) async {
@@ -128,7 +129,20 @@ class NotificationService {
     _initialised = true;
   }
 
-  static Future<void> _subscribeToTopics() async {
+  static Future<void> _subscribeToTopics() {
+    final existingSubscription = _topicSubscriptionInFlight;
+    if (existingSubscription != null) return existingSubscription;
+
+    final subscription = _performTopicSubscriptions();
+    _topicSubscriptionInFlight = subscription;
+    return subscription.whenComplete(() {
+      if (identical(_topicSubscriptionInFlight, subscription)) {
+        _topicSubscriptionInFlight = null;
+      }
+    });
+  }
+
+  static Future<void> _performTopicSubscriptions() async {
     if (!kDebugMode) {
       // Remove a subscription left behind if this installation was upgraded
       // from a developer build to a release build.
