@@ -1059,7 +1059,9 @@ class _SearchSuggestionsList extends StatelessWidget {
                   child: Container(
                     constraints: const BoxConstraints(maxHeight: 246),
                     decoration: BoxDecoration(
-                      color: Colors.white.withAlpha(238),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainer.withAlpha(242),
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(color: primaryColor.withAlpha(16)),
                       boxShadow: [
@@ -1129,7 +1131,9 @@ class _SearchSuggestionsList extends StatelessWidget {
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
-                                            color: Colors.black.withAlpha(120),
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.onSurfaceVariant,
                                             fontSize: 11,
                                             fontWeight: FontWeight.w700,
                                           ),
@@ -1179,7 +1183,7 @@ class _SubjectRibbonDetailCard extends StatelessWidget {
       child: Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
@@ -1439,7 +1443,7 @@ class _SectionCardTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: Theme.of(context).colorScheme.surfaceContainer,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -1486,7 +1490,7 @@ class _SectionCardTile extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: Colors.black.withAlpha(135),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),
@@ -1525,7 +1529,7 @@ class _PhotoPosterCard extends StatelessWidget {
       child: Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
@@ -1621,7 +1625,7 @@ class _RecentGalleryTile extends StatelessWidget {
       child: Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
@@ -1679,7 +1683,7 @@ class _UserCollectionPosterCard extends StatelessWidget {
         height: 218,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
@@ -1781,7 +1785,7 @@ class _DiaryEntryPosterCard extends StatelessWidget {
       child: Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
@@ -1831,7 +1835,7 @@ class _DiaryEntryPosterCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: Colors.black.withAlpha(135),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         height: 1.25,

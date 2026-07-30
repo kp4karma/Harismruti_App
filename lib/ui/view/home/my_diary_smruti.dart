@@ -37,7 +37,7 @@ class MyDiarySmruti extends StatelessWidget {
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 22),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
@@ -85,7 +85,9 @@ class MyDiarySmruti extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Colors.black.withAlpha(145),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
                           ),
@@ -865,7 +867,9 @@ class _GlassIconButton extends StatelessWidget {
             height: 42,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: Colors.white.withAlpha(205),
+              color: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHigh.withAlpha(220),
               shape: BoxShape.circle,
               border: Border.all(color: primaryColor.withAlpha(24)),
               boxShadow: [
@@ -1023,7 +1027,7 @@ class _PickerEmptyState extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 18),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white.withAlpha(225),
+        color: Theme.of(context).colorScheme.surfaceContainer.withAlpha(235),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: primaryColor.withAlpha(16)),
       ),
@@ -1035,7 +1039,7 @@ class _PickerEmptyState extends StatelessWidget {
             child: Text(
               message,
               style: TextStyle(
-                color: Colors.black.withAlpha(135),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
               ),
@@ -1236,7 +1240,7 @@ class _DiaryPhotoSelectionSheetState extends State<_DiaryPhotoSelectionSheet> {
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
             child: Container(
-              color: const Color(0xFFF8F6F3).withAlpha(248),
+              color: Theme.of(context).colorScheme.surface.withAlpha(248),
               child: SafeArea(
                 top: false,
                 child: Column(
@@ -1324,7 +1328,7 @@ class _DiaryPhotoSelectionHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: BoxDecoration(
-        color: Colors.white.withAlpha(218),
+        color: Theme.of(context).colorScheme.surfaceContainer.withAlpha(230),
         border: Border(bottom: BorderSide(color: primaryColor.withAlpha(16))),
       ),
       child: Column(
@@ -1369,7 +1373,7 @@ class _DiaryPhotoSelectionHeader extends StatelessWidget {
                           ? 'Recent to past'
                           : '$selectedCount selected',
                       style: TextStyle(
-                        color: Colors.black.withAlpha(135),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),
@@ -1558,7 +1562,7 @@ class _DiaryReusablePickerSheetState extends State<_DiaryReusablePickerSheet> {
               maxHeight: MediaQuery.of(context).size.height * 0.78,
             ),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8F6F3).withAlpha(246),
+              color: Theme.of(context).colorScheme.surface.withAlpha(246),
               border: Border(
                 top: BorderSide(color: primaryColor.withAlpha(18)),
               ),
@@ -1655,7 +1659,7 @@ class _DiaryReusablePickerSheetState extends State<_DiaryReusablePickerSheet> {
                             ? 'No existing items'
                             : 'Select from existing',
                         style: TextStyle(
-                          color: Colors.black.withAlpha(150),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
                         ),
@@ -1727,7 +1731,9 @@ class _ReusablePickerTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white.withAlpha(235),
+          color: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHigh.withAlpha(240),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: primaryColor.withAlpha(16)),
         ),
@@ -1762,7 +1768,7 @@ class _ReusablePickerTile extends StatelessWidget {
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: Colors.black.withAlpha(125),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
@@ -1861,7 +1867,7 @@ class _WeekdayHeader extends StatelessWidget {
                 child: Text(
                   day,
                   style: TextStyle(
-                    color: Colors.black.withAlpha(145),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
                   ),
@@ -1954,7 +1960,7 @@ class _DarkEntryTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white.withAlpha(238),
+          color: Theme.of(context).colorScheme.surfaceContainer.withAlpha(242),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: primaryColor.withAlpha(14)),
           boxShadow: [
@@ -2005,7 +2011,7 @@ class _DarkEntryTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.black.withAlpha(135),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),

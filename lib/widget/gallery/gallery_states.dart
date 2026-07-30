@@ -63,6 +63,7 @@ class _GalleryShimmerBoxState extends State<GalleryShimmerBox>
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
@@ -74,10 +75,10 @@ class _GalleryShimmerBoxState extends State<GalleryShimmerBox>
             gradient: LinearGradient(
               begin: Alignment(-1.0 + (_controller.value * 2), -0.7),
               end: Alignment(0.2 + (_controller.value * 2), 0.7),
-              colors: const [
-                Color(0xFFEAE5E1),
-                Color(0xFFF8F5F1),
-                Color(0xFFEAE5E1),
+              colors: [
+                scheme.surfaceContainerHigh,
+                scheme.surfaceContainerHighest,
+                scheme.surfaceContainerHigh,
               ],
               stops: const [0.25, 0.5, 0.75],
             ),

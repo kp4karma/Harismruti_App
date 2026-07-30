@@ -92,7 +92,7 @@ class _FavoritePhotoCard extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(

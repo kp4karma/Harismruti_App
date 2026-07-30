@@ -35,7 +35,7 @@ class GalleryCoverCard extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(12),
           boxShadow: const [
             BoxShadow(
@@ -278,9 +278,9 @@ class _MasonryPreview extends StatelessWidget {
         Expanded(
           child: Column(
             children: [
-              Expanded(flex: 5, child: _tile(urls[0])),
+              Expanded(flex: 5, child: _tile(context, urls[0])),
               const SizedBox(height: 6),
-              Expanded(flex: 3, child: _tile(urls[2])),
+              Expanded(flex: 3, child: _tile(context, urls[2])),
             ],
           ),
         ),
@@ -288,9 +288,9 @@ class _MasonryPreview extends StatelessWidget {
         Expanded(
           child: Column(
             children: [
-              Expanded(flex: 3, child: _tile(urls[1])),
+              Expanded(flex: 3, child: _tile(context, urls[1])),
               const SizedBox(height: 6),
-              Expanded(flex: 5, child: _tile(urls[3])),
+              Expanded(flex: 5, child: _tile(context, urls[3])),
             ],
           ),
         ),
@@ -298,11 +298,11 @@ class _MasonryPreview extends StatelessWidget {
     );
   }
 
-  Widget _tile(String url) {
+  Widget _tile(BuildContext context, String url) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: ColoredBox(
-        color: const Color(0xFFF2F2F2),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         child: url.isEmpty
             ? Center(child: Icon(Icons.photo, color: primaryColor, size: 24))
             : SizedBox.expand(
@@ -343,7 +343,7 @@ class GalleryWithFeatureCard extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: const Color(0xFFF1ECE8),
+          color: Theme.of(context).colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
@@ -359,7 +359,7 @@ class GalleryWithFeatureCard extends StatelessWidget {
             card.coverUrl.isEmpty
                 ? Icon(CupertinoIcons.photo, color: primaryColor)
                 : ColoredBox(
-                    color: const Color(0xFFFFFFFF),
+                    color: Theme.of(context).colorScheme.surfaceContainerHigh,
                     child: NetworkImageWithLoader(
                       imageUrl: card.coverUrl,
                       title: card.title,
@@ -404,7 +404,9 @@ class GalleryWithFeatureCard extends StatelessWidget {
                                 fit: StackFit.expand,
                                 children: [
                                   ColoredBox(
-                                    color: const Color(0xFFFFFFFF),
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.surfaceContainerHigh,
                                     child: NetworkImageWithLoader(
                                       imageUrl: previewImages[index],
                                       title: card.title,
@@ -542,7 +544,7 @@ class GalleryGridCard extends StatelessWidget {
       child: Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
@@ -557,7 +559,7 @@ class GalleryGridCard extends StatelessWidget {
           children: [
             card.coverUrl.isEmpty
                 ? ColoredBox(
-                    color: const Color(0xFFFFFFFF),
+                    color: Theme.of(context).colorScheme.surfaceContainerHigh,
                     child: Center(
                       child: Icon(Icons.photo, color: primaryColor, size: 34),
                     ),
