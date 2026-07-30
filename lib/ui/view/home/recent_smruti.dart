@@ -223,29 +223,7 @@ class _RecentMasonryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _StackSurface(
       child: SizedBox.expand(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (photos.isNotEmpty)
-              Transform.scale(
-                scale: 1.08,
-                child: ImageFiltered(
-                  imageFilter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-                  child: Opacity(
-                    opacity: 0.28,
-                    child: NetworkImageWithLoader(
-                      imageUrl: photos.first.thumbnailUrl,
-                      title: photos.first.title ?? 'Recent Smruti',
-                      headers: headers,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-              ),
-            const ColoredBox(color: Color(0x22FFFFFF)),
-            _MasonryPage(photos: photos, headers: headers, onTap: onTap),
-          ],
-        ),
+        child: _MasonryPage(photos: photos, headers: headers, onTap: onTap),
       ),
     );
   }
@@ -307,7 +285,17 @@ class _StackSurface extends StatelessWidget {
       child: ClipRRect(
         borderRadius: radius,
         clipBehavior: Clip.antiAlias,
-        child: ColoredBox(color: Colors.white, child: child),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.transparent,
+              borderRadius: radius,
+              border: Border.all(color: Colors.white.withAlpha(42), width: 1),
+            ),
+            child: child,
+          ),
+        ),
       ),
     );
   }
