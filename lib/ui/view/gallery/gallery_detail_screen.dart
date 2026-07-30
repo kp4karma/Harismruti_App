@@ -959,18 +959,37 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   void _toggleSlideshow() {
     if (_photosList.length < 2) return;
 
+    if (_isSlideshowPlaying) {
+      _slideshowTimer?.cancel();
+      _slideshowTimer = null;
+
+      if (_pageController.hasClients) {
+        final visiblePage = (_pageController.page ?? _index.toDouble())
+            .round()
+            .clamp(0, _photosList.length - 1);
+        _pageController.jumpToPage(visiblePage);
+        _index = visiblePage;
+      }
+
+      setState(() {
+        _isSlideshowPlaying = false;
+        _chromeVisible = true;
+      });
+      return;
+    }
+
     setState(() {
-      _isSlideshowPlaying = !_isSlideshowPlaying;
+      _isSlideshowPlaying = true;
       _infoPanelOpen = false;
       _chromeVisible = true;
     });
 
     _slideshowTimer?.cancel();
-    _slideshowTimer = null;
-    if (!_isSlideshowPlaying) return;
-
     _slideshowTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (!mounted || !_pageController.hasClients || _photosList.length < 2) {
+      if (!mounted ||
+          !_isSlideshowPlaying ||
+          !_pageController.hasClients ||
+          _photosList.length < 2) {
         return;
       }
 
@@ -2869,8 +2888,8 @@ class _ViewerActions extends StatelessWidget {
                 if (onSlideshow != null)
                   _ViewerPlainButton(
                     icon: isSlideshowPlaying
-                        ? CupertinoIcons.pause_fill
-                        : CupertinoIcons.play_fill,
+                        ? CupertinoIcons.pause
+                        : CupertinoIcons.play,
                     onTap: onSlideshow!,
                   ),
                 if (onEdit != null)
@@ -2937,6 +2956,7 @@ class _ViewerPlainButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: SizedBox(
         width: 44,
