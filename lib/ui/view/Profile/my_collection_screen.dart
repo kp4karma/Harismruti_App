@@ -117,7 +117,7 @@ class _RemoveCollectionSheet extends StatelessWidget {
         margin: const EdgeInsets.all(12),
         padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
@@ -134,7 +134,7 @@ class _RemoveCollectionSheet extends StatelessWidget {
               width: 44,
               height: 5,
               decoration: BoxDecoration(
-                color: Colors.black.withAlpha(35),
+                color: Theme.of(context).colorScheme.outlineVariant,
                 borderRadius: BorderRadius.circular(999),
               ),
             ),
@@ -150,7 +150,7 @@ class _RemoveCollectionSheet extends StatelessWidget {
               'Remove "$collectionName" from your collections?',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.black.withAlpha(145),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -299,7 +299,7 @@ class _CollectionCard extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Material(
-          color: Colors.white.withAlpha(150),
+          color: Theme.of(context).colorScheme.surfaceContainer.withAlpha(190),
           child: InkWell(
             onTap: photos.isEmpty
                 ? null
@@ -327,7 +327,9 @@ class _CollectionCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(14),
                       child: photos.isEmpty
                           ? ColoredBox(
-                              color: const Color(0xFFF4F1EE),
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
                               child: Icon(
                                 CupertinoIcons.photo,
                                 color: primaryColor,
@@ -393,13 +395,13 @@ class _EmptyPanel extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white.withAlpha(140),
+        color: Theme.of(context).colorScheme.surfaceContainer.withAlpha(190),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Text(
         message,
         style: TextStyle(
-          color: Colors.black.withAlpha(135),
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
           fontWeight: FontWeight.w700,
         ),
       ),

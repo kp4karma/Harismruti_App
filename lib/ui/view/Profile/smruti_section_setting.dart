@@ -232,7 +232,9 @@ class _StoryWidgetSettings extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withAlpha(205),
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainer.withAlpha(220),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: primaryColor.withAlpha(30)),
       ),
@@ -253,9 +255,12 @@ class _StoryWidgetSettings extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 5),
-          const Text(
+          Text(
             'Choose the content, then add it to your phone Home screen. Long-press the placed widget to resize it.',
-            style: TextStyle(color: Color(0xFF6E625B), fontSize: 12),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 12,
+            ),
           ),
           const SizedBox(height: 16),
           const _SettingLabel('Number of stories'),
@@ -301,12 +306,15 @@ class _StoryWidgetSettings extends StatelessWidget {
             ),
           ),
           if (isVisible)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text(
                 'To remove it, long-press the widget on your phone Home screen.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11, color: Color(0xFF6E625B)),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
         ],
@@ -400,11 +408,11 @@ class _ReorderSectionHeaderState extends State<_ReorderSectionHeader> {
         children: [
           Icon(Icons.drag_handle_rounded, color: primaryColor, size: 20),
           const SizedBox(width: 8),
-          const Expanded(
+          Expanded(
             child: Text(
               'Drag to reorder',
               style: TextStyle(
-                color: Color(0xFF322318),
+                color: Theme.of(context).colorScheme.onSurface,
                 fontWeight: FontWeight.w900,
                 fontSize: 16,
               ),
@@ -468,7 +476,7 @@ class _ReorderHelpPopover extends StatelessWidget {
                 width: 260,
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(18),
                   boxShadow: [
                     BoxShadow(
@@ -490,11 +498,11 @@ class _ReorderHelpPopover extends StatelessWidget {
                           size: 18,
                         ),
                         const SizedBox(width: 6),
-                        const Expanded(
+                        Expanded(
                           child: Text(
                             'Reorder sections',
                             style: TextStyle(
-                              color: Color(0xFF322318),
+                              color: Theme.of(context).colorScheme.onSurface,
                               fontWeight: FontWeight.w900,
                               fontSize: 14,
                             ),
@@ -506,7 +514,9 @@ class _ReorderHelpPopover extends StatelessWidget {
                     Text(
                       'Hold the handle and drag up or down to change the Home screen order.',
                       style: TextStyle(
-                        color: Colors.black.withAlpha(170),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w700,
                         fontSize: 12,
                         height: 1.35,
@@ -546,7 +556,7 @@ class _PreferenceOptionTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: primaryColor.withAlpha(14)),
         boxShadow: [
@@ -588,8 +598,8 @@ class _PreferenceOptionTile extends StatelessWidget {
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF322318),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontWeight: FontWeight.w900,
                           fontSize: 16,
                         ),
@@ -598,7 +608,9 @@ class _PreferenceOptionTile extends StatelessWidget {
                       Text(
                         isShown ? 'Shown on home' : 'Hidden from home',
                         style: TextStyle(
-                          color: Colors.black.withAlpha(128),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w700,
                           fontSize: 12,
                         ),

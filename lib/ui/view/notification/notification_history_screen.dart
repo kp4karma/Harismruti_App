@@ -76,7 +76,7 @@ class _NotificationCard extends StatelessWidget {
     return Material(
       color: isUnread
           ? primaryColor.withAlpha(18)
-          : Colors.white.withAlpha(210),
+          : Theme.of(context).colorScheme.surfaceContainer.withAlpha(220),
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),

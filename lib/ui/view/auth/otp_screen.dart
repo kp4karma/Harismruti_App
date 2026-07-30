@@ -59,8 +59,8 @@ class _OTPScreenState extends State<OTPScreen> {
               Navigator.pop(context);
             },
             child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHigh,
                 shape: BoxShape.circle,
               ),
               child: const Padding(
@@ -79,7 +79,7 @@ class _OTPScreenState extends State<OTPScreen> {
           style: TextStyle(letterSpacing: 1),
         ),
       ),
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         child: Stack(
           alignment: Alignment.topCenter,
@@ -96,7 +96,11 @@ class _OTPScreenState extends State<OTPScreen> {
                   borderRadius: BorderRadius.circular(isKeyboardOpen ? 0 : 30),
                   child: Container(
                     height: SizeConfig.heightMultiplier! * 42,
-                    color: isKeyboardOpen ? Colors.white60 : Colors.transparent,
+                    color: isKeyboardOpen
+                        ? Theme.of(
+                            context,
+                          ).colorScheme.surface.withAlpha(180)
+                        : Colors.transparent,
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
                       child: Container(
@@ -166,7 +170,9 @@ class _OTPScreenState extends State<OTPScreen> {
                                   keyboardType: TextInputType.number,
                                   autoHideKeyboard: true,
                                   fieldBackgroundColor: Colors.transparent,
-                                  borderColor: Colors.grey,
+                                  borderColor: Theme.of(
+                                    context,
+                                  ).colorScheme.outline,
                                   textStyle: const TextStyle(
                                     fontSize: 18.0,
                                     fontWeight: FontWeight.bold,

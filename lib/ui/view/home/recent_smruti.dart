@@ -222,7 +222,9 @@ class _RecentMasonryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _StackSurface(
-      child: _MasonryPage(photos: photos, headers: headers, onTap: onTap),
+      child: SizedBox.expand(
+        child: _MasonryPage(photos: photos, headers: headers, onTap: onTap),
+      ),
     );
   }
 }
@@ -243,6 +245,7 @@ class _MasonryPage extends StatelessWidget {
     if (photos.length == 1) return _tile(photos.first);
     if (photos.length == 2) {
       return Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(child: _tile(photos[0])),
           Expanded(child: _tile(photos[1])),
@@ -265,13 +268,16 @@ class _MasonryPage extends StatelessWidget {
                       constraints.maxWidth)
                   .clamp(0.42, 0.60);
           return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SizedBox(
                 width: constraints.maxWidth * portraitFraction,
+                height: constraints.maxHeight,
                 child: _tile(feature),
               ),
               Expanded(
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     for (final photo in remaining)
                       Expanded(flex: _heightWeight(photo), child: _tile(photo)),
@@ -286,11 +292,13 @@ class _MasonryPage extends StatelessWidget {
 
     if (ordered.length == 3) {
       return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(flex: 5, child: _tile(ordered[0])),
           Expanded(
             flex: 4,
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(child: _tile(ordered[1])),
                 Expanded(child: _tile(ordered[2])),
@@ -302,9 +310,11 @@ class _MasonryPage extends StatelessWidget {
     }
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(child: _tile(ordered[0])),
               Expanded(child: _tile(ordered[3])),
@@ -313,6 +323,7 @@ class _MasonryPage extends StatelessWidget {
         ),
         Expanded(
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(child: _tile(ordered[1])),
               Expanded(child: _tile(ordered[2])),
@@ -336,16 +347,18 @@ class _MasonryPage extends StatelessWidget {
       (100 / _aspectRatio(photo)).round().clamp(55, 180);
 
   Widget _tile(GalleryPhoto photo) {
-    return ClipRect(
-      child: Material(
-        color: const Color(0xFFF4F1EC),
-        child: InkWell(
-          onTap: onTap == null ? null : () => onTap!(photo),
-          child: NetworkImageWithLoader(
-            imageUrl: photo.thumbnailUrl,
-            title: photo.title ?? 'Recent Smruti',
-            headers: headers,
-            fit: BoxFit.cover,
+    return SizedBox.expand(
+      child: ClipRect(
+        child: Material(
+          color: const Color(0xFFF4F1EC),
+          child: InkWell(
+            onTap: onTap == null ? null : () => onTap!(photo),
+            child: NetworkImageWithLoader(
+              imageUrl: photo.thumbnailUrl,
+              title: photo.title ?? 'Recent Smruti',
+              headers: headers,
+              fit: BoxFit.cover,
+            ),
           ),
         ),
       ),

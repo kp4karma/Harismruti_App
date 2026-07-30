@@ -70,7 +70,7 @@ class _CountryDialCodePickerState extends State<CountryDialCodePicker> {
           height: kPhoneInputHeight,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: kPhoneInputFill,
+            color: Theme.of(context).colorScheme.surfaceContainerHigh,
             borderRadius: BorderRadius.circular(kPhoneInputRadius),
             border: Border.all(color: kPhoneInputBorder),
           ),
@@ -109,8 +109,8 @@ class _CountryDialCodePickerState extends State<CountryDialCodePicker> {
                   const SizedBox(width: 7),
                   Text(
                     country?.dialCode ?? widget.countryCode,
-                    style: const TextStyle(
-                      color: Color(0xFF322318),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 15,
                       fontWeight: FontWeight.w900,
                     ),
@@ -124,8 +124,8 @@ class _CountryDialCodePickerState extends State<CountryDialCodePicker> {
                 ],
               ),
             ),
-            dialogTextStyle: const TextStyle(
-              color: Color(0xFF322318),
+            dialogTextStyle: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 15,
               fontWeight: FontWeight.w700,
             ),
@@ -133,17 +133,19 @@ class _CountryDialCodePickerState extends State<CountryDialCodePicker> {
               hintText: 'Search country or code',
               prefixIcon: Icon(CupertinoIcons.search, color: primaryColor),
               filled: true,
-              fillColor: Colors.white.withAlpha(230),
+              fillColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: BorderSide.none,
               ),
             ),
             backgroundColor: Colors.transparent,
-            dialogBackgroundColor: const Color(0xFFF8F6F3),
+            dialogBackgroundColor: Theme.of(context).colorScheme.surface,
             barrierColor: Colors.black.withAlpha(80),
             boxDecoration: BoxDecoration(
-              color: const Color(0xFFF8F6F3),
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(22),
             ),
             dialogSize: Size(

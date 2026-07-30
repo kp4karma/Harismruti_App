@@ -88,8 +88,8 @@ class _LoginScreenState extends State<LoginScreen> {
               Navigator.pop(context);
             },
             child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHigh,
                 shape: BoxShape.circle,
               ),
               child: const Padding(
@@ -105,7 +105,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         title: const Text("Sign In", style: TextStyle(letterSpacing: 1)),
       ),
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         child: Stack(
           alignment: Alignment.topCenter,
@@ -122,7 +122,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   borderRadius: BorderRadius.circular(isKeyboardOpen ? 0 : 30),
                   child: Container(
                     height: SizeConfig.heightMultiplier! * 42,
-                    color: isKeyboardOpen ? Colors.white60 : Colors.transparent,
+                    color: isKeyboardOpen
+                        ? Theme.of(
+                            context,
+                          ).colorScheme.surface.withAlpha(180)
+                        : Colors.transparent,
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
                       child: Container(
@@ -156,7 +160,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                         height: kPhoneInputHeight,
                                         alignment: Alignment.center,
                                         decoration: BoxDecoration(
-                                          color: kPhoneInputFill,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.surfaceContainerHigh,
                                           borderRadius: BorderRadius.circular(
                                             kPhoneInputRadius,
                                           ),

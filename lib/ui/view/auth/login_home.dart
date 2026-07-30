@@ -18,7 +18,7 @@ class _LoginHomeScreenState extends State<LoginHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFF5F5F5),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: CustomAppbar(isCenterTitle: true),
       body: Column(
         children: [
@@ -29,7 +29,7 @@ class _LoginHomeScreenState extends State<LoginHomeScreen> {
             ),
             margin: EdgeInsets.zero,
             shadowColor: Colors.transparent,
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surfaceContainer,
             child: SafeArea(
               top: false,
               child: ResponsiveCenter(

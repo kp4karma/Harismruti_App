@@ -83,8 +83,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHigh,
                     shape: BoxShape.circle,
                   ),
                   child: const Padding(
@@ -102,7 +102,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         title: const Text("Register", style: TextStyle(letterSpacing: 1)),
       ),
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         child: Stack(
           alignment: Alignment.topCenter,
@@ -118,7 +118,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(isKeyboardOpen ? 0 : 30),
                   child: Container(
-                    color: isKeyboardOpen ? Colors.white60 : Colors.transparent,
+                    color: isKeyboardOpen
+                        ? Theme.of(
+                            context,
+                          ).colorScheme.surface.withAlpha(180)
+                        : Colors.transparent,
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
                       child: Container(

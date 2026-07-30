@@ -109,7 +109,7 @@ class _GalleryTimelineScreenState extends State<GalleryTimelineScreen> {
         : '${_monthLabel(_month ?? 1)} $_year';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F6F3),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       bottomNavigationBar: SafeArea(
         top: false,
         child: _TimelineBottomTools(
@@ -128,8 +128,8 @@ class _GalleryTimelineScreenState extends State<GalleryTimelineScreen> {
             centerTitle: true,
             title: Text(
               title,
-              style: const TextStyle(
-                color: Colors.black,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
                 fontWeight: FontWeight.w900,
               ),
             ),
@@ -260,7 +260,9 @@ class _TimelineHeaderGlass extends StatelessWidget {
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-        child: Container(color: Colors.white.withAlpha(125)),
+        child: Container(
+          color: Theme.of(context).colorScheme.surface.withAlpha(190),
+        ),
       ),
     );
   }
@@ -288,7 +290,7 @@ class _TimelineBottomTools extends StatelessWidget {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
                 child: Container(
-                  decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                     backgroundBlendMode: BlendMode.dstOut,
                     gradient: LinearGradient(
                       begin: Alignment.bottomCenter,
@@ -296,9 +298,9 @@ class _TimelineBottomTools extends StatelessWidget {
                       stops: [0.5, 0.7, 0.9, 1.0],
                       colors: [
                         Colors.transparent,
-                        Colors.white24,
-                        Colors.white,
-                        Colors.white,
+                        Theme.of(context).colorScheme.surface.withAlpha(60),
+                        Theme.of(context).colorScheme.surface,
+                        Theme.of(context).colorScheme.surface,
                       ],
                     ),
                   ),
@@ -350,7 +352,7 @@ class _ToolButton extends StatelessWidget {
         height: 50,
         padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
@@ -594,7 +596,7 @@ class _TimelinePhotoSection extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: Colors.black.withAlpha(230),
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: effectiveColumns <= 2 ? 24 : 20,
                         fontWeight: FontWeight.w900,
                       ),
@@ -603,7 +605,7 @@ class _TimelinePhotoSection extends StatelessWidget {
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: Colors.black.withAlpha(120),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
                     ),
@@ -611,7 +613,7 @@ class _TimelinePhotoSection extends StatelessWidget {
                   const SizedBox(width: 6),
                   Icon(
                     CupertinoIcons.chevron_right,
-                    color: Colors.black.withAlpha(120),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     size: 16,
                   ),
                 ],

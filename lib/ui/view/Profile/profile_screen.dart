@@ -476,7 +476,7 @@ class _ProfileOption extends StatelessWidget {
                   const Icon(
                     Icons.arrow_forward_ios_rounded,
                     size: 16,
-                    color: Colors.grey,
+                    color: Theme.of(context).colorScheme.outline,
                   ),
             ],
           ),
