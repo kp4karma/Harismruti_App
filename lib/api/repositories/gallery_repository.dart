@@ -91,15 +91,22 @@ class GalleryRepository {
       'limit': limit,
       if (includeDates) 'include_dates': true,
     });
-    final mobile = currentPhoneNumber();
-    if (mobile.isNotEmpty) queryParams['mobile'] = mobile;
     selected.forEach((slug, values) {
       if (values.isNotEmpty) queryParams[slug] = values;
     });
-    var response = await ApiClient.get(
-      ApiEndpoints.filters,
-      queryParams: queryParams,
-    );
+    late Response response;
+    try {
+      response = await ApiClient.get(
+        ApiEndpoints.filters,
+        queryParams: queryParams,
+      );
+    } on DioException catch (error) {
+      if (!_shouldTryLegacyEndpoint(error)) rethrow;
+      response = await ApiClient.get(
+        ApiEndpoints.legacyFilters,
+        queryParams: queryParams,
+      );
+    }
     if (_isHtmlResponse(response.data)) {
       response = await ApiClient.get(
         ApiEndpoints.legacyFilters,
@@ -408,15 +415,22 @@ class GalleryRepository {
     int perPage = 60,
   }) async {
     final queryParams = _latestQueryParams({'page': page, 'per_page': perPage});
-    final mobile = currentPhoneNumber();
-    if (mobile.isNotEmpty) queryParams['mobile'] = mobile;
     selected.forEach((slug, values) {
       if (values.isNotEmpty) queryParams[slug] = values;
     });
-    var response = await ApiClient.get(
-      ApiEndpoints.filteredPhotos,
-      queryParams: queryParams,
-    );
+    late Response response;
+    try {
+      response = await ApiClient.get(
+        ApiEndpoints.filteredPhotos,
+        queryParams: queryParams,
+      );
+    } on DioException catch (error) {
+      if (!_shouldTryLegacyEndpoint(error)) rethrow;
+      response = await ApiClient.get(
+        ApiEndpoints.legacyFilteredPhotos,
+        queryParams: queryParams,
+      );
+    }
     if (_isHtmlResponse(response.data)) {
       response = await ApiClient.get(
         ApiEndpoints.legacyFilteredPhotos,
@@ -514,6 +528,11 @@ class GalleryRepository {
     final normalized = data.trimLeft().toLowerCase();
     return normalized.startsWith('<!doctype html') ||
         normalized.startsWith('<html');
+  }
+
+  static bool _shouldTryLegacyEndpoint(DioException error) {
+    final status = error.response?.statusCode;
+    return status == 401 || status == 403 || status == 404;
   }
 
   Map<String, dynamic> _scopedQueryParams([
