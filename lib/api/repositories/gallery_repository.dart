@@ -94,26 +94,13 @@ class GalleryRepository {
     selected.forEach((slug, values) {
       if (values.isNotEmpty) queryParams[slug] = values;
     });
-    late Response response;
-    try {
-      response = await ApiClient.get(
-        ApiEndpoints.filters,
-        queryParams: queryParams,
-      );
-    } on DioException catch (error) {
-      if (!_shouldTryLegacyEndpoint(error)) rethrow;
-      response = await ApiClient.get(
-        ApiEndpoints.legacyFilters,
-        queryParams: queryParams,
-      );
-    }
+    final response = await ApiClient.get(
+      ApiEndpoints.filters,
+      queryParams: queryParams,
+    );
     if (_isHtmlResponse(response.data)) {
-      if (!StorageHelper.isLogin()) {
-        return _getPublicAttributeFallbackFilters();
-      }
-      response = await ApiClient.get(
-        ApiEndpoints.legacyFilters,
-        queryParams: queryParams,
+      throw Exception(
+        'Public filters endpoint is not deployed. Deploy the backend update.',
       );
     }
     return GalleryPage.fromJson(
@@ -541,46 +528,6 @@ class GalleryRepository {
   static bool _shouldTryLegacyEndpoint(DioException error) {
     final status = error.response?.statusCode;
     return status == 401 || status == 403 || status == 404;
-  }
-
-  Future<List<GalleryFilterGroup>> _getPublicAttributeFallbackFilters() async {
-    final response = await ApiClient.get(
-      ApiEndpoints.attributes,
-      queryParams: _scopedQueryParams(),
-    );
-    final items = asJsonMap(response.data)['items'];
-    if (items is! List) return const [];
-
-    return items
-        .map((rawGroup) {
-          final group = asJsonMap(rawGroup);
-          final rawSlug = group['slug']?.toString().trim() ?? '';
-          final slug = rawSlug == 'with_' ? 'with' : rawSlug;
-          final values = group['values'];
-          return GalleryFilterGroup(
-            slug: slug,
-            title: group['name']?.toString().trim() ?? slug,
-            options: values is! List
-                ? const []
-                : values
-                      .map((rawValue) {
-                        final value = asJsonMap(
-                          rawValue,
-                        )['value']?.toString().trim();
-                        if (value == null || value.isEmpty) return null;
-                        return GalleryFilterOption(
-                          value: value,
-                          label: value,
-                          // The compatibility endpoint does not expose counts.
-                          count: -1,
-                        );
-                      })
-                      .whereType<GalleryFilterOption>()
-                      .toList(),
-          );
-        })
-        .where((group) => group.slug.isNotEmpty && group.options.isNotEmpty)
-        .toList();
   }
 
   Map<String, dynamic> _scopedQueryParams([
