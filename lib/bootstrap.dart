@@ -19,13 +19,16 @@ Future<void> bootstrap() async {
   PaintingBinding.instance.imageCache
     ..maximumSize = 120
     ..maximumSizeBytes = 48 * 1024 * 1024;
-  await SystemChrome.setPreferredOrientations(defaultOrientationsForDevice());
-
   _configureLoadingUI();
   // MediaKit.ensureInitialized();
 
-  await StorageHelper.init();
-  await ApiClient.init();
+  // These operations are independent. Starting them together shortens the
+  // interval before the fully initialized app replaces the startup frame.
+  await Future.wait([
+    SystemChrome.setPreferredOrientations(defaultOrientationsForDevice()),
+    StorageHelper.init(),
+    ApiClient.init(),
+  ]);
 }
 
 /// Notification permissions, token creation, and topic subscriptions can take

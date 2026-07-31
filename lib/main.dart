@@ -16,8 +16,42 @@ import 'package:harismruti/utils/size_config.dart';
 import 'package:harismruti/widget/internet_status_widget.dart';
 
 void main() async {
-  await bootstrap();
-  runApp(const MyApp());
+  final bootstrapFuture = bootstrap();
+  runApp(_StartupGate(bootstrapFuture: bootstrapFuture));
+}
+
+class _StartupGate extends StatelessWidget {
+  const _StartupGate({required this.bootstrapFuture});
+
+  final Future<void> bootstrapFuture;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<void>(
+      future: bootstrapFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done &&
+            !snapshot.hasError) {
+          return const MyApp();
+        }
+
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          home: Scaffold(
+            backgroundColor: const Color(0xFFF5F5F5),
+            body: Center(
+              child: Image.asset(
+                'assets/app_logo.png',
+                width: 120,
+                height: 120,
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 class MyApp extends StatefulWidget {
