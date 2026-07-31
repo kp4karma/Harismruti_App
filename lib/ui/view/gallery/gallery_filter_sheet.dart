@@ -198,8 +198,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
         .toList();
     final availableGroups =
         <GalleryFilterGroup>[
-              if (mySmrutiGroups.isNotEmpty ||
-                  _controller.shouldShowMySmrutiFilterCategory)
+              if (mySmrutiGroups.isNotEmpty)
                 GalleryFilterGroup(
                   slug: 'my_smruti',
                   title: 'My Smruti',
