@@ -253,7 +253,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
     final availableOptions =
         optionsByValue.values
             .where(
-              (option) => option.count > 0 || selected.contains(option.value),
+              (option) => option.count != 0 || selected.contains(option.value),
             )
             .toList()
           ..sort(_compareFilterOptions);
@@ -821,21 +821,23 @@ class _FilterOptionTile extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            Icon(
-              CupertinoIcons.photo_on_rectangle,
-              size: 12,
-              color: color.withAlpha(165),
-            ),
-            const SizedBox(width: 3),
-            Text(
-              '${option.count}',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
+            if (option.count >= 0) ...[
+              const SizedBox(width: 8),
+              Icon(
+                CupertinoIcons.photo_on_rectangle,
+                size: 12,
+                color: color.withAlpha(165),
               ),
-            ),
+              const SizedBox(width: 3),
+              Text(
+                '${option.count}',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
           ],
         ),
         controlAffinity: ListTileControlAffinity.leading,
@@ -911,21 +913,23 @@ class _FilterOptionsList extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Icon(
-                  CupertinoIcons.photo_on_rectangle,
-                  size: 12,
-                  color: color.withAlpha(165),
-                ),
-                const SizedBox(width: 3),
-                Text(
-                  '${option.count}',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
+                if (option.count >= 0) ...[
+                  const SizedBox(width: 8),
+                  Icon(
+                    CupertinoIcons.photo_on_rectangle,
+                    size: 12,
+                    color: color.withAlpha(165),
                   ),
-                ),
+                  const SizedBox(width: 3),
+                  Text(
+                    '${option.count}',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
               ],
             ),
             controlAffinity: ListTileControlAffinity.leading,
