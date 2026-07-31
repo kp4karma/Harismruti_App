@@ -116,6 +116,7 @@ class GalleryController extends GetxController {
   final Map<GallerySwami, _GalleryTabSnapshot> _tabSnapshots = {};
   final Map<GallerySwami, List<GalleryFilterGroup>> _filterSnapshots = {};
   int _filtersRequestId = 0;
+  bool _usingPublicFilterFallback = false;
   int _mySmrutiFiltersRequestId = 0;
 
   Map<String, String> get imageHeaders => _repository.imageHeaders;
@@ -774,6 +775,10 @@ class GalleryController extends GetxController {
     bool force = false,
   }) async {
     final serverSelected = _serverFilterSelection(selected);
+    // Production versions that predate the public facet endpoint use the
+    // static /attributes compatibility data. It cannot recalculate counts,
+    // so retrying /filters after every tap only adds latency and log noise.
+    if (_usingPublicFilterFallback) return;
     if (!force && serverSelected.isEmpty && filters.isNotEmpty) return;
     final requestId = ++_filtersRequestId;
     final isInitialLoad = filters.isEmpty;
@@ -792,6 +797,11 @@ class GalleryController extends GetxController {
       );
       if (requestId != _filtersRequestId) return;
       filters.assignAll(loadedFilters);
+      _usingPublicFilterFallback =
+          loadedFilters.isNotEmpty &&
+          loadedFilters
+              .expand((group) => group.options)
+              .every((option) => option.count < 0);
       if (serverSelected.isEmpty) {
         _filterSnapshots[selectedSwami.value] = loadedFilters;
       }
@@ -807,6 +817,9 @@ class GalleryController extends GetxController {
   }
 
   Future<void> resetFiltersForSheet() async {
+    // Probe the public endpoint once whenever a new sheet is opened so the
+    // compatibility mode automatically stops after the backend is deployed.
+    _usingPublicFilterFallback = false;
     filters.assignAll(_filterSnapshots[selectedSwami.value] ?? const []);
     filtersError.value = '';
     unawaited(loadMySmrutiFilterPhotos());
