@@ -263,17 +263,7 @@ class _ProfileIdCard extends StatelessWidget {
                 Row(
                   children: [
                     GestureDetector(
-                      onTap: smrutiPhoto == null
-                          ? () => Navigator.push(
-                              context,
-                              CupertinoPageRoute(
-                                settings: const RouteSettings(
-                                  name: 'My Smruti Guide',
-                                ),
-                                builder: (_) => const MyPhoneGuideScreen(),
-                              ),
-                            )
-                          : null,
+                      onTap: () => _openMySmrutiUpload(context),
                       child: _ProfileAvatar(
                         profileController: profileController,
                         smrutiPhoto: smrutiPhoto,
@@ -304,10 +294,7 @@ class _ProfileIdCard extends StatelessWidget {
                                 message: 'Edit name',
                                 child: InkWell(
                                   borderRadius: BorderRadius.circular(10),
-                                  onTap: () => _editProfileName(
-                                    context,
-                                    profileController,
-                                  ),
+                                  onTap: () => _openMySmrutiUpload(context),
                                   child: Container(
                                     width: 30,
                                     height: 30,
@@ -355,47 +342,14 @@ class _ProfileIdCard extends StatelessWidget {
   }
 }
 
-Future<void> _editProfileName(
-  BuildContext context,
-  ProfileController controller,
-) async {
-  final textController = TextEditingController(text: controller.displayName);
-  final name = await showDialog<String>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: const Text('Edit name'),
-      content: TextField(
-        controller: textController,
-        autofocus: true,
-        textCapitalization: TextCapitalization.words,
-        maxLength: 80,
-        decoration: const InputDecoration(
-          labelText: 'Display name',
-          prefixIcon: Icon(Icons.person_outline_rounded),
-        ),
-        onSubmitted: (value) {
-          if (value.trim().isNotEmpty) Navigator.pop(dialogContext, value);
-        },
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialogContext),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () {
-            final value = textController.text.trim();
-            if (value.isNotEmpty) Navigator.pop(dialogContext, value);
-          },
-          child: const Text('Save'),
-        ),
-      ],
+void _openMySmrutiUpload(BuildContext context) {
+  Navigator.push(
+    context,
+    CupertinoPageRoute(
+      settings: const RouteSettings(name: 'My Smruti Guide'),
+      builder: (_) => const MyPhoneGuideScreen(),
     ),
   );
-  textController.dispose();
-  if (name == null || name.trim().isEmpty) return;
-  controller.updateDisplayName(name);
-  TopNotification.success('Name updated');
 }
 
 class _ProfileAvatar extends StatelessWidget {

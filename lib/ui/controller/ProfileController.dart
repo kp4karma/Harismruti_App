@@ -101,17 +101,6 @@ class ProfileController extends GetxController {
     uploadedProfileImageUrl.value = '';
   }
 
-  void updateDisplayName(String name) {
-    final value = name.trim();
-    if (value.isEmpty) return;
-    profile['name'] = value;
-    profile.refresh();
-    StorageHelper.setValue(
-      key: StorageKeys.userProfile,
-      value: jsonEncode(Map<String, dynamic>.from(profile)),
-    );
-  }
-
   String _mobileUserKey() {
     for (final key in ['id', 'user_id', 'mobile', 'username', 'email']) {
       final value = profile[key]?.toString().trim() ?? '';
