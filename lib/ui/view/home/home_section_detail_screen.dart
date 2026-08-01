@@ -76,7 +76,7 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
   void initState() {
     super.initState();
     if (widget.title == SmrutiSectionKeys.location) {
-      _controller.loadCountries();
+      _controller.loadAllPlaces();
     }
     if (_isMySmrutiTitle(widget.title) &&
         Get.isRegistered<MyPhotosController>()) {
@@ -697,14 +697,10 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
       case SmrutiSectionKeys.ofDarshan:
         return _controller.smrutiOf.toList(growable: false);
       case SmrutiSectionKeys.location:
-        final combined = <String, GalleryCard>{};
-        for (final card in [
-          ..._controller.countries,
-          ..._controller.locations,
-        ]) {
-          combined['${card.type}:${card.value.trim().toLowerCase()}'] = card;
-        }
-        return combined.values.toList(growable: false);
+        return (_controller.allPlaces.isNotEmpty
+                ? _controller.allPlaces
+                : _controller.locations)
+            .toList(growable: false);
       case SmrutiSectionKeys.album:
         return _controller.albums.toList(growable: false);
       case SmrutiSectionKeys.myFavorite:

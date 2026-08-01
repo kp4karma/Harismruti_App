@@ -348,14 +348,14 @@ class GalleryRepository {
   Future<List<GalleryCard>> getSmrutiOf({
     String type = 'person',
     int samples = 4,
-    int limit = 60,
+    int? limit = 60,
   }) async {
     final response = await ApiClient.get(
       ApiEndpoints.smrutiOf,
       queryParams: _latestQueryParams({
         'type': type,
         'samples': samples,
-        'limit': limit,
+        if (limit != null) 'limit': limit,
       }),
     );
     return _sortCardsNewestFirst(

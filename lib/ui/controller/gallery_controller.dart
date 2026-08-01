@@ -90,7 +90,7 @@ class GalleryController extends GetxController {
   final RxList<GalleryCard> smrutiWith = <GalleryCard>[].obs;
   final RxList<GalleryCard> smrutiOf = <GalleryCard>[].obs;
   final RxList<GalleryCard> locations = <GalleryCard>[].obs;
-  final RxList<GalleryCard> countries = <GalleryCard>[].obs;
+  final RxList<GalleryCard> allPlaces = <GalleryCard>[].obs;
   final RxList<GalleryCard> albums = <GalleryCard>[].obs;
   final RxList<GalleryCard> subjects = <GalleryCard>[].obs;
   final RxList<GalleryCard> people = <GalleryCard>[].obs;
@@ -118,26 +118,26 @@ class GalleryController extends GetxController {
   final Map<GallerySwami, List<GalleryFilterGroup>> _filterSnapshots = {};
   int _filtersRequestId = 0;
   int _mySmrutiFiltersRequestId = 0;
-  int _countriesRequestId = 0;
+  int _allPlacesRequestId = 0;
 
-  Future<void> loadCountries() async {
-    final requestId = ++_countriesRequestId;
+  Future<void> loadAllPlaces() async {
+    final requestId = ++_allPlacesRequestId;
     final requestedSwami = selectedSwami.value;
     try {
       final cards = await _repository.getSmrutiOf(
-        type: 'country',
+        type: 'location',
         samples: 4,
-        limit: 200,
+        limit: null,
       );
-      if (requestId != _countriesRequestId ||
+      if (requestId != _allPlacesRequestId ||
           requestedSwami != selectedSwami.value) {
         return;
       }
-      countries.assignAll(
+      allPlaces.assignAll(
         _orderCards('location', _cardsForSwami(cards, requestedSwami)),
       );
     } catch (error) {
-      if (kDebugMode) debugPrint('Country list request failed: $error');
+      if (kDebugMode) debugPrint('Complete place list request failed: $error');
     }
   }
 
