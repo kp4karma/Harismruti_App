@@ -38,20 +38,6 @@ class CustomAppbar extends StatelessWidget implements PreferredSizeWidget {
               child: Container(
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surface.withAlpha(158),
-                  border: Border(
-                    bottom: BorderSide(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.outlineVariant.withAlpha(90),
-                    ),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(12),
-                      blurRadius: 18,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
                 ),
               ),
             ),

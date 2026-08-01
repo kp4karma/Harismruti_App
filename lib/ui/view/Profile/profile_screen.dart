@@ -11,9 +11,11 @@ import 'package:harismruti/ui/controller/ProfileController.dart';
 import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
 import 'package:harismruti/ui/controller/auth_controller.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
+import 'package:harismruti/ui/controller/my_photos_controller.dart';
 import 'package:harismruti/ui/controller/theme_controller.dart';
 import 'package:harismruti/ui/view/Profile/smruti_section_setting.dart';
 import 'package:harismruti/ui/view/Profile/home_widget_settings.dart';
+import 'package:harismruti/ui/view/home/my_photos_smruti.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/responsive.dart';
@@ -215,6 +217,10 @@ class _ProfileIdCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Obx(() {
+      final myPhotos = Get.isRegistered<MyPhotosController>()
+          ? Get.find<MyPhotosController>()
+          : null;
+      final smrutiPhoto = myPhotos?.photoForPose(MyPhotoPose.front);
       final rows = [
         _ProfileInfoRowData(
           icon: CupertinoIcons.phone,
@@ -256,7 +262,24 @@ class _ProfileIdCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    _ProfileAvatar(profileController: profileController),
+                    GestureDetector(
+                      onTap: smrutiPhoto == null
+                          ? () => Navigator.push(
+                              context,
+                              CupertinoPageRoute(
+                                settings: const RouteSettings(
+                                  name: 'My Smruti Guide',
+                                ),
+                                builder: (_) => const MyPhoneGuideScreen(),
+                              ),
+                            )
+                          : null,
+                      child: _ProfileAvatar(
+                        profileController: profileController,
+                        smrutiPhoto: smrutiPhoto,
+                        showAddBadge: smrutiPhoto == null,
+                      ),
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -301,8 +324,14 @@ class _ProfileIdCard extends StatelessWidget {
 
 class _ProfileAvatar extends StatelessWidget {
   final ProfileController profileController;
+  final MyPhotoItem? smrutiPhoto;
+  final bool showAddBadge;
 
-  const _ProfileAvatar({required this.profileController});
+  const _ProfileAvatar({
+    required this.profileController,
+    required this.smrutiPhoto,
+    required this.showAddBadge,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -310,14 +339,31 @@ class _ProfileAvatar extends StatelessWidget {
     final image = profileController.profileImage.value;
     final avatarUrl = profileController.avatarUrl;
     final scale = tabletScale(context);
-    return CircleAvatar(
+    final smrutiImage = smrutiPhoto;
+    final avatar = CircleAvatar(
       radius: 23 * scale,
       backgroundColor: scheme.surfaceContainerHighest,
       child: ClipOval(
         child: SizedBox(
           width: 42 * scale,
           height: 42 * scale,
-          child: image != null
+          child: smrutiImage?.hasLocalFile == true
+              ? Image.file(
+                  File(smrutiImage!.path),
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _ProfileInitialAvatar(
+                    initial: profileController.avatarInitial,
+                  ),
+                )
+              : smrutiImage?.hasRemoteImage == true
+              ? Image.network(
+                  smrutiImage!.remoteUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _ProfileInitialAvatar(
+                    initial: profileController.avatarInitial,
+                  ),
+                )
+              : image != null
               ? Image.file(
                   image,
                   fit: BoxFit.cover,
@@ -342,6 +388,27 @@ class _ProfileAvatar extends StatelessWidget {
               : _ProfileInitialAvatar(initial: profileController.avatarInitial),
         ),
       ),
+    );
+    if (!showAddBadge) return avatar;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        avatar,
+        Positioned(
+          right: -2,
+          bottom: -2,
+          child: Container(
+            width: 18,
+            height: 18,
+            decoration: BoxDecoration(
+              color: primaryColor,
+              shape: BoxShape.circle,
+              border: Border.all(color: scheme.surface, width: 2),
+            ),
+            child: const Icon(Icons.add, color: Colors.white, size: 12),
+          ),
+        ),
+      ],
     );
   }
 }

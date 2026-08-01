@@ -36,11 +36,8 @@ class DetailAppbar extends StatelessWidget implements PreferredSizeWidget {
               ? scheme.surface.withAlpha(158)
               : backgroundColor.withAlpha(190),
           surfaceTintColor: Colors.transparent,
-          elevation: elevation,
-          shadowColor: Colors.black.withAlpha(16),
-          shape: Border(
-            bottom: BorderSide(color: scheme.outlineVariant.withAlpha(90)),
-          ),
+          elevation: 0,
+          shadowColor: Colors.transparent,
           centerTitle: centerTitle,
           leading: GestureDetector(
             onTap: onBackTap ?? () => Navigator.pop(context),
