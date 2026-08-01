@@ -320,7 +320,7 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
         : '';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F6F3),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       floatingActionButton: _selectionMode
           ? FloatingActionButton.extended(
               onPressed: _isIgnoring ? null : _ignoreSelected,
@@ -483,7 +483,9 @@ class _MusicStyleHeader extends StatelessWidget {
                 )
               else
                 const GalleryShimmerBox(borderRadius: 0),
-              Container(color: Colors.white.withAlpha(92)),
+              Container(
+                color: Theme.of(context).colorScheme.surface.withAlpha(105),
+              ),
               DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -491,7 +493,7 @@ class _MusicStyleHeader extends StatelessWidget {
                     end: Alignment.bottomCenter,
                     colors: [
                       Colors.black.withAlpha(24),
-                      const Color(0xFFF8F6F3),
+                      Theme.of(context).colorScheme.surface,
                     ],
                   ),
                 ),
@@ -541,8 +543,8 @@ class _MusicStyleHeader extends StatelessWidget {
                         textAlign: TextAlign.center,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.black,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
                         ),
@@ -570,7 +572,11 @@ class _HeaderGlassLayer extends StatelessWidget {
           sigmaX: _homeAppbarBlurSigma,
           sigmaY: _homeAppbarBlurSigma,
         ),
-        child: Container(color: Colors.white.withAlpha(_homeAppbarGlassAlpha)),
+        child: Container(
+          color: Theme.of(
+            context,
+          ).colorScheme.surface.withAlpha(_homeAppbarGlassAlpha),
+        ),
       ),
     );
   }
@@ -1643,6 +1649,77 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
           outsideCaptureAreaLayerOpacity: 0.72,
         ),
       ),
+      paintEditor: PaintEditorConfigs(
+        style: PaintEditorStyle(
+          background: canvas,
+          appBarBackground: cream,
+          appBarColor: ink,
+          bottomBarBackground: cream,
+          bottomBarActiveItemColor: primaryColor,
+          bottomBarInactiveItemColor: ink,
+          lineWidthBottomSheetBackground: warmSurface,
+          opacityBottomSheetBackground: warmSurface,
+          editSheetBackgroundColor: cream,
+          editSheetPreviewAreaColor: warmSurface,
+          initialColor: primaryColor,
+          uiOverlayStyle: SystemUiOverlayStyle.dark,
+        ),
+      ),
+      textEditor: TextEditorConfigs(
+        initialPrimaryColor: primaryColor,
+        style: TextEditorStyle(
+          appBarBackground: cream,
+          appBarColor: ink,
+          bottomBarBackground: cream,
+          background: Color(0xC4171311),
+          inputHintColor: Color(0xFF8E7A6D),
+          inputCursorColor: primaryColor,
+          fontScaleBottomSheetBackground: warmSurface,
+        ),
+      ),
+      cropRotateEditor: CropRotateEditorConfigs(
+        style: CropRotateEditorStyle(
+          appBarBackground: cream,
+          appBarColor: ink,
+          bottomBarBackground: cream,
+          bottomBarColor: ink,
+          background: canvas,
+          cropCornerColor: primaryColor,
+          helperLineColor: primaryColor,
+          aspectRatioSheetBackgroundColor: warmSurface,
+          aspectRatioSheetForegroundColor: ink,
+          uiOverlayStyle: SystemUiOverlayStyle.dark,
+        ),
+      ),
+      tuneEditor: TuneEditorConfigs(
+        style: TuneEditorStyle(
+          appBarBackground: cream,
+          appBarColor: ink,
+          bottomBarBackground: cream,
+          bottomBarActiveItemColor: primaryColor,
+          bottomBarInactiveItemColor: ink,
+          background: canvas,
+          uiOverlayStyle: SystemUiOverlayStyle.dark,
+        ),
+      ),
+      filterEditor: FilterEditorConfigs(
+        style: FilterEditorStyle(
+          appBarBackground: cream,
+          appBarColor: ink,
+          background: canvas,
+          previewTextColor: Color(0xFFE6DAD0),
+          previewSelectedTextColor: primaryColor,
+          uiOverlayStyle: SystemUiOverlayStyle.dark,
+        ),
+      ),
+      blurEditor: BlurEditorConfigs(
+        style: BlurEditorStyle(
+          appBarBackgroundColor: cream,
+          appBarForegroundColor: ink,
+          background: canvas,
+          uiOverlayStyle: SystemUiOverlayStyle.dark,
+        ),
+      ),
     );
   }
 
@@ -2514,7 +2591,7 @@ class _TextEntryBottomSheetState extends State<_TextEntryBottomSheet> {
               maxHeight: MediaQuery.of(context).size.height * 0.78,
             ),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8F6F3).withAlpha(246),
+              color: Theme.of(context).colorScheme.surface.withAlpha(246),
               border: Border(
                 top: BorderSide(color: primaryColor.withAlpha(18)),
               ),
@@ -2553,8 +2630,8 @@ class _TextEntryBottomSheetState extends State<_TextEntryBottomSheet> {
                           child: Text(
                             widget.title,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Color(0xFF322318),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
                               fontSize: 18,
                               fontWeight: FontWeight.w900,
                             ),
@@ -2581,7 +2658,9 @@ class _TextEntryBottomSheetState extends State<_TextEntryBottomSheet> {
                               hintText:
                                   'Search ${isCollection ? 'collection' : 'tag'}',
                               filled: true,
-                              fillColor: Colors.white.withAlpha(235),
+                              fillColor: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
                                 borderSide: BorderSide.none,
@@ -2628,7 +2707,7 @@ class _TextEntryBottomSheetState extends State<_TextEntryBottomSheet> {
                             ? 'Select Collection'
                             : 'Select Tag',
                         style: TextStyle(
-                          color: Colors.black.withAlpha(150),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
                         ),
@@ -2699,7 +2778,7 @@ class _ReusableValueTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white.withAlpha(235),
+          color: Theme.of(context).colorScheme.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: primaryColor.withAlpha(16)),
         ),
@@ -2724,8 +2803,8 @@ class _ReusableValueTile extends StatelessWidget {
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF322318),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 15,
                       fontWeight: FontWeight.w900,
                     ),
@@ -2735,7 +2814,7 @@ class _ReusableValueTile extends StatelessWidget {
                     Text(
                       subtitle,
                       style: TextStyle(
-                        color: Colors.black.withAlpha(125),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                       ),
@@ -2874,9 +2953,13 @@ class _ViewerTopBar extends StatelessWidget {
                       vertical: 9,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withAlpha(178),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainer.withAlpha(210),
                       borderRadius: BorderRadius.circular(28),
-                      border: Border.all(color: Colors.white.withAlpha(210)),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withAlpha(30),
@@ -2892,10 +2975,10 @@ class _ViewerTopBar extends StatelessWidget {
                           displayTitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w900,
-                            color: Colors.black,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
                         const SizedBox(height: 1),
@@ -2906,7 +2989,9 @@ class _ViewerTopBar extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
-                            color: Colors.black.withAlpha(166),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],
@@ -3084,7 +3169,7 @@ class _ViewerActions extends StatelessWidget {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(28),
                   boxShadow: [
                     BoxShadow(
@@ -3100,7 +3185,9 @@ class _ViewerActions extends StatelessWidget {
                       icon: isFavorite
                           ? CupertinoIcons.heart_fill
                           : CupertinoIcons.heart,
-                      color: isFavorite ? Colors.redAccent : Colors.black,
+                      color: isFavorite
+                          ? Colors.redAccent
+                          : Theme.of(context).colorScheme.onSurface,
                       onTap: onFavorite,
                     ),
                     _InfoToggleButton(isOpen: isInfoOpen, onTap: onInfo),
@@ -3138,7 +3225,7 @@ class _ViewerCircleButton extends StatelessWidget {
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: Colors.white.withAlpha(235),
+          color: Theme.of(context).colorScheme.surfaceContainerHigh,
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
@@ -3148,7 +3235,11 @@ class _ViewerCircleButton extends StatelessWidget {
             ),
           ],
         ),
-        child: Icon(icon, color: Colors.black, size: 22),
+        child: Icon(
+          icon,
+          color: Theme.of(context).colorScheme.onSurface,
+          size: 22,
+        ),
       ),
     );
   }
@@ -3156,13 +3247,13 @@ class _ViewerCircleButton extends StatelessWidget {
 
 class _ViewerPlainButton extends StatelessWidget {
   final IconData icon;
-  final Color color;
+  final Color? color;
   final VoidCallback onTap;
 
   const _ViewerPlainButton({
     required this.icon,
     required this.onTap,
-    this.color = Colors.black,
+    this.color,
   });
 
   @override
@@ -3173,7 +3264,11 @@ class _ViewerPlainButton extends StatelessWidget {
       child: SizedBox(
         width: 44,
         height: 40,
-        child: Icon(icon, color: color, size: 23),
+        child: Icon(
+          icon,
+          color: color ?? Theme.of(context).colorScheme.onSurface,
+          size: 23,
+        ),
       ),
     );
   }
@@ -3265,9 +3360,9 @@ class _InlineInfoPanel extends StatelessWidget {
         maxHeight: MediaQuery.of(context).size.height * 0.42,
       ),
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: FutureBuilder<GalleryPhotoAttributes>(
         future: attributesFuture,
@@ -3305,7 +3400,7 @@ class _InlineInfoPanel extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black.withAlpha(135),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     );
                   },
@@ -3330,7 +3425,7 @@ class _InlineInfoPanel extends StatelessWidget {
                   Text(
                     'No tags added',
                     style: TextStyle(
-                      color: Colors.black.withAlpha(135),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
                     ),
                   )
@@ -3418,7 +3513,11 @@ class _TagInfoCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       decoration: BoxDecoration(
-        color: Color.lerp(Colors.white, color, 0.16),
+        color: Color.lerp(
+          Theme.of(context).colorScheme.surfaceContainer,
+          color,
+          0.16,
+        ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -3451,8 +3550,8 @@ class _TagInfoCard extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: Colors.black87,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
                 fontWeight: FontWeight.w700,
                 fontSize: 14,
               ),
@@ -3482,7 +3581,7 @@ class _InfoMapCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
-          color: const Color(0xFFEAF2EC),
+          color: Theme.of(context).colorScheme.surfaceContainer,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withAlpha(18),
@@ -3539,7 +3638,7 @@ class _InfoMapCard extends StatelessWidget {
                 height: 72,
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
@@ -3574,9 +3673,13 @@ class _InfoMapCard extends StatelessWidget {
                       vertical: 9,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withAlpha(205),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHigh.withAlpha(225),
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: Colors.white.withAlpha(220)),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
                     ),
                     child: Row(
                       children: [

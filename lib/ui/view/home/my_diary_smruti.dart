@@ -438,12 +438,12 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
                 cursorColor: primaryColor,
                 textCapitalization: TextCapitalization.sentences,
                 keyboardType: TextInputType.text,
-                style: const TextStyle(
-                  color: Color(0xFF322318),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
                 ),
-                decoration: _plainInputDecoration('Title'),
+                decoration: _plainInputDecoration(context, 'Title'),
               ),
               const SizedBox(height: 6),
               TextField(
@@ -454,12 +454,15 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
                 maxLines: null,
                 keyboardType: TextInputType.multiline,
                 textCapitalization: TextCapitalization.sentences,
-                style: const TextStyle(
-                  color: Color(0xFF322318),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 20,
                   height: 1.35,
                 ),
-                decoration: _plainInputDecoration('Write anything here...'),
+                decoration: _plainInputDecoration(
+                  context,
+                  'Write anything here...',
+                ),
               ),
             ],
           ),
@@ -490,10 +493,12 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
     );
   }
 
-  InputDecoration _plainInputDecoration(String hint) {
+  InputDecoration _plainInputDecoration(BuildContext context, String hint) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: TextStyle(color: Colors.black.withAlpha(90)),
+      hintStyle: TextStyle(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
       border: InputBorder.none,
       enabledBorder: InputBorder.none,
       focusedBorder: InputBorder.none,
@@ -501,12 +506,14 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
     );
   }
 
-  InputDecoration _darkInputDecoration(String hint) {
+  InputDecoration _darkInputDecoration(BuildContext context, String hint) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: TextStyle(color: Colors.black.withAlpha(95)),
+      hintStyle: TextStyle(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
       filled: true,
-      fillColor: Colors.white.withAlpha(235),
+      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       contentPadding: const EdgeInsets.all(16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
@@ -661,10 +668,10 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Location name',
                 style: TextStyle(
-                  color: Color(0xFF322318),
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
                 ),
@@ -673,8 +680,13 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
               TextField(
                 controller: _locationController,
                 autofocus: true,
-                style: const TextStyle(color: Color(0xFF322318)),
-                decoration: _darkInputDecoration('Temple, home, city...'),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+                decoration: _darkInputDecoration(
+                  context,
+                  'Temple, home, city...',
+                ),
               ),
               const SizedBox(height: 12),
               CupertinoButton(
@@ -833,8 +845,8 @@ class _DiaryGlassAppBar extends StatelessWidget implements PreferredSizeWidget {
             title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF322318),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -1127,10 +1139,10 @@ class _DateNotesList extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Text(
+            Text(
               'Notes on this date',
               style: TextStyle(
-                color: Color(0xFF322318),
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 15,
                 fontWeight: FontWeight.w900,
               ),
@@ -1175,8 +1187,8 @@ class _DateNotesList extends StatelessWidget {
                               entry.title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Color(0xFF322318),
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
@@ -1186,7 +1198,9 @@ class _DateNotesList extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: Colors.black.withAlpha(130),
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -1338,7 +1352,7 @@ class _DiaryPhotoSelectionHeader extends StatelessWidget {
             width: 42,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.black.withAlpha(35),
+              color: Theme.of(context).colorScheme.outlineVariant,
               borderRadius: BorderRadius.circular(99),
             ),
           ),
@@ -1359,10 +1373,10 @@ class _DiaryPhotoSelectionHeader extends StatelessWidget {
               Expanded(
                 child: Column(
                   children: [
-                    const Text(
+                    Text(
                       'Select Photos',
                       style: TextStyle(
-                        color: Color(0xFF322318),
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 17,
                         fontWeight: FontWeight.w900,
                       ),
@@ -1601,8 +1615,8 @@ class _DiaryReusablePickerSheetState extends State<_DiaryReusablePickerSheet> {
                           child: Text(
                             widget.title,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Color(0xFF322318),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
                               fontSize: 18,
                               fontWeight: FontWeight.w900,
                             ),
@@ -1639,7 +1653,9 @@ class _DiaryReusablePickerSheetState extends State<_DiaryReusablePickerSheet> {
                             ),
                             hintText: widget.hint,
                             filled: true,
-                            fillColor: Colors.white.withAlpha(235),
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide.none,
@@ -1758,8 +1774,8 @@ class _ReusablePickerTile extends StatelessWidget {
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF322318),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 15,
                       fontWeight: FontWeight.w900,
                     ),
@@ -1917,7 +1933,7 @@ class _CalendarDateCell extends StatelessWidget {
                 style: TextStyle(
                   color: isToday || entry != null
                       ? primaryColor
-                      : Colors.black87,
+                      : Theme.of(context).colorScheme.onSurface,
                   fontSize: 19,
                   fontWeight: FontWeight.w800,
                 ),
@@ -1999,8 +2015,8 @@ class _DarkEntryTile extends StatelessWidget {
                     entry.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF322318),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 15,
                       fontWeight: FontWeight.w900,
                     ),

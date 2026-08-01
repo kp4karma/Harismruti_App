@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -146,6 +147,17 @@ ThemeData _buildTheme(Brightness brightness) {
     fontFamily: 'Poppins',
     brightness: brightness,
     colorScheme: scheme,
+    cupertinoOverrideTheme: CupertinoThemeData(
+      brightness: brightness,
+      primaryColor: primaryColor,
+      scaffoldBackgroundColor: scheme.surface,
+      barBackgroundColor: scheme.surfaceContainer,
+      textTheme: CupertinoTextThemeData(
+        primaryColor: scheme.onSurface,
+        textStyle: TextStyle(color: scheme.onSurface, fontFamily: 'Poppins'),
+        actionTextStyle: TextStyle(color: primaryColor, fontFamily: 'Poppins'),
+      ),
+    ),
     canvasColor: scheme.surface,
     cardColor: scheme.surfaceContainer,
     dividerColor: scheme.outlineVariant,
@@ -153,6 +165,10 @@ ThemeData _buildTheme(Brightness brightness) {
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: scheme.surfaceContainer,
       modalBackgroundColor: scheme.surfaceContainer,
+    ),
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: scheme.inverseSurface,
+      contentTextStyle: TextStyle(color: scheme.onInverseSurface),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,

@@ -114,9 +114,11 @@ class SplashScreenState extends State<SplashScreen>
             maxWidth: kSheetMaxWidth,
             child: Container(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(28),
+                ),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -125,7 +127,7 @@ class SplashScreenState extends State<SplashScreen>
                     width: 44,
                     height: 5,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFD7D0CC),
+                      color: Theme.of(context).colorScheme.outlineVariant,
                       borderRadius: BorderRadius.circular(99),
                     ),
                   ),
@@ -144,11 +146,11 @@ class SplashScreenState extends State<SplashScreen>
                     ),
                   ),
                   const SizedBox(height: 18),
-                  const Text(
+                  Text(
                     'New Version Available',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Color(0xFF241A17),
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
                     ),
@@ -157,8 +159,8 @@ class SplashScreenState extends State<SplashScreen>
                   Text(
                     versionInfo.message,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFF6E625D),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 15,
                       height: 1.45,
                     ),
@@ -168,8 +170,8 @@ class SplashScreenState extends State<SplashScreen>
                     'Installed ${ApiClient.currentAppVersion}  •  '
                     'Latest ${versionInfo.maxVersion}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFF9A8E88),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.outline,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
