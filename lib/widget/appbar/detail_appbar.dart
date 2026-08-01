@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -24,35 +26,50 @@ class DetailAppbar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppBar(
-      scrolledUnderElevation: 0,
-      backgroundColor: backgroundColor,
-      elevation: elevation,
-      centerTitle: centerTitle,
-      // leadingWidth: SizeConfig.widthMultiplier! * 20,
-      leading: GestureDetector(
-        onTap: onBackTap ?? () => Navigator.pop(context),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                shape: BoxShape.circle,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(6.0),
-                child: Icon(
-                  CupertinoIcons.left_chevron,
-                  color: iconColor ?? Theme.of(context).colorScheme.onSurface,
-                  size: 18,
+    final scheme = Theme.of(context).colorScheme;
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: AppBar(
+          scrolledUnderElevation: 0,
+          backgroundColor: backgroundColor == Colors.transparent
+              ? scheme.surface.withAlpha(158)
+              : backgroundColor.withAlpha(190),
+          surfaceTintColor: Colors.transparent,
+          elevation: elevation,
+          shadowColor: Colors.black.withAlpha(16),
+          shape: Border(
+            bottom: BorderSide(color: scheme.outlineVariant.withAlpha(90)),
+          ),
+          centerTitle: centerTitle,
+          leading: GestureDetector(
+            onTap: onBackTap ?? () => Navigator.pop(context),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHigh.withAlpha(175),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: scheme.outlineVariant.withAlpha(110),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(6.0),
+                    child: Icon(
+                      CupertinoIcons.left_chevron,
+                      color: iconColor ?? scheme.onSurface,
+                      size: 18,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
+          title: Text(title, style: const TextStyle(letterSpacing: 1)),
         ),
       ),
-      title: Text(title, style: const TextStyle(letterSpacing: 1)),
     );
   }
 }

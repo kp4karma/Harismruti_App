@@ -36,7 +36,23 @@ class CustomAppbar extends StatelessWidget implements PreferredSizeWidget {
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
               child: Container(
-                color: Theme.of(context).colorScheme.surface.withAlpha(190),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface.withAlpha(158),
+                  border: Border(
+                    bottom: BorderSide(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.outlineVariant.withAlpha(90),
+                    ),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(12),
+                      blurRadius: 18,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
