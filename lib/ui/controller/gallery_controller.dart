@@ -90,6 +90,7 @@ class GalleryController extends GetxController {
   final RxList<GalleryCard> smrutiWith = <GalleryCard>[].obs;
   final RxList<GalleryCard> smrutiOf = <GalleryCard>[].obs;
   final RxList<GalleryCard> locations = <GalleryCard>[].obs;
+  final RxList<GalleryCard> countries = <GalleryCard>[].obs;
   final RxList<GalleryCard> albums = <GalleryCard>[].obs;
   final RxList<GalleryCard> subjects = <GalleryCard>[].obs;
   final RxList<GalleryCard> people = <GalleryCard>[].obs;
@@ -117,6 +118,28 @@ class GalleryController extends GetxController {
   final Map<GallerySwami, List<GalleryFilterGroup>> _filterSnapshots = {};
   int _filtersRequestId = 0;
   int _mySmrutiFiltersRequestId = 0;
+  int _countriesRequestId = 0;
+
+  Future<void> loadCountries() async {
+    final requestId = ++_countriesRequestId;
+    final requestedSwami = selectedSwami.value;
+    try {
+      final cards = await _repository.getSmrutiOf(
+        type: 'country',
+        samples: 4,
+        limit: 200,
+      );
+      if (requestId != _countriesRequestId ||
+          requestedSwami != selectedSwami.value) {
+        return;
+      }
+      countries.assignAll(
+        _orderCards('location', _cardsForSwami(cards, requestedSwami)),
+      );
+    } catch (error) {
+      if (kDebugMode) debugPrint('Country list request failed: $error');
+    }
+  }
 
   Map<String, String> get imageHeaders => _repository.imageHeaders;
   bool get hasAnyData =>
