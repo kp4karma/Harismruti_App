@@ -98,6 +98,7 @@ class ApiEndpoints {
   static String photoEnhancements(int photoId) =>
       "/me/photos/$photoId/enhancements";
   static String photoEnhancement(int jobId) => "/me/enhancements/$jobId";
+  static const String photoEnhancementDownloads = "/me/enhancements";
   static String photoEnhancementDownload(int jobId) =>
       "$mainDomain/me/enhancements/$jobId/download";
 }

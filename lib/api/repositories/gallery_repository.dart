@@ -245,6 +245,19 @@ class GalleryRepository {
     return asJsonMap(response.data);
   }
 
+  Future<List<Map<String, dynamic>>> getReadyPhotoEnhancements() async {
+    final response = await ApiClient.get(
+      ApiEndpoints.photoEnhancementDownloads,
+      forceRefresh: true,
+    );
+    final body = asJsonMap(response.data);
+    final items = body['items'];
+    if (items is! List) return const [];
+    return items.whereType<Map>().map((item) {
+      return Map<String, dynamic>.from(item);
+    }).toList();
+  }
+
   Future<void> addPhotoToCollection({
     required String name,
     required int photoId,

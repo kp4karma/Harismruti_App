@@ -140,7 +140,9 @@ class GalleryController extends GetxController {
       // The endpoint is already scoped by Swami. Applying the client date
       // filter again can incorrectly discard cards when sample metadata differs
       // from the server's coalesced visibility date.
-      allPlaces.assignAll(_orderCards('location', cards));
+      allPlaces.assignAll(
+        _orderCards('location', cards, applySectionLimit: false),
+      );
     } catch (error) {
       if (kDebugMode) debugPrint('Complete place list request failed: $error');
     }
@@ -1409,7 +1411,11 @@ class GalleryController extends GetxController {
     Iterable<GalleryPhoto> items,
   ) => _orderPhotos(sectionKey, items.toList());
 
-  List<GalleryCard> _orderCards(String sectionKey, List<GalleryCard> items) {
+  List<GalleryCard> _orderCards(
+    String sectionKey,
+    List<GalleryCard> items, {
+    bool applySectionLimit = true,
+  }) {
     final setting = _sectionSetting(sectionKey);
     final ordered = _applyConfiguredOrder<GalleryCard>(
       sectionKey,
@@ -1425,6 +1431,7 @@ class GalleryController extends GetxController {
           ),
       (card) => card.id,
     );
+    if (!applySectionLimit) return ordered;
     return ordered.take(setting?.itemLimit ?? ordered.length).toList();
   }
 

@@ -1254,57 +1254,26 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   Future<void> _downloadQuality(String quality) async {
     if (_isDownloading) return;
     setState(() => _isDownloading = true);
-    final progress = ValueNotifier<int>(quality == 'original' ? 100 : 0);
-    var dialogOpen = false;
     try {
       if (quality != 'original') {
-        dialogOpen = true;
-        unawaited(
-          showCupertinoDialog<void>(
-            context: context,
-            barrierDismissible: false,
-            builder: (_) => _EnhancementProgressDialog(progress: progress),
-          ),
-        );
-      }
-
-      var downloadUrl = _photo.fullUrl;
-      if (quality != 'original') {
-        var job = await _repository.createPhotoEnhancement(
+        final job = await _repository.createPhotoEnhancement(
           photoId: _photo.id,
           quality: quality,
         );
-        final jobId = int.tryParse('${job['id']}');
-        if (jobId == null) throw Exception('Enhancement job was not created');
-
-        for (var attempt = 0; attempt < 120; attempt++) {
-          final status = job['status']?.toString() ?? '';
-          progress.value = int.tryParse('${job['progress']}') ?? 0;
-          if (status == 'completed') {
-            downloadUrl = ApiEndpoints.photoEnhancementDownload(jobId);
-            break;
-          }
-          if (status == 'failed' || status == 'expired') {
-            throw Exception(
-              job['error_message']?.toString() ??
-                  'The enhanced photo could not be prepared',
-            );
-          }
-          await Future<void>.delayed(const Duration(seconds: 1));
-          job = await _repository.getPhotoEnhancement(jobId);
-        }
-        if (downloadUrl == _photo.fullUrl) {
-          throw Exception('Enhancement is taking longer than expected');
-        }
+        final position = int.tryParse('${job['queue_position']}');
+        if (!mounted) return;
+        TopNotification.success(
+          position == null
+              ? 'Download request added to the queue. We will notify you when it is ready.'
+              : 'Download request queued at position $position. We will notify you when it is ready.',
+          title: 'Enhancement requested',
+        );
+        return;
       }
 
-      if (dialogOpen && mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-        dialogOpen = false;
-      }
+      final downloadUrl = _photo.fullUrl;
       final tempDir = await getTemporaryDirectory();
-      final fileName =
-          'harismruti-${_photo.id}-${quality == 'original' ? 'original' : '$quality-enhanced'}.jpg';
+      final fileName = 'harismruti-${_photo.id}-original.jpg';
       final filePath = '${tempDir.path}${Platform.pathSeparator}$fileName';
       await Dio().download(
         downloadUrl,
@@ -1326,13 +1295,9 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       if (!mounted) return;
       TopNotification.success('Photo saved to the "$albumName" album');
     } catch (error) {
-      if (dialogOpen && mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
       if (!mounted) return;
       TopNotification.error(error.toString().replaceFirst('Exception: ', ''));
     } finally {
-      progress.dispose();
       if (mounted) setState(() => _isDownloading = false);
     }
   }
