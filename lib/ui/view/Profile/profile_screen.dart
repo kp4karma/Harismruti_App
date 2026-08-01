@@ -51,7 +51,7 @@ class ProfileScreen extends StatelessWidget {
                       _ProfileIdCard(profileController: profileController),
                       const SizedBox(height: 16),
                       _ProfileOption(
-                        icon: Icons.tune,
+                        icon: Icons.tune_outlined,
                         label: 'Customize Preferences',
                         onTap: () {
                           Navigator.push(
@@ -68,7 +68,7 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       _ProfileOption(
-                        icon: Icons.widgets_rounded,
+                        icon: Icons.widgets_outlined,
                         label: 'Home Screen Widgets',
                         onTap: () {
                           Navigator.push(
@@ -84,8 +84,8 @@ class ProfileScreen extends StatelessWidget {
                         final themeController = Get.find<ThemeController>();
                         return _ProfileOption(
                           icon: themeController.isDarkMode.value
-                              ? Icons.dark_mode_rounded
-                              : Icons.light_mode_rounded,
+                              ? Icons.dark_mode_outlined
+                              : Icons.light_mode_outlined,
                           label: 'Dark mode',
                           trailing: Switch.adaptive(
                             value: themeController.isDarkMode.value,
@@ -105,13 +105,13 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       _ProfileOption(
-                        icon: Icons.logout,
+                        icon: Icons.logout_outlined,
                         label: 'Logout',
                         onTap: _logout,
                       ),
                       const SizedBox(height: 12),
                       _ProfileOption(
-                        icon: Icons.delete_outline,
+                        icon: Icons.delete_outline_rounded,
                         label: 'Delete Account',
                         destructive: true,
                         onTap: () => _confirmDeleteAccount(context),
@@ -478,7 +478,26 @@ class _ProfileOption extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
-              Icon(icon, color: color),
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: destructive
+                      ? Colors.red.withAlpha(10)
+                      : primaryColor.withAlpha(10),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: destructive
+                        ? Colors.red.withAlpha(42)
+                        : primaryColor.withAlpha(36),
+                  ),
+                ),
+                child: Icon(
+                  icon,
+                  color: destructive ? color : primaryColor,
+                  size: 21,
+                ),
+              ),
               const SizedBox(width: 16),
               Expanded(
                 child: Text(
