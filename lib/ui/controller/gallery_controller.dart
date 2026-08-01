@@ -130,15 +130,17 @@ class GalleryController extends GetxController {
       final cards = await _repository.getSmrutiOf(
         type: 'location',
         samples: 4,
-        limit: null,
+        limit: 500,
+        unlimited: true,
       );
       if (requestId != _allPlacesRequestId ||
           requestedSwami != selectedSwami.value) {
         return;
       }
-      allPlaces.assignAll(
-        _orderCards('location', _cardsForSwami(cards, requestedSwami)),
-      );
+      // The endpoint is already scoped by Swami. Applying the client date
+      // filter again can incorrectly discard cards when sample metadata differs
+      // from the server's coalesced visibility date.
+      allPlaces.assignAll(_orderCards('location', cards));
     } catch (error) {
       if (kDebugMode) debugPrint('Complete place list request failed: $error');
     }
