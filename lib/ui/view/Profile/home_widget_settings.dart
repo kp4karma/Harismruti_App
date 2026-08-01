@@ -69,33 +69,41 @@ class _HomeWidgetSettingsScreenState extends State<HomeWidgetSettingsScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Container(
-                      width: 62,
-                      height: 62,
-                      decoration: BoxDecoration(
-                        color: primaryColor.withAlpha(24),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Icon(design.$3, color: primaryColor, size: 30),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(design.$1, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-                          const SizedBox(height: 4),
-                          Text(design.$2, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                    FilledButton(
-                      onPressed: _addingIndex == null ? () => _add(index) : null,
-                      child: _addingIndex == index
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Text('Add'),
+                    _HomeWidgetPreview(styleIndex: index),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: primaryColor.withAlpha(24),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Icon(design.$3, color: primaryColor, size: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(design.$1, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                              const SizedBox(height: 3),
+                              Text(design.$2, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        FilledButton(
+                          onPressed: _addingIndex == null ? () => _add(index) : null,
+                          child: _addingIndex == index
+                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Text('Add'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -104,6 +112,128 @@ class _HomeWidgetSettingsScreenState extends State<HomeWidgetSettingsScreen> {
           },
         ),
       ),
+    );
+  }
+}
+
+class _HomeWidgetPreview extends StatelessWidget {
+  const _HomeWidgetPreview({required this.styleIndex});
+
+  final int styleIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: styleIndex == 4 ? 88 : 126,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF261A16),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withAlpha(22)),
+      ),
+      child: switch (styleIndex) {
+        0 => Column(
+          children: [
+            Expanded(child: Row(children: const [Expanded(child: _PreviewTile(seed: 0)), SizedBox(width: 6), Expanded(child: _PreviewTile(seed: 1))])),
+            const SizedBox(height: 6),
+            Expanded(child: Row(children: const [Expanded(child: _PreviewTile(seed: 2)), SizedBox(width: 6), Expanded(child: _PreviewTile(seed: 3))])),
+          ],
+        ),
+        1 => const _PreviewTile(seed: 1, showCaption: true),
+        2 => Row(
+          children: [
+            for (var index = 0; index < 4; index++) ...[
+              Expanded(child: _PreviewTile(seed: index, round: true)),
+              if (index != 3) const SizedBox(width: 6),
+            ],
+          ],
+        ),
+        3 => const Row(
+          children: [
+            Expanded(flex: 2, child: _PreviewTile(seed: 2, showCaption: true)),
+            SizedBox(width: 6),
+            Expanded(
+              child: Column(
+                children: [
+                  Expanded(child: _PreviewTile(seed: 0)),
+                  SizedBox(height: 6),
+                  Expanded(child: _PreviewTile(seed: 3)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        _ => const Row(
+          children: [
+            SizedBox(width: 74, child: _PreviewTile(seed: 0)),
+            SizedBox(width: 10),
+            Expanded(child: _PreviewText()),
+          ],
+        ),
+      },
+    );
+  }
+}
+
+class _PreviewTile extends StatelessWidget {
+  const _PreviewTile({required this.seed, this.showCaption = false, this.round = false});
+
+  final int seed;
+  final bool showCaption;
+  final bool round;
+
+  @override
+  Widget build(BuildContext context) {
+    final palettes = [
+      [const Color(0xFFD69A78), const Color(0xFF784234)],
+      [const Color(0xFFE6BD73), const Color(0xFF8A512F)],
+      [const Color(0xFFA9B889), const Color(0xFF516044)],
+      [const Color(0xFFB99BAE), const Color(0xFF694B5E)],
+    ];
+    final colors = palettes[seed % palettes.length];
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors),
+        borderRadius: BorderRadius.circular(round ? 40 : 11),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Icon(Icons.temple_hindu_outlined, color: Colors.white.withAlpha(190), size: round ? 25 : 34),
+          if (showCaption)
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.black.withAlpha(80),
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(11)),
+                ),
+                child: const Text('Today’s Smruti', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PreviewText extends StatelessWidget {
+  const _PreviewText();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('HariPrabodham Smruti', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 7),
+        Container(height: 5, width: 100, decoration: BoxDecoration(color: Colors.white.withAlpha(80), borderRadius: BorderRadius.circular(4))),
+        const SizedBox(height: 5),
+        Container(height: 5, width: 64, decoration: BoxDecoration(color: Colors.white.withAlpha(45), borderRadius: BorderRadius.circular(4))),
+      ],
     );
   }
 }
