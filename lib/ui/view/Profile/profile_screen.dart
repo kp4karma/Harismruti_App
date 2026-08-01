@@ -238,7 +238,7 @@ class _ProfileIdCard extends StatelessWidget {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: scheme.surfaceContainer.withAlpha(205),
               borderRadius: BorderRadius.circular(16),
@@ -257,7 +257,7 @@ class _ProfileIdCard extends StatelessWidget {
                 Row(
                   children: [
                     _ProfileAvatar(profileController: profileController),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -268,7 +268,7 @@ class _ProfileIdCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: scheme.onSurface,
-                              fontSize: 17,
+                              fontSize: 16,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -277,12 +277,16 @@ class _ProfileIdCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                if (rows.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Divider(height: 1, color: scheme.outlineVariant),
+                  const SizedBox(height: 5),
+                ],
                 Column(
                   children: [
                     for (int index = 0; index < rows.length; index++) ...[
                       _ProfileInfoRow(data: rows[index]),
-                      if (index != rows.length - 1) const SizedBox(height: 8),
+                      if (index != rows.length - 1) const SizedBox(height: 2),
                     ],
                   ],
                 ),
@@ -307,12 +311,12 @@ class _ProfileAvatar extends StatelessWidget {
     final avatarUrl = profileController.avatarUrl;
     final scale = tabletScale(context);
     return CircleAvatar(
-      radius: 28 * scale,
+      radius: 23 * scale,
       backgroundColor: scheme.surfaceContainerHighest,
       child: ClipOval(
         child: SizedBox(
-          width: 50 * scale,
-          height: 50 * scale,
+          width: 42 * scale,
+          height: 42 * scale,
           child: image != null
               ? Image.file(
                   image,
@@ -356,7 +360,7 @@ class _ProfileInitialAvatar extends StatelessWidget {
         initial,
         style: TextStyle(
           color: primaryColor,
-          fontSize: 24,
+          fontSize: 20,
           fontWeight: FontWeight.w900,
         ),
       ),
@@ -384,65 +388,40 @@ class _ProfileInfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerHighest.withAlpha(185),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: scheme.outlineVariant),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          Icon(
+            data.icon,
+            color: primaryColor,
+            size: 15 * tabletScale(context),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 30 * tabletScale(context),
-                height: 30 * tabletScale(context),
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(9),
-                  border: Border.all(color: scheme.outlineVariant),
-                ),
-                child: Icon(
-                  data.icon,
-                  color: primaryColor,
-                  size: 16 * tabletScale(context),
-                ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 48,
+            child: Text(
+              data.label,
+              style: TextStyle(
+                color: scheme.onSurfaceVariant,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      data.label,
-                      style: TextStyle(
-                        color: primaryColor.withAlpha(170),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      data.value,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: scheme.onSurface,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+          Expanded(
+            child: Text(
+              data.value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: scheme.onSurface,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
