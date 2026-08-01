@@ -14,7 +14,8 @@
         android:layout_height="match_parent"
         android:adjustViewBounds="true"
         android:contentDescription="@string/smruti_widget_open_story"
-        android:scaleType="centerCrop" />
+        android:background="#FFF0E5DC"
+        android:scaleType="centerInside" />
 
     <TextView
         android:id="@+id/story_title"
