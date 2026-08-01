@@ -1,4 +1,7 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
@@ -8,6 +11,8 @@ import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/widget/appbar/detail_appbar.dart';
 import 'package:harismruti/widget/background/custom_background.dart';
+import 'package:harismruti/widget/gallery/gallery_states.dart';
+import 'package:harismruti/widget/network_Image_with_loader.dart';
 
 class HomeWidgetSettingsScreen extends StatefulWidget {
   const HomeWidgetSettingsScreen({super.key});
@@ -44,6 +49,12 @@ class _HomeWidgetSettingsScreenState extends State<HomeWidgetSettingsScreen> {
         providerName: _designs[index].$4,
       );
       TopNotification.success('Choose where to place ${_designs[index].$1}.');
+    } on PlatformException catch (error) {
+      TopNotification.error(
+        error.message?.trim().isNotEmpty == true
+            ? error.message!.trim()
+            : 'Unable to add this widget. You can add it from the Home screen widget picker.',
+      );
     } catch (error) {
       TopNotification.error(error.toString().replaceFirst('Unsupported operation: ', ''));
     } finally {
@@ -63,15 +74,18 @@ class _HomeWidgetSettingsScreenState extends State<HomeWidgetSettingsScreen> {
         body: ListView.separated(
           padding: const EdgeInsets.all(16),
           itemCount: _designs.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 12),
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
           itemBuilder: (context, index) {
             final design = _designs[index];
             return Card(
-              elevation: 0,
-              color: Theme.of(context).colorScheme.surfaceContainer.withAlpha(235),
+              elevation: 7,
+              shadowColor: Colors.black.withAlpha(36),
+              surfaceTintColor: Colors.white,
+              color: Colors.white,
+              margin: EdgeInsets.zero,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(11),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -82,7 +96,7 @@ class _HomeWidgetSettingsScreenState extends State<HomeWidgetSettingsScreen> {
                         imageHeaders: gallery.imageHeaders,
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 10),
                     Row(
                       children: [
                         Container(
@@ -153,19 +167,19 @@ class _HomeWidgetPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: styleIndex == 4 ? 88 : 126,
-      padding: const EdgeInsets.all(8),
+      height: styleIndex == 4 ? 78 : 112,
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFF261A16),
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withAlpha(22)),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: switch (styleIndex) {
         0 => Column(
           children: [
-            Expanded(child: Row(children: [Expanded(child: _PreviewTile(photo: _photo(0), headers: imageHeaders)), const SizedBox(width: 6), Expanded(child: _PreviewTile(photo: _photo(1), headers: imageHeaders))])),
-            const SizedBox(height: 6),
-            Expanded(child: Row(children: [Expanded(child: _PreviewTile(photo: _photo(2), headers: imageHeaders)), const SizedBox(width: 6), Expanded(child: _PreviewTile(photo: _photo(3), headers: imageHeaders))])),
+            Expanded(child: Row(children: [Expanded(child: _PreviewTile(photo: _photo(0), headers: imageHeaders)), const SizedBox(width: 3), Expanded(child: _PreviewTile(photo: _photo(1), headers: imageHeaders))])),
+            const SizedBox(height: 3),
+            Expanded(child: Row(children: [Expanded(child: _PreviewTile(photo: _photo(2), headers: imageHeaders)), const SizedBox(width: 3), Expanded(child: _PreviewTile(photo: _photo(3), headers: imageHeaders))])),
           ],
         ),
         1 => _PreviewTile(photo: _photo(0), headers: imageHeaders, showCaption: true),
@@ -173,19 +187,19 @@ class _HomeWidgetPreview extends StatelessWidget {
           children: [
             for (var index = 0; index < 4; index++) ...[
               Expanded(child: _PreviewTile(photo: _photo(index), headers: imageHeaders, round: true)),
-              if (index != 3) const SizedBox(width: 6),
+              if (index != 3) const SizedBox(width: 3),
             ],
           ],
         ),
         3 => Row(
           children: [
             Expanded(flex: 2, child: _PreviewTile(photo: _photo(0), headers: imageHeaders, showCaption: true)),
-            SizedBox(width: 6),
+            SizedBox(width: 3),
             Expanded(
               child: Column(
                 children: [
                   Expanded(child: _PreviewTile(photo: _photo(1), headers: imageHeaders)),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 3),
                   Expanded(child: _PreviewTile(photo: _photo(2), headers: imageHeaders)),
                 ],
               ),
@@ -216,19 +230,39 @@ class _PreviewTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF6F493A),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(round ? 40 : 11),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Stack(
         fit: StackFit.expand,
         children: [
           if (photo != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(round ? 40 : 11),
-              child: Image.network(photo!.thumbnailUrl, headers: headers, fit: BoxFit.cover),
+            ImageFiltered(
+              imageFilter: ImageFilter.blur(sigmaX: 9, sigmaY: 9),
+              child: Image.network(
+                photo!.thumbnailUrl,
+                headers: headers,
+                fit: BoxFit.cover,
+                color: Colors.black.withAlpha(55),
+                colorBlendMode: BlendMode.darken,
+              ),
             )
           else
-            Icon(Icons.temple_hindu_outlined, color: Colors.white.withAlpha(190), size: round ? 25 : 34),
+            GalleryShimmerBox(borderRadius: round ? 40 : 11),
+          if (photo != null)
+            Padding(
+              padding: const EdgeInsets.all(2),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(round ? 38 : 9),
+                child: NetworkImageWithLoader(
+                  imageUrl: photo!.thumbnailUrl,
+                  title: photo!.title ?? 'Smruti',
+                  headers: headers,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
           if (showCaption)
             Align(
               alignment: Alignment.bottomCenter,
@@ -257,11 +291,11 @@ class _PreviewText extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('HariPrabodham Smruti', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
+        Text('HariPrabodham Smruti', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 11, fontWeight: FontWeight.w800)),
         const SizedBox(height: 7),
-        Container(height: 5, width: 100, decoration: BoxDecoration(color: Colors.white.withAlpha(80), borderRadius: BorderRadius.circular(4))),
+        GalleryShimmerBox(height: 5, width: 100, borderRadius: 4),
         const SizedBox(height: 5),
-        Container(height: 5, width: 64, decoration: BoxDecoration(color: Colors.white.withAlpha(45), borderRadius: BorderRadius.circular(4))),
+        GalleryShimmerBox(height: 5, width: 64, borderRadius: 4),
       ],
     );
   }
