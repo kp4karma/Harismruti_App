@@ -1,13 +1,19 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:gal/gal.dart';
 import 'package:get/get.dart';
+import 'package:harismruti/api/api_endpoints.dart';
+import 'package:harismruti/api/repositories/gallery_repository.dart';
+import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:http/http.dart' as http;
 import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/firebase_options.dart';
@@ -15,6 +21,7 @@ import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/services/notification_history_service.dart';
 import 'package:harismruti/services/phone_smruti_widget_service.dart';
 import 'package:harismruti/ui/view/notification/notification_image_screen.dart';
+import 'package:path_provider/path_provider.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -22,6 +29,7 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 class NotificationService {
   static const String developerTopic = 'developer_only';
   static const int _topicSubscriptionVersion = 1;
+  static final Set<int> _savingEnhancementJobs = <int>{};
 
   static const List<String> topics = [
     'recent',
@@ -291,6 +299,7 @@ class NotificationService {
     }
     final screen = data['screen']?.toString() ?? 'home';
     if (screen == 'photo_enhancement') {
+      unawaited(_saveEnhancedPhoto(data));
       Get.offAllNamed(
         AppRoutes.home,
         arguments: {
@@ -331,6 +340,10 @@ class NotificationService {
 
   static void _navigateFromMessage(RemoteMessage message) {
     _saveMessage(message);
+    if (message.data['screen'] == 'photo_enhancement') {
+      _navigateFromData(message.data);
+      return;
+    }
     final imageUrl = _imageUrl(message);
     if (imageUrl.isNotEmpty) {
       _openImage(imageUrl, message.notification?.title);
@@ -340,14 +353,59 @@ class NotificationService {
   }
 
   static void openSavedNotification(Map<String, dynamic> entry) {
+    final data = entry['data'];
+    if (data is Map && data['screen'] == 'photo_enhancement') {
+      _navigateFromData(Map<String, dynamic>.from(data));
+      return;
+    }
     final imageUrl = entry['image_url']?.toString().trim() ?? '';
     if (imageUrl.isNotEmpty) {
       _openImage(imageUrl, entry['title']?.toString());
       return;
     }
-    final data = entry['data'];
     if (data is Map) {
       _navigateFromData(Map<String, dynamic>.from(data));
+    }
+  }
+
+  static Future<void> _saveEnhancedPhoto(Map<String, dynamic> data) async {
+    final jobId = int.tryParse('${data['job_id']}');
+    final photoId = int.tryParse('${data['photo_id']}');
+    if (jobId == null || photoId == null || _savingEnhancementJobs.contains(jobId)) {
+      return;
+    }
+    _savingEnhancementJobs.add(jobId);
+    try {
+      final quality = data['quality']?.toString() ?? 'enhanced';
+      final directory = await getTemporaryDirectory();
+      final filePath =
+          '${directory.path}${Platform.pathSeparator}harismruti-$photoId-$quality-enhanced.jpg';
+      final repository = const GalleryRepository();
+      await Dio().download(
+        data['download_url']?.toString().trim().isNotEmpty == true
+            ? data['download_url'].toString()
+            : ApiEndpoints.photoEnhancementDownload(jobId),
+        filePath,
+        options: Options(
+          headers: repository.imageHeaders,
+          responseType: ResponseType.bytes,
+        ),
+      );
+      var allowed = await Gal.hasAccess(toAlbum: true);
+      if (!allowed) allowed = await Gal.requestAccess(toAlbum: true);
+      if (!allowed) throw Exception('Photos permission is required');
+      await Gal.putImage(filePath, album: 'HariPrabodham Smruti');
+      TopNotification.success(
+        'Enhanced photo saved to Photos',
+        title: '$quality download ready',
+      );
+    } catch (error) {
+      TopNotification.error(
+        error.toString().replaceFirst('Exception: ', ''),
+        title: 'Could not save enhanced photo',
+      );
+    } finally {
+      _savingEnhancementJobs.remove(jobId);
     }
   }
 
