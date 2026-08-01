@@ -89,6 +89,9 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
     super.initState();
     _activeCard = widget.card;
     _photosFuture = _controller.loadPhotosForCard(_activeCard);
+    _controller.loadAllPlaces().then((_) {
+      if (mounted) setState(() {});
+    });
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _centerSelectedCity(_activeCard),
     );
@@ -234,7 +237,7 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
   }
 
   List<GalleryCard> get _allCities =>
-      _controller.locations.toList(growable: false);
+      _controller.placeCards.toList(growable: false);
 
   @override
   Widget build(BuildContext context) {
@@ -252,7 +255,7 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
           final total = _activeCard.count ?? photos.length;
           final clusters = _PhotoCluster.fromPhotos(photos);
           final locationMarkers = _LocationGroupMarker.fromCards(
-            _controller.locations,
+            _controller.placeCards,
           );
           final center = clusters.isEmpty
               ? (_LocationGroupMarker.pointForCard(_activeCard) ??

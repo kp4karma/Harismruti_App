@@ -91,6 +91,9 @@ class GalleryController extends GetxController {
   final RxList<GalleryCard> smrutiOf = <GalleryCard>[].obs;
   final RxList<GalleryCard> locations = <GalleryCard>[].obs;
   final RxList<GalleryCard> allPlaces = <GalleryCard>[].obs;
+
+  List<GalleryCard> get placeCards =>
+      allPlaces.isNotEmpty ? allPlaces : locations;
   final RxList<GalleryCard> albums = <GalleryCard>[].obs;
   final RxList<GalleryCard> subjects = <GalleryCard>[].obs;
   final RxList<GalleryCard> people = <GalleryCard>[].obs;
@@ -764,7 +767,7 @@ class GalleryController extends GetxController {
         DateTime.now().difference(_lastLoadedAt!) < const Duration(minutes: 10);
 
     if (!force && loadedRecently && hasAnyData && _hasLoadedOnThisDay) {
-      return Future.value();
+      return allPlaces.isEmpty ? loadAllPlaces() : Future.value();
     }
 
     if (_inFlightLoad != null) return _inFlightLoad!;
@@ -1270,6 +1273,8 @@ class GalleryController extends GetxController {
       );
       if (selectedSwami.value != requestedSwami) return;
       _applyBundle(bundle);
+      await loadAllPlaces();
+      if (selectedSwami.value != requestedSwami) return;
       try {
         final loadedOnThisDay = await _repository.getOnThisDay(
           forceRefresh: forceDataRefresh,

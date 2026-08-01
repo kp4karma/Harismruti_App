@@ -697,10 +697,7 @@ class _HomeSectionDetailScreenState extends State<HomeSectionDetailScreen> {
       case SmrutiSectionKeys.ofDarshan:
         return _controller.smrutiOf.toList(growable: false);
       case SmrutiSectionKeys.location:
-        return (_controller.allPlaces.isNotEmpty
-                ? _controller.allPlaces
-                : _controller.locations)
-            .toList(growable: false);
+        return _controller.placeCards.toList(growable: false);
       case SmrutiSectionKeys.album:
         return _controller.albums.toList(growable: false);
       case SmrutiSectionKeys.myFavorite:

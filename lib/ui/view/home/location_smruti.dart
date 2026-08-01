@@ -30,6 +30,7 @@ class _LocationSmrutiState extends State<LocationSmruti>
   @override
   void initState() {
     super.initState();
+    Get.find<GalleryController>().loadAllPlaces();
     _autoScrollTicker = createTicker(_handleAutoScrollTick);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _autoScrollTicker.start();
@@ -77,7 +78,7 @@ class _LocationSmrutiState extends State<LocationSmruti>
     final galleryController = Get.find<GalleryController>();
 
     return Obx(() {
-      final locations = galleryController.locations;
+      final locations = galleryController.placeCards;
       if (galleryController.isLoading.value && locations.isEmpty) {
         return const GallerySectionLoader(height: 250);
       }
