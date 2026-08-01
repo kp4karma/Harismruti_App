@@ -12,7 +12,6 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:gal/gal.dart';
 import 'package:get/get.dart';
-import 'package:harismruti/api/api_endpoints.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/api/repositories/gallery_repository.dart';
 import 'package:harismruti/helper/auth_redirect_helper.dart';
@@ -2456,6 +2455,8 @@ class _DownloadQualityAction extends StatelessWidget {
   }
 }
 
+// Kept temporarily for compatibility with older routes during staged rollout.
+// ignore: unused_element
 class _EnhancementProgressDialog extends StatelessWidget {
   final ValueListenable<int> progress;
 

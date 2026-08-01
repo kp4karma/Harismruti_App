@@ -257,12 +257,19 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
           final locationMarkers = _LocationGroupMarker.fromCards(
             _controller.placeCards,
           );
-          final center = clusters.isEmpty
+          final candidateCenter = clusters.isEmpty
               ? (_LocationGroupMarker.pointForCard(_activeCard) ??
                     (locationMarkers.isEmpty
                         ? _fallbackCenter
                         : locationMarkers.first.point))
               : clusters.first.point;
+          final center =
+              _PhotoCluster._isValidCoordinate(
+                candidateCenter.latitude,
+                candidateCenter.longitude,
+              )
+              ? candidateCenter
+              : _fallbackCenter;
           final cities = _allCities;
 
           final fitKey = clusters
@@ -1270,6 +1277,11 @@ class _LocationGroupMarker {
 }
 
 class _PhotoCluster {
+  // EPSG:3857 becomes infinite at the geographic poles. flutter_map uses
+  // this projection for its tile layer, so latitude must stay inside the
+  // Web Mercator bounds even though LatLng itself accepts values up to ±90.
+  static const double _webMercatorMaxLatitude = 85.05112878;
+
   final LatLng point;
   final List<GalleryPhoto> photos;
 
@@ -1311,7 +1323,7 @@ class _PhotoCluster {
         lng != null &&
         lat.isFinite &&
         lng.isFinite &&
-        lat.abs() <= 90 &&
+        lat.abs() <= _webMercatorMaxLatitude &&
         lng.abs() <= 180;
   }
 }
