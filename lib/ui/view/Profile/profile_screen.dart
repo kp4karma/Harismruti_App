@@ -13,6 +13,7 @@ import 'package:harismruti/ui/controller/auth_controller.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/controller/theme_controller.dart';
 import 'package:harismruti/ui/view/Profile/smruti_section_setting.dart';
+import 'package:harismruti/ui/view/Profile/home_widget_settings.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/responsive.dart';
@@ -61,6 +62,19 @@ class ProfileScreen extends StatelessWidget {
                               ),
                               builder: (context) =>
                                   SmrutiSectionSettingsScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      _ProfileOption(
+                        icon: Icons.widgets_rounded,
+                        label: 'Home Screen Widgets',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            CupertinoPageRoute(
+                              builder: (_) => const HomeWidgetSettingsScreen(),
                             ),
                           );
                         },

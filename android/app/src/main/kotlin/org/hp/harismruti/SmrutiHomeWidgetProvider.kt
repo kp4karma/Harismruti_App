@@ -13,7 +13,7 @@ import es.antonborri.home_widget.HomeWidgetLaunchIntent
 import es.antonborri.home_widget.HomeWidgetProvider
 import org.json.JSONArray
 
-class SmrutiHomeWidgetProvider : HomeWidgetProvider() {
+open class SmrutiHomeWidgetProvider : HomeWidgetProvider() {
     private val rowIds = intArrayOf(
         R.id.widget_row_1,
         R.id.widget_row_2,
@@ -147,3 +147,8 @@ class SmrutiHomeWidgetProvider : HomeWidgetProvider() {
         )
     }
 }
+
+class DailyDarshanWidgetProvider : SmrutiHomeWidgetProvider()
+class SmrutiStoriesWidgetProvider : SmrutiHomeWidgetProvider()
+class FeaturedRecentWidgetProvider : SmrutiHomeWidgetProvider()
+class MinimalSmrutiWidgetProvider : SmrutiHomeWidgetProvider()

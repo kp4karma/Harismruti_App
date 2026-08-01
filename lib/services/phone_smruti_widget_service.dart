@@ -8,13 +8,20 @@ import 'package:home_widget/home_widget.dart';
 import 'package:http/http.dart' as http;
 
 class PhoneSmrutiWidgetService {
-  static const _providerName = 'SmrutiHomeWidgetProvider';
+  static const providerNames = <String>[
+    'SmrutiHomeWidgetProvider',
+    'DailyDarshanWidgetProvider',
+    'SmrutiStoriesWidgetProvider',
+    'FeaturedRecentWidgetProvider',
+    'MinimalSmrutiWidgetProvider',
+  ];
 
   static Future<void> prepareAndAdd({
     required List<GalleryPhoto> photos,
     required Map<String, String> imageHeaders,
     required int storyCount,
     required int refreshHours,
+    String providerName = 'SmrutiHomeWidgetProvider',
   }) async {
     if (!Platform.isAndroid) {
       throw UnsupportedError(
@@ -35,7 +42,10 @@ class PhoneSmrutiWidgetService {
         'Your launcher does not support adding widgets from inside the app. Long-press the phone Home screen and choose Widgets.',
       );
     }
-    await HomeWidget.requestPinWidget(name: _providerName);
+    if (!providerNames.contains(providerName)) {
+      throw ArgumentError.value(providerName, 'providerName');
+    }
+    await HomeWidget.requestPinWidget(name: providerName);
   }
 
   static Future<void> syncInstalledWidget({
@@ -120,7 +130,9 @@ class PhoneSmrutiWidgetService {
       jsonEncode(stories),
     );
     await HomeWidget.saveWidgetData<int>('smruti_refresh_hours', refreshHours);
-    await HomeWidget.updateWidget(name: _providerName);
+    for (final providerName in providerNames) {
+      await HomeWidget.updateWidget(name: providerName);
+    }
   }
 
   static Future<void> markNotificationReceived() async {
@@ -130,7 +142,9 @@ class PhoneSmrutiWidgetService {
         'smruti_notification_at',
         DateTime.now().millisecondsSinceEpoch,
       );
-      await HomeWidget.updateWidget(name: _providerName);
+      for (final providerName in providerNames) {
+        await HomeWidget.updateWidget(name: providerName);
+      }
     } catch (_) {
       // Notifications must still be delivered if a launcher does not support
       // widgets or the widget plugin is unavailable in a background isolate.

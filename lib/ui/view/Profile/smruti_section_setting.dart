@@ -4,9 +4,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
-import 'package:harismruti/ui/controller/gallery_controller.dart';
-import 'package:harismruti/services/phone_smruti_widget_service.dart';
-import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_string.dart';
 import 'package:harismruti/utils/responsive.dart';
@@ -25,17 +22,6 @@ class _SmrutiSectionSettingsScreenState
     extends State<SmrutiSectionSettingsScreen> {
   final SmrutiSectionController controller =
       Get.find<SmrutiSectionController>();
-  late int _storyCount;
-  late int _refreshHours;
-  bool _isAddingPhoneWidget = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _storyCount = controller.smrutiStoryCount.value;
-    _refreshHours = controller.smrutiStoryRefreshHours.value;
-  }
-
   @override
   Widget build(BuildContext context) {
     return CustomBackground(
@@ -50,20 +36,6 @@ class _SmrutiSectionSettingsScreenState
             maxWidth: kContentMaxWidth,
             child: Column(
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                  child: _StoryWidgetSettings(
-                    isVisible: controller.showSmrutiStoryLine.value,
-                    count: _storyCount,
-                    refreshHours: _refreshHours,
-                    isAdding: _isAddingPhoneWidget,
-                    onCountChanged: (value) =>
-                        setState(() => _storyCount = value),
-                    onRefreshChanged: (value) =>
-                        setState(() => _refreshHours = value),
-                    onShow: _addPhoneWidget,
-                  ),
-                ),
                 const Padding(
                   padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
                   child: _ReorderSectionHeader(),
@@ -178,36 +150,9 @@ class _SmrutiSectionSettingsScreenState
     }
   }
 
-  Future<void> _addPhoneWidget() async {
-    if (_isAddingPhoneWidget) return;
-    setState(() => _isAddingPhoneWidget = true);
-    try {
-      final gallery = Get.find<GalleryController>();
-      if (gallery.recentPhotos.isEmpty) {
-        await gallery.loadHome(force: true);
-      }
-      await PhoneSmrutiWidgetService.prepareAndAdd(
-        photos: gallery.recentPhotos.toList(growable: false),
-        imageHeaders: gallery.imageHeaders,
-        storyCount: _storyCount,
-        refreshHours: _refreshHours,
-      );
-      controller.saveSmrutiStorySettings(
-        visible: true,
-        count: _storyCount,
-        refreshHours: _refreshHours,
-      );
-      TopNotification.success('Choose where to place the Smruti widget.');
-    } catch (error) {
-      TopNotification.error(
-        error.toString().replaceFirst('Unsupported operation: ', ''),
-      );
-    } finally {
-      if (mounted) setState(() => _isAddingPhoneWidget = false);
-    }
-  }
 }
 
+// ignore: unused_element
 class _StoryWidgetSettings extends StatelessWidget {
   const _StoryWidgetSettings({
     required this.isVisible,
