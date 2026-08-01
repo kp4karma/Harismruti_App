@@ -27,9 +27,34 @@ bool _cityMatchesQuery(GalleryCard card, String query) {
     for (final photo in card.photos) ...[
       photo.title ?? '',
       photo.subtitle ?? '',
+      photo.subLocation ?? '',
+      photo.location ?? '',
+      photo.country ?? '',
     ],
   ].join(' ').toLowerCase();
   return searchableText.contains(query);
+}
+
+String _locationCountryLabel(GalleryCard card) {
+  final location = card.title.trim();
+  final countries = <String>[];
+  final normalizedCountries = <String>{};
+
+  for (final photo in card.photos) {
+    final country = photo.country?.trim() ?? '';
+    final normalized = country.toLowerCase();
+    if (country.isNotEmpty && normalizedCountries.add(normalized)) {
+      countries.add(country);
+    }
+  }
+
+  if (countries.isEmpty) return location;
+  if (countries.any(
+    (country) => country.toLowerCase() == location.toLowerCase(),
+  )) {
+    return location;
+  }
+  return '$location, ${countries.join(', ')}';
 }
 
 class GalleryLocationScreen extends StatefulWidget {
@@ -933,8 +958,8 @@ class _CityListTile extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      card.title,
-                      maxLines: 1,
+                      _locationCountryLabel(card),
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontWeight: FontWeight.w900,
