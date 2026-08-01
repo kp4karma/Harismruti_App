@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:harismruti/api/api_client.dart';
@@ -219,9 +220,19 @@ class GalleryRepository {
     required int photoId,
     required String quality,
   }) async {
+    String? notificationToken;
+    try {
+      notificationToken = await FirebaseMessaging.instance.getToken();
+    } catch (_) {
+      // Enhancement still works when notification permission/token is absent.
+    }
     final response = await ApiClient.post(
       ApiEndpoints.photoEnhancements(photoId),
-      data: {'quality': quality},
+      data: {
+        'quality': quality,
+        if (notificationToken?.isNotEmpty == true)
+          'notification_token': notificationToken,
+      },
     );
     return asJsonMap(response.data);
   }

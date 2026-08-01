@@ -290,6 +290,18 @@ class NotificationService {
       return;
     }
     final screen = data['screen']?.toString() ?? 'home';
+    if (screen == 'photo_enhancement') {
+      Get.offAllNamed(
+        AppRoutes.home,
+        arguments: {
+          'notification_screen': 'home',
+          'photo_id': data['photo_id']?.toString(),
+          'enhancement_job_id': data['job_id']?.toString(),
+          'enhancement_quality': data['quality']?.toString(),
+        },
+      );
+      return;
+    }
     const supportedHomeSections = {
       'home',
       'recent',
