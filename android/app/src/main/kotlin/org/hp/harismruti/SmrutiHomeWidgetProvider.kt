@@ -27,7 +27,13 @@ open class SmrutiHomeWidgetProvider : HomeWidgetProvider() {
         appWidgetIds: IntArray,
         widgetData: SharedPreferences,
     ) {
-        val stories = JSONArray(widgetData.getString("smruti_stories", "[]"))
+        val providerName = this::class.java.simpleName
+        val stories = JSONArray(
+            widgetData.getString(
+                "smruti_stories_$providerName",
+                widgetData.getString("smruti_stories", "[]"),
+            ),
+        )
         val refreshHours = widgetData.getInt("smruti_refresh_hours", 1).coerceAtLeast(1)
         val page = (System.currentTimeMillis() / (refreshHours * 3_600_000L)).toInt()
 

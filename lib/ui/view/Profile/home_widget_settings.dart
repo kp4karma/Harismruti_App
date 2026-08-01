@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/helper/top_notification_helper.dart';
+import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/services/phone_smruti_widget_service.dart';
 import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
@@ -34,8 +35,9 @@ class _HomeWidgetSettingsScreenState extends State<HomeWidgetSettingsScreen> {
       final gallery = Get.find<GalleryController>();
       if (gallery.recentPhotos.isEmpty) await gallery.loadHome(force: true);
       final settings = Get.find<SmrutiSectionController>();
+      final photos = _photosForDesign(gallery, index);
       await PhoneSmrutiWidgetService.prepareAndAdd(
-        photos: gallery.recentPhotos.toList(growable: false),
+        photos: photos,
         imageHeaders: gallery.imageHeaders,
         storyCount: settings.smrutiStoryCount.value,
         refreshHours: settings.smrutiStoryRefreshHours.value,
@@ -51,6 +53,7 @@ class _HomeWidgetSettingsScreenState extends State<HomeWidgetSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final gallery = Get.find<GalleryController>();
     return CustomBackground(
       child: Scaffold(
         appBar: DetailAppbar(
@@ -72,7 +75,13 @@ class _HomeWidgetSettingsScreenState extends State<HomeWidgetSettingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _HomeWidgetPreview(styleIndex: index),
+                    Obx(
+                      () => _HomeWidgetPreview(
+                        styleIndex: index,
+                        photos: _photosForDesign(gallery, index),
+                        imageHeaders: gallery.imageHeaders,
+                      ),
+                    ),
                     const SizedBox(height: 14),
                     Row(
                       children: [
@@ -114,12 +123,32 @@ class _HomeWidgetSettingsScreenState extends State<HomeWidgetSettingsScreen> {
       ),
     );
   }
+
+  List<GalleryPhoto> _photosForDesign(GalleryController gallery, int index) {
+    final source = switch (index) {
+      1 => gallery.onThisDayPhotos.isNotEmpty
+          ? gallery.onThisDayPhotos
+          : gallery.recentPhotos,
+      2 => gallery.smrutiWith.isNotEmpty
+          ? gallery.smrutiWith.expand((card) => card.photos)
+          : gallery.recentPhotos,
+      4 => gallery.favoritePhotos.isNotEmpty
+          ? gallery.favoritePhotos
+          : gallery.recentPhotos,
+      _ => gallery.recentPhotos,
+    };
+    return source.where((photo) => photo.thumbnailUrl.isNotEmpty).take(8).toList();
+  }
 }
 
 class _HomeWidgetPreview extends StatelessWidget {
-  const _HomeWidgetPreview({required this.styleIndex});
+  const _HomeWidgetPreview({required this.styleIndex, required this.photos, required this.imageHeaders});
 
   final int styleIndex;
+  final List<GalleryPhoto> photos;
+  final Map<String, String> imageHeaders;
+
+  GalleryPhoto? _photo(int index) => photos.isEmpty ? null : photos[index % photos.length];
 
   @override
   Widget build(BuildContext context) {
@@ -134,40 +163,40 @@ class _HomeWidgetPreview extends StatelessWidget {
       child: switch (styleIndex) {
         0 => Column(
           children: [
-            Expanded(child: Row(children: const [Expanded(child: _PreviewTile(seed: 0)), SizedBox(width: 6), Expanded(child: _PreviewTile(seed: 1))])),
+            Expanded(child: Row(children: [Expanded(child: _PreviewTile(photo: _photo(0), headers: imageHeaders)), const SizedBox(width: 6), Expanded(child: _PreviewTile(photo: _photo(1), headers: imageHeaders))])),
             const SizedBox(height: 6),
-            Expanded(child: Row(children: const [Expanded(child: _PreviewTile(seed: 2)), SizedBox(width: 6), Expanded(child: _PreviewTile(seed: 3))])),
+            Expanded(child: Row(children: [Expanded(child: _PreviewTile(photo: _photo(2), headers: imageHeaders)), const SizedBox(width: 6), Expanded(child: _PreviewTile(photo: _photo(3), headers: imageHeaders))])),
           ],
         ),
-        1 => const _PreviewTile(seed: 1, showCaption: true),
+        1 => _PreviewTile(photo: _photo(0), headers: imageHeaders, showCaption: true),
         2 => Row(
           children: [
             for (var index = 0; index < 4; index++) ...[
-              Expanded(child: _PreviewTile(seed: index, round: true)),
+              Expanded(child: _PreviewTile(photo: _photo(index), headers: imageHeaders, round: true)),
               if (index != 3) const SizedBox(width: 6),
             ],
           ],
         ),
-        3 => const Row(
+        3 => Row(
           children: [
-            Expanded(flex: 2, child: _PreviewTile(seed: 2, showCaption: true)),
+            Expanded(flex: 2, child: _PreviewTile(photo: _photo(0), headers: imageHeaders, showCaption: true)),
             SizedBox(width: 6),
             Expanded(
               child: Column(
                 children: [
-                  Expanded(child: _PreviewTile(seed: 0)),
-                  SizedBox(height: 6),
-                  Expanded(child: _PreviewTile(seed: 3)),
+                  Expanded(child: _PreviewTile(photo: _photo(1), headers: imageHeaders)),
+                  const SizedBox(height: 6),
+                  Expanded(child: _PreviewTile(photo: _photo(2), headers: imageHeaders)),
                 ],
               ),
             ),
           ],
         ),
-        _ => const Row(
+        _ => Row(
           children: [
-            SizedBox(width: 74, child: _PreviewTile(seed: 0)),
-            SizedBox(width: 10),
-            Expanded(child: _PreviewText()),
+            SizedBox(width: 74, child: _PreviewTile(photo: _photo(0), headers: imageHeaders)),
+            const SizedBox(width: 10),
+            const Expanded(child: _PreviewText()),
           ],
         ),
       },
@@ -176,30 +205,30 @@ class _HomeWidgetPreview extends StatelessWidget {
 }
 
 class _PreviewTile extends StatelessWidget {
-  const _PreviewTile({required this.seed, this.showCaption = false, this.round = false});
+  const _PreviewTile({required this.photo, required this.headers, this.showCaption = false, this.round = false});
 
-  final int seed;
+  final GalleryPhoto? photo;
+  final Map<String, String> headers;
   final bool showCaption;
   final bool round;
 
   @override
   Widget build(BuildContext context) {
-    final palettes = [
-      [const Color(0xFFD69A78), const Color(0xFF784234)],
-      [const Color(0xFFE6BD73), const Color(0xFF8A512F)],
-      [const Color(0xFFA9B889), const Color(0xFF516044)],
-      [const Color(0xFFB99BAE), const Color(0xFF694B5E)],
-    ];
-    final colors = palettes[seed % palettes.length];
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors),
+        color: const Color(0xFF6F493A),
         borderRadius: BorderRadius.circular(round ? 40 : 11),
       ),
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Icon(Icons.temple_hindu_outlined, color: Colors.white.withAlpha(190), size: round ? 25 : 34),
+          if (photo != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(round ? 40 : 11),
+              child: Image.network(photo!.thumbnailUrl, headers: headers, fit: BoxFit.cover),
+            )
+          else
+            Icon(Icons.temple_hindu_outlined, color: Colors.white.withAlpha(190), size: round ? 25 : 34),
           if (showCaption)
             Align(
               alignment: Alignment.bottomCenter,

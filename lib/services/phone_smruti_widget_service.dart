@@ -34,6 +34,7 @@ class PhoneSmrutiWidgetService {
       imageHeaders: imageHeaders,
       storyCount: storyCount,
       refreshHours: refreshHours,
+      providerName: providerName,
     );
 
     final canPin = await HomeWidget.isRequestPinWidgetSupported() ?? false;
@@ -49,7 +50,7 @@ class PhoneSmrutiWidgetService {
   }
 
   static Future<void> syncInstalledWidget({
-    required List<GalleryPhoto> photos,
+    required Map<String, List<GalleryPhoto>> photoSources,
     required Map<String, String> imageHeaders,
   }) async {
     if (!Platform.isAndroid) return;
@@ -68,12 +69,15 @@ class PhoneSmrutiWidgetService {
             defaultValue: 1,
           ) ??
           1;
-      await _prepareData(
-        photos: photos,
-        imageHeaders: imageHeaders,
-        storyCount: count,
-        refreshHours: refreshHours,
-      );
+      for (final providerName in providerNames) {
+        await _prepareData(
+          photos: photoSources[providerName] ?? const [],
+          imageHeaders: imageHeaders,
+          storyCount: count,
+          refreshHours: refreshHours,
+          providerName: providerName,
+        );
+      }
     } catch (_) {
       // Gallery loading must not fail because a launcher widget cannot sync.
     }
@@ -84,6 +88,7 @@ class PhoneSmrutiWidgetService {
     required Map<String, String> imageHeaders,
     required int storyCount,
     required int refreshHours,
+    required String providerName,
   }) async {
     final candidates = _uniquePhotos(photos)
         .where((photo) => photo.id > 0 && photo.thumbnailUrl.isNotEmpty)
@@ -103,7 +108,7 @@ class PhoneSmrutiWidgetService {
         );
         if (response.statusCode < 200 || response.statusCode >= 300) continue;
         final path = await HomeWidget.saveFile(
-          'smruti_story_$index',
+          '${providerName}_smruti_story_$index',
           response.bodyBytes,
           extension: 'jpg',
         );
@@ -122,17 +127,18 @@ class PhoneSmrutiWidgetService {
     }
     // Remove files left behind when the user reduces the story count.
     for (var index = stories.length; index < 12; index++) {
-      await HomeWidget.saveWidgetData<String>('smruti_story_$index', null);
+      await HomeWidget.saveWidgetData<String>(
+        '${providerName}_smruti_story_$index',
+        null,
+      );
     }
 
     await HomeWidget.saveWidgetData<String>(
-      'smruti_stories',
+      'smruti_stories_$providerName',
       jsonEncode(stories),
     );
     await HomeWidget.saveWidgetData<int>('smruti_refresh_hours', refreshHours);
-    for (final providerName in providerNames) {
-      await HomeWidget.updateWidget(name: providerName);
-    }
+    await HomeWidget.updateWidget(name: providerName);
   }
 
   static Future<void> markNotificationReceived() async {

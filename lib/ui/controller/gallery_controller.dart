@@ -180,7 +180,21 @@ class GalleryController extends GetxController {
   Future<void> _loadAndSyncHomeWidget({required bool force}) async {
     await loadHome(force: force);
     await PhoneSmrutiWidgetService.syncInstalledWidget(
-      photos: recentPhotos.toList(growable: false),
+      photoSources: {
+        'SmrutiHomeWidgetProvider': recentPhotos.toList(growable: false),
+        'DailyDarshanWidgetProvider': (
+          onThisDayPhotos.isNotEmpty ? onThisDayPhotos : recentPhotos
+        ).toList(growable: false),
+        'SmrutiStoriesWidgetProvider': (
+          smrutiWith.isNotEmpty
+              ? smrutiWith.expand((card) => card.photos)
+              : recentPhotos
+        ).toList(growable: false),
+        'FeaturedRecentWidgetProvider': recentPhotos.toList(growable: false),
+        'MinimalSmrutiWidgetProvider': (
+          favoritePhotos.isNotEmpty ? favoritePhotos : recentPhotos
+        ).toList(growable: false),
+      },
       imageHeaders: imageHeaders,
     );
   }
