@@ -151,7 +151,17 @@ class _HomeWidgetSettingsScreenState extends State<HomeWidgetSettingsScreen> {
           : gallery.recentPhotos,
       _ => gallery.recentPhotos,
     };
-    return source.where((photo) => photo.thumbnailUrl.isNotEmpty).take(8).toList();
+    final all = source
+        .where((photo) => photo.thumbnailUrl.isNotEmpty)
+        .toList(growable: false);
+    final wantsPortrait = index == 2;
+    final preferred = all.where((photo) {
+      final width = photo.width ?? 0;
+      final height = photo.height ?? 0;
+      if (width <= 0 || height <= 0) return false;
+      return wantsPortrait ? height > width : width >= height;
+    }).toList(growable: false);
+    return (preferred.isNotEmpty ? preferred : all).take(8).toList();
   }
 }
 

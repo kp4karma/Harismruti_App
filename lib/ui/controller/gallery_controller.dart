@@ -179,24 +179,57 @@ class GalleryController extends GetxController {
 
   Future<void> _loadAndSyncHomeWidget({required bool force}) async {
     await loadHome(force: force);
+    final recent = recentPhotos.toList(growable: false);
+    final onThisDay = onThisDayPhotos.isNotEmpty
+        ? onThisDayPhotos.toList(growable: false)
+        : recent;
+    final withPhotos = smrutiWith.isNotEmpty
+        ? smrutiWith.expand((card) => card.photos).toList(growable: false)
+        : recent;
+    final favorites = favoritePhotos.isNotEmpty
+        ? favoritePhotos
+        : recent;
     await PhoneSmrutiWidgetService.syncInstalledWidget(
       photoSources: {
-        'SmrutiHomeWidgetProvider': recentPhotos.toList(growable: false),
-        'DailyDarshanWidgetProvider': (
-          onThisDayPhotos.isNotEmpty ? onThisDayPhotos : recentPhotos
-        ).toList(growable: false),
-        'SmrutiStoriesWidgetProvider': (
-          smrutiWith.isNotEmpty
-              ? smrutiWith.expand((card) => card.photos)
-              : recentPhotos
-        ).toList(growable: false),
-        'FeaturedRecentWidgetProvider': recentPhotos.toList(growable: false),
-        'MinimalSmrutiWidgetProvider': (
-          favoritePhotos.isNotEmpty ? favoritePhotos : recentPhotos
-        ).toList(growable: false),
+        'SmrutiHomeWidgetProvider': _preferWidgetOrientation(
+          recent,
+          landscape: true,
+        ),
+        'DailyDarshanWidgetProvider': _preferWidgetOrientation(
+          onThisDay,
+          landscape: true,
+        ),
+        'SmrutiStoriesWidgetProvider': _preferWidgetOrientation(
+          withPhotos,
+          landscape: false,
+        ),
+        'FeaturedRecentWidgetProvider': _preferWidgetOrientation(
+          recent,
+          landscape: true,
+        ),
+        'MinimalSmrutiWidgetProvider': _preferWidgetOrientation(
+          favorites,
+          landscape: true,
+        ),
       },
       imageHeaders: imageHeaders,
     );
+  }
+
+  List<GalleryPhoto> _preferWidgetOrientation(
+    Iterable<GalleryPhoto> photos, {
+    required bool landscape,
+  }) {
+    final all = photos
+        .where((photo) => photo.thumbnailUrl.isNotEmpty)
+        .toList(growable: false);
+    final preferred = all.where((photo) {
+      final width = photo.width ?? 0;
+      final height = photo.height ?? 0;
+      if (width <= 0 || height <= 0) return false;
+      return landscape ? width >= height : height > width;
+    }).toList(growable: false);
+    return preferred.isNotEmpty ? preferred : all;
   }
 
   void _restorePersistedSwami() {
