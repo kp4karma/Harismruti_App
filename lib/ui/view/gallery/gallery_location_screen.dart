@@ -380,6 +380,10 @@ class _PhotoCoordinateMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final visibleLocationMarkers = _collapseCoincidentMarkers(
+      locationMarkers,
+      activeCard,
+    );
     return RepaintBoundary(
       child: Stack(
         fit: StackFit.expand,
@@ -413,7 +417,7 @@ class _PhotoCoordinateMap extends StatelessWidget {
               ),
               MarkerLayer(
                 markers: [
-                  for (final marker in locationMarkers)
+                  for (final marker in visibleLocationMarkers)
                     Marker(
                       point: marker.point,
                       width:
@@ -445,6 +449,25 @@ class _PhotoCoordinateMap extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  List<_LocationGroupMarker> _collapseCoincidentMarkers(
+    List<_LocationGroupMarker> markers,
+    GalleryCard selectedCard,
+  ) {
+    final byCoordinate = <String, _LocationGroupMarker>{};
+    for (final marker in markers) {
+      // Five decimal places is roughly one metre, so values describing the
+      // same pin collapse without merging nearby, genuinely distinct places.
+      final key =
+          '${marker.point.latitude.toStringAsFixed(5)},'
+          '${marker.point.longitude.toStringAsFixed(5)}';
+      final existing = byCoordinate[key];
+      if (existing == null || marker.isFor(selectedCard)) {
+        byCoordinate[key] = marker;
+      }
+    }
+    return byCoordinate.values.toList(growable: false);
   }
 }
 
