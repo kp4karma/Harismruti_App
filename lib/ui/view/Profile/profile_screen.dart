@@ -285,15 +285,48 @@ class _ProfileIdCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            profileController.displayName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: scheme.onSurface,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  profileController.displayName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: scheme.onSurface,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Tooltip(
+                                message: 'Edit name',
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(10),
+                                  onTap: () => _editProfileName(
+                                    context,
+                                    profileController,
+                                  ),
+                                  child: Container(
+                                    width: 30,
+                                    height: 30,
+                                    decoration: BoxDecoration(
+                                      color: primaryColor.withAlpha(10),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: primaryColor.withAlpha(35),
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      Icons.edit_outlined,
+                                      color: primaryColor,
+                                      size: 16,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -320,6 +353,49 @@ class _ProfileIdCard extends StatelessWidget {
       );
     });
   }
+}
+
+Future<void> _editProfileName(
+  BuildContext context,
+  ProfileController controller,
+) async {
+  final textController = TextEditingController(text: controller.displayName);
+  final name = await showDialog<String>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Edit name'),
+      content: TextField(
+        controller: textController,
+        autofocus: true,
+        textCapitalization: TextCapitalization.words,
+        maxLength: 80,
+        decoration: const InputDecoration(
+          labelText: 'Display name',
+          prefixIcon: Icon(Icons.person_outline_rounded),
+        ),
+        onSubmitted: (value) {
+          if (value.trim().isNotEmpty) Navigator.pop(dialogContext, value);
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final value = textController.text.trim();
+            if (value.isNotEmpty) Navigator.pop(dialogContext, value);
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    ),
+  );
+  textController.dispose();
+  if (name == null || name.trim().isEmpty) return;
+  controller.updateDisplayName(name);
+  TopNotification.success('Name updated');
 }
 
 class _ProfileAvatar extends StatelessWidget {
