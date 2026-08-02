@@ -17,6 +17,7 @@ import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/controller/my_photos_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/ui/view/gallery/ai_smruti_search_screen.dart';
+import 'package:harismruti/ui/view/gallery/gallery_filter_sheet.dart';
 import 'package:harismruti/ui/view/home/home_section_detail_screen.dart';
 import 'package:harismruti/ui/view/home/live_stream_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
@@ -154,12 +155,7 @@ class _HomeScreenState extends State<HomeScreen>
                             initialIndex:
                                 galleryController.selectedSwami.value.index,
                             onTabSelected: galleryController.selectSwami,
-                            onSearchTap: () => Navigator.push(
-                              context,
-                              CupertinoPageRoute<void>(
-                                builder: (_) => const AiSmrutiSearchScreen(),
-                              ),
-                            ),
+                            onSearchTap: () => showGalleryFilterSheet(context),
                           ),
                         ),
                       )
@@ -185,6 +181,14 @@ class _HomeScreenState extends State<HomeScreen>
                         isLoggedIn: isLoggedIn,
                         isLive: _liveStreamUrl != null,
                         onTap: _openLiveStream,
+                      ),
+                      _AiSearchCard(
+                        onTap: () => Navigator.push(
+                          context,
+                          CupertinoPageRoute<void>(
+                            builder: (_) => const AiSmrutiSearchScreen(),
+                          ),
+                        ),
                       ),
                       ...displaySections.map(
                         (section) => Column(
@@ -460,6 +464,110 @@ class _EnhancedDownloadsSectionState extends State<_EnhancedDownloadsSection> {
         ),
         const SizedBox(height: 12),
       ],
+    );
+  }
+}
+
+class _AiSearchCard extends StatelessWidget {
+  const _AiSearchCard({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Ink(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  primaryColor.withAlpha(24),
+                  scheme.surface.withAlpha(210),
+                  const Color(0xFFE7A46B).withAlpha(24),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: primaryColor.withAlpha(34)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [primaryColor, const Color(0xFFE7A46B)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: primaryColor.withAlpha(45),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    CupertinoIcons.sparkles,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'AI Smruti Search',
+                        style: TextStyle(
+                          color: scheme.onSurface,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Ask or speak to find any smruti',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: scheme.onSurfaceVariant,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: primaryColor.withAlpha(14),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    CupertinoIcons.arrow_up_right,
+                    color: primaryColor,
+                    size: 17,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
