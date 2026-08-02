@@ -150,7 +150,8 @@ class SmrutiSectionController extends GetxController {
             (section) =>
                 section['title'] != SmrutiSectionKeys.onThisDay &&
                 section['title'] != SmrutiSectionKeys.liveDarshan &&
-                section['title'] != SmrutiSectionKeys.aiSearch,
+                section['title'] != SmrutiSectionKeys.aiSearch &&
+                section['title'] != SmrutiSectionKeys.downloads,
           )
           .toList();
       final newUtilitySections = missingDefaults
@@ -159,6 +160,9 @@ class SmrutiSectionController extends GetxController {
                 section['title'] == SmrutiSectionKeys.liveDarshan ||
                 section['title'] == SmrutiSectionKeys.aiSearch,
           )
+          .map((section) => {...section, 'user_is_show': true});
+      final newDownloadSections = missingDefaults
+          .where((section) => section['title'] == SmrutiSectionKeys.downloads)
           .map((section) => {...section, 'user_is_show': true});
       final mergedSections = <Map<String, dynamic>>[
         ...newUtilitySections,
@@ -173,6 +177,7 @@ class SmrutiSectionController extends GetxController {
         ...remainingMissing.map(
           (e) => {...e, 'user_is_show': e['is_show'] ?? true},
         ),
+        ...newDownloadSections,
       ];
       for (var index = 0; index < mergedSections.length; index++) {
         mergedSections[index]['order_index'] = index + 1;
@@ -448,6 +453,12 @@ class SmrutiSectionController extends GetxController {
       "is_show": true,
       "widget": const MyCollectionSmruti(),
     },
+    {
+      "title": SmrutiSectionKeys.downloads,
+      "order_index": 15,
+      "is_show": true,
+      "widget": const SizedBox(),
+    },
   ];
 
   Future<void> refreshGlobalVisibility({required String optionKey}) async {
@@ -601,6 +612,7 @@ class SmrutiSectionController extends GetxController {
     return switch (title) {
       SmrutiSectionKeys.liveDarshan => 'live_darshan',
       SmrutiSectionKeys.aiSearch => 'ai_search',
+      SmrutiSectionKeys.downloads => 'downloads',
       SmrutiSectionKeys.recent => 'recent',
       SmrutiSectionKeys.onThisDay => 'on_this_day',
       SmrutiSectionKeys.withSmruti => 'smruti_with',

@@ -182,7 +182,6 @@ class _HomeScreenState extends State<HomeScreen>
                           isLoggedIn: isLoggedIn,
                         ),
                       ),
-                      const _EnhancedDownloadsSection(),
                       SizedBox(height: bottomContentPadding),
                     ],
                   ),
@@ -225,6 +224,9 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ),
       );
+    }
+    if (title == SmrutiSectionKeys.downloads) {
+      return const _EnhancedDownloadsSection();
     }
     final displayName = section['display_name']?.toString().trim();
     return Column(
