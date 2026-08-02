@@ -10,6 +10,7 @@ class DetailAppbar extends StatelessWidget implements PreferredSizeWidget {
   final bool centerTitle;
   final Color? iconColor;
   final Color backgroundColor;
+  final List<Widget>? actions;
 
   const DetailAppbar({
     super.key,
@@ -19,6 +20,7 @@ class DetailAppbar extends StatelessWidget implements PreferredSizeWidget {
     this.centerTitle = true,
     this.iconColor,
     this.backgroundColor = Colors.transparent,
+    this.actions,
   });
 
   @override
@@ -65,6 +67,7 @@ class DetailAppbar extends StatelessWidget implements PreferredSizeWidget {
             ),
           ),
           title: Text(title, style: const TextStyle(letterSpacing: 1)),
+          actions: actions,
         ),
       ),
     );

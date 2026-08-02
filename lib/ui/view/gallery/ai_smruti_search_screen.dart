@@ -7,10 +7,43 @@ import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/api/repositories/gallery_repository.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
+import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/widget/appbar/detail_appbar.dart';
 import 'package:harismruti/widget/background/custom_background.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
+
+class _AiChatTurn {
+  _AiChatTurn({required this.id, required this.prompt, required this.createdAt})
+    : photos = const [],
+      error = null,
+      isSearching = true;
+
+  final int id;
+  final String prompt;
+  final DateTime createdAt;
+  List<GalleryPhoto> photos;
+  String? error;
+  bool isSearching;
+}
+
+class _AiHistoryItem {
+  const _AiHistoryItem({
+    required this.prompt,
+    required this.createdAt,
+    required this.resultCount,
+  });
+
+  final String prompt;
+  final DateTime createdAt;
+  final int resultCount;
+
+  Map<String, dynamic> toJson() => {
+    'prompt': prompt,
+    'created_at': createdAt.toIso8601String(),
+    'result_count': resultCount,
+  };
+}
 
 class AiSmrutiSearchScreen extends StatefulWidget {
   const AiSmrutiSearchScreen({super.key});
@@ -31,16 +64,17 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
   final GalleryRepository _repository = const GalleryRepository();
   final TextEditingController _promptController = TextEditingController();
   final FocusNode _promptFocus = FocusNode();
+  final ScrollController _chatScrollController = ScrollController();
   final SpeechToText _speech = SpeechToText();
   late final AnimationController _pulseController;
 
-  List<GalleryPhoto> _results = const [];
+  final List<_AiChatTurn> _turns = [];
+  List<_AiHistoryItem> _history = const [];
   List<LocaleName> _locales = const [];
   String? _localeId;
-  String _lastPrompt = '';
-  String? _error;
   bool _isSearching = false;
   bool _speechReady = false;
+  String? _speechError;
 
   @override
   void initState() {
@@ -49,6 +83,7 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..repeat(reverse: true);
+    _loadHistory();
     _prepareSpeech();
   }
 
@@ -58,6 +93,7 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
     _pulseController.dispose();
     _promptController.dispose();
     _promptFocus.dispose();
+    _chatScrollController.dispose();
     super.dispose();
   }
 
@@ -68,7 +104,7 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
       },
       onError: (error) {
         if (!mounted) return;
-        setState(() => _error = error.errorMsg);
+        setState(() => _speechError = error.errorMsg);
       },
     );
     if (!ready || !mounted) return;
@@ -107,7 +143,7 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
       await _prepareSpeech();
       if (!_speechReady) {
         if (mounted) {
-          setState(() => _error = 'Microphone permission is required.');
+          setState(() => _speechError = 'Microphone permission is required.');
         }
         return;
       }
@@ -169,32 +205,55 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
     if (_speech.isListening) await _speech.stop();
     _promptController.clear();
     _promptFocus.unfocus();
+    final turn = _AiChatTurn(
+      id: DateTime.now().microsecondsSinceEpoch,
+      prompt: prompt,
+      createdAt: DateTime.now(),
+    );
     setState(() {
-      _lastPrompt = prompt;
+      _turns.add(turn);
       _isSearching = true;
-      _error = null;
-      _results = const [];
+      _speechError = null;
     });
+    _scrollToBottom();
     try {
       final photos = await _repository.naturalSearch(prompt, limit: 80);
       if (!mounted) return;
-      setState(() => _results = photos);
+      setState(() => turn.photos = photos);
+      _saveHistory(prompt, photos.length, turn.createdAt);
+      _scrollToBottom();
     } catch (_) {
       if (!mounted) return;
-      setState(
-        () => _error = 'I could not search these smrutis. Please try again.',
-      );
+      setState(() {
+        turn.error = 'I could not search these smrutis. Please try again.';
+      });
     } finally {
-      if (mounted) setState(() => _isSearching = false);
+      if (mounted) {
+        setState(() {
+          turn.isSearching = false;
+          _isSearching = false;
+        });
+      }
     }
   }
 
-  void _openPhoto(int index) {
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_chatScrollController.hasClients) return;
+      _chatScrollController.animateTo(
+        _chatScrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  void _openPhoto(List<GalleryPhoto> photos, int index) {
     Navigator.push(
       context,
       CupertinoPageRoute<void>(
         builder: (_) => GalleryFullscreenViewer(
-          photos: _results,
+          photos: photos,
           initialIndex: index,
           title: 'AI Smruti Search',
         ),
@@ -202,18 +261,87 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
     );
   }
 
-  void _openAllResults() {
-    final photos = List<GalleryPhoto>.unmodifiable(_results);
+  void _openAllResults(_AiChatTurn turn) {
+    final photos = List<GalleryPhoto>.unmodifiable(turn.photos);
     Navigator.push(
       context,
       CupertinoPageRoute<void>(
         builder: (_) => GalleryDetailScreen(
           title: 'AI Smruti Results',
-          subtitle: _lastPrompt,
+          subtitle: turn.prompt,
           loader: () async => photos,
         ),
       ),
     );
+  }
+
+  void _loadHistory() {
+    final raw = StorageHelper.getValue<List>(key: StorageKeys.aiSearchHistory);
+    final cutoff = DateTime.now().subtract(const Duration(days: 30));
+    final items = (raw ?? const [])
+        .whereType<Map>()
+        .map((item) {
+          final data = Map<String, dynamic>.from(item);
+          final createdAt = DateTime.tryParse(
+            data['created_at']?.toString() ?? '',
+          );
+          final prompt = data['prompt']?.toString().trim() ?? '';
+          if (createdAt == null ||
+              prompt.isEmpty ||
+              createdAt.isBefore(cutoff)) {
+            return null;
+          }
+          return _AiHistoryItem(
+            prompt: prompt,
+            createdAt: createdAt,
+            resultCount:
+                int.tryParse(data['result_count']?.toString() ?? '') ?? 0,
+          );
+        })
+        .whereType<_AiHistoryItem>()
+        .take(50)
+        .toList();
+    _history = items;
+    StorageHelper.setValue(
+      key: StorageKeys.aiSearchHistory,
+      value: items.map((item) => item.toJson()).toList(),
+    );
+  }
+
+  void _saveHistory(String prompt, int resultCount, DateTime createdAt) {
+    final updated = [
+      _AiHistoryItem(
+        prompt: prompt,
+        createdAt: createdAt,
+        resultCount: resultCount,
+      ),
+      ..._history.where(
+        (item) => item.prompt.toLowerCase() != prompt.toLowerCase(),
+      ),
+    ].take(50).toList();
+    setState(() => _history = updated);
+    StorageHelper.setValue(
+      key: StorageKeys.aiSearchHistory,
+      value: updated.map((item) => item.toJson()).toList(),
+    );
+  }
+
+  void _deleteHistory(int index) {
+    final updated = [..._history]..removeAt(index);
+    setState(() => _history = updated);
+    StorageHelper.setValue(
+      key: StorageKeys.aiSearchHistory,
+      value: updated.map((item) => item.toJson()).toList(),
+    );
+  }
+
+  void _clearHistory() {
+    setState(() {
+      _history = const [];
+      _turns.clear();
+    });
+    StorageHelper.removeValue(StorageKeys.aiSearchHistory);
+    Navigator.pop(context);
   }
 
   String get _languageLabel {
@@ -223,6 +351,91 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
     return 'Language';
   }
 
+  Future<void> _showHistory() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, refreshSheet) => SafeArea(
+          child: SizedBox(
+            height: MediaQuery.sizeOf(context).height * 0.7,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 0, 8, 8),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Search history',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      if (_history.isNotEmpty)
+                        TextButton(
+                          onPressed: _clearHistory,
+                          child: const Text('Clear all'),
+                        ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: _history.isEmpty
+                      ? const Center(child: Text('No saved searches yet'))
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
+                          itemCount: _history.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final item = _history[index];
+                            return ListTile(
+                              leading: const Icon(CupertinoIcons.clock),
+                              title: Text(
+                                item.prompt,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(
+                                '${item.resultCount} smrutis · ${_historyDate(item.createdAt)}',
+                              ),
+                              trailing: IconButton(
+                                tooltip: 'Delete',
+                                icon: const Icon(CupertinoIcons.delete),
+                                onPressed: () {
+                                  _deleteHistory(index);
+                                  refreshSheet(() {});
+                                },
+                              ),
+                              onTap: () {
+                                Navigator.pop(sheetContext);
+                                _search(item.prompt);
+                              },
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _historyDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+    if (difference.inMinutes < 1) return 'Just now';
+    if (difference.inHours < 1) return '${difference.inMinutes}m ago';
+    if (difference.inDays < 1) return '${difference.inHours}h ago';
+    if (difference.inDays < 7) return '${difference.inDays}d ago';
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -230,11 +443,26 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
       child: Scaffold(
         backgroundColor: Colors.transparent,
         extendBodyBehindAppBar: true,
-        appBar: const DetailAppbar(title: 'AI Smruti Search'),
+        appBar: DetailAppbar(
+          title: 'AI Smruti Search',
+          actions: [
+            IconButton(
+              tooltip: 'Search history',
+              onPressed: _showHistory,
+              icon: Badge(
+                isLabelVisible: _history.isNotEmpty,
+                smallSize: 7,
+                child: const Icon(CupertinoIcons.clock_fill),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
         body: Column(
           children: [
             Expanded(
               child: SingleChildScrollView(
+                controller: _chatScrollController,
                 padding: EdgeInsets.fromLTRB(
                   16,
                   MediaQuery.paddingOf(context).top + kToolbarHeight + 20,
@@ -264,51 +492,65 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
   }
 
   Widget _buildConversation(ColorScheme scheme) {
-    if (_lastPrompt.isEmpty) return _buildWelcome(scheme);
+    if (_turns.isEmpty) return _buildWelcome(scheme);
     return Column(
-      key: ValueKey('$_lastPrompt-$_isSearching-${_results.length}-$_error'),
+      key: ValueKey(
+        '${_turns.length}-$_isSearching-${_turns.last.photos.length}',
+      ),
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Align(
-          alignment: Alignment.centerRight,
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 310),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: primaryColor,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(5),
+      children: _turns
+          .map((turn) => _buildChatTurn(turn, scheme))
+          .toList(growable: false),
+    );
+  }
+
+  Widget _buildChatTurn(_AiChatTurn turn, ColorScheme scheme) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 310),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: primaryColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(5),
+                ),
+              ),
+              child: Text(
+                turn.prompt,
+                style: const TextStyle(color: Colors.white, fontSize: 16),
               ),
             ),
-            child: Text(
-              _lastPrompt,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
-            ),
           ),
-        ),
-        const SizedBox(height: 18),
-        if (_isSearching) _SearchingReply(animation: _pulseController),
-        if (_error != null) _AssistantMessage(text: _error!),
-        if (!_isSearching && _error == null) ...[
-          _AssistantMessage(
-            text: _results.isEmpty
-                ? 'I could not find a matching smruti. Try describing the person, place, activity, or time differently.'
-                : 'I found ${_results.length} matching smrutis for you.',
-          ),
-          if (_results.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            _ChatImagePreview(
-              photos: _results,
-              imageHeaders: _repository.imageHeaders,
-              onPhotoTap: _openPhoto,
-              onViewAll: _openAllResults,
+          const SizedBox(height: 18),
+          if (turn.isSearching) _SearchingReply(animation: _pulseController),
+          if (turn.error != null) _AssistantMessage(text: turn.error!),
+          if (!turn.isSearching && turn.error == null) ...[
+            _AssistantMessage(
+              text: turn.photos.isEmpty
+                  ? 'I could not find a matching smruti. Try describing the person, place, activity, or time differently.'
+                  : 'I found ${turn.photos.length} matching smrutis for you.',
             ),
+            if (turn.photos.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _ChatImagePreview(
+                photos: turn.photos,
+                imageHeaders: _repository.imageHeaders,
+                onPhotoTap: (index) => _openPhoto(turn.photos, index),
+                onViewAll: () => _openAllResults(turn),
+              ),
+            ],
           ],
         ],
-      ],
+      ),
     );
   }
 
@@ -398,6 +640,14 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
             ),
           ),
         ),
+        if (_speechError != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            _speechError!,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: scheme.error),
+          ),
+        ],
       ],
     );
   }

@@ -38,6 +38,7 @@ class StorageKeys {
   static const String smrutiStoryCount = 'smrutiStoryCount';
   static const String smrutiStoryRefreshHours = 'smrutiStoryRefreshHours';
   static const String darkMode = 'darkMode';
+  static const String aiSearchHistory = 'aiSearchHistoryV1';
 }
 
 class StorageHelper {
