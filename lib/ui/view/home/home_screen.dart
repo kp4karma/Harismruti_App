@@ -1,13 +1,12 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:ui';
 
-import 'package:dio/dio.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tilt/flutter_tilt.dart';
-import 'package:gal/gal.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/api_endpoints.dart';
+import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/api/repositories/gallery_repository.dart';
 import 'package:harismruti/api/repositories/live_stream_repository.dart';
 import 'package:harismruti/helper/auth_redirect_helper.dart';
@@ -16,6 +15,7 @@ import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
 import 'package:harismruti/ui/controller/auth_controller.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/controller/my_photos_controller.dart';
+import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/ui/view/gallery/gallery_filter_sheet.dart';
 import 'package:harismruti/ui/view/home/home_section_detail_screen.dart';
 import 'package:harismruti/ui/view/home/live_stream_screen.dart';
@@ -26,8 +26,6 @@ import 'package:harismruti/widget/appbar/custom_appbar.dart';
 import 'package:harismruti/widget/appbar/sub_header.dart';
 import 'package:harismruti/widget/background/custom_background.dart';
 import 'package:harismruti/widget/bottom_bar/bottom_bar.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -183,7 +181,6 @@ class _HomeScreenState extends State<HomeScreen>
                         isLive: _liveStreamUrl != null,
                         onTap: _openLiveStream,
                       ),
-                      const _EnhancedDownloadsSection(),
                       ...displaySections.map(
                         (section) => Column(
                           children: [
@@ -207,6 +204,7 @@ class _HomeScreenState extends State<HomeScreen>
                           ],
                         ),
                       ),
+                      const _EnhancedDownloadsSection(),
                       SizedBox(height: bottomContentPadding),
                     ],
                   ),
@@ -376,10 +374,8 @@ class _EnhancedDownloadsSection extends StatefulWidget {
       _EnhancedDownloadsSectionState();
 }
 
-class _EnhancedDownloadsSectionState
-    extends State<_EnhancedDownloadsSection> {
+class _EnhancedDownloadsSectionState extends State<_EnhancedDownloadsSection> {
   final GalleryRepository _repository = const GalleryRepository();
-  final Set<int> _busyJobs = <int>{};
   List<Map<String, dynamic>> _items = const [];
 
   @override
@@ -397,56 +393,28 @@ class _EnhancedDownloadsSectionState
     }
   }
 
-  Future<String> _downloadToTemporary(Map<String, dynamic> item) async {
+  GalleryPhoto _photoFor(Map<String, dynamic> item) {
     final jobId = int.parse('${item['id']}');
     final photoId = int.parse('${item['photo_id']}');
-    final quality = item['quality']?.toString() ?? 'enhanced';
-    final directory = await getTemporaryDirectory();
-    final path =
-        '${directory.path}${Platform.pathSeparator}harismruti-$photoId-$quality-enhanced.jpg';
-    await Dio().download(
-      ApiEndpoints.photoEnhancementDownload(jobId),
-      path,
-      options: Options(
-        headers: _repository.imageHeaders,
-        responseType: ResponseType.bytes,
+    return GalleryPhoto(
+      id: photoId,
+      thumbnailUrl: ApiEndpoints.photoThumbnail(photoId),
+      fullUrl: ApiEndpoints.photoEnhancementDownload(jobId),
+    );
+  }
+
+  void _openPhoto(int index) {
+    Navigator.push(
+      context,
+      CupertinoPageRoute(
+        settings: const RouteSettings(name: 'Photo Viewer'),
+        builder: (_) => GalleryFullscreenViewer(
+          photos: _items.map(_photoFor).toList(growable: false),
+          initialIndex: index,
+          title: 'Downloads',
+        ),
       ),
     );
-    return path;
-  }
-
-  Future<void> _save(Map<String, dynamic> item) async {
-    final jobId = int.parse('${item['id']}');
-    if (_busyJobs.contains(jobId)) return;
-    setState(() => _busyJobs.add(jobId));
-    try {
-      final path = await _downloadToTemporary(item);
-      var allowed = await Gal.hasAccess(toAlbum: true);
-      if (!allowed) allowed = await Gal.requestAccess(toAlbum: true);
-      if (!allowed) throw Exception('Photos permission is required');
-      await Gal.putImage(path, album: 'HariPrabodham Smruti');
-      TopNotification.success('Enhanced photo saved to Photos');
-    } catch (error) {
-      TopNotification.error(error.toString().replaceFirst('Exception: ', ''));
-    } finally {
-      if (mounted) setState(() => _busyJobs.remove(jobId));
-    }
-  }
-
-  Future<void> _share(Map<String, dynamic> item) async {
-    final jobId = int.parse('${item['id']}');
-    if (_busyJobs.contains(jobId)) return;
-    setState(() => _busyJobs.add(jobId));
-    try {
-      final path = await _downloadToTemporary(item);
-      await SharePlus.instance.share(
-        ShareParams(files: [XFile(path, mimeType: 'image/jpeg')]),
-      );
-    } catch (error) {
-      TopNotification.error(error.toString().replaceFirst('Exception: ', ''));
-    } finally {
-      if (mounted) setState(() => _busyJobs.remove(jobId));
-    }
   }
 
   @override
@@ -455,71 +423,31 @@ class _EnhancedDownloadsSectionState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SubHeader(title: 'Enhanced Downloads', showAction: false),
+        const SubHeader(title: 'Downloads', showAction: false),
         SizedBox(
-          height: 150,
+          height: 126,
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             scrollDirection: Axis.horizontal,
             itemCount: _items.length,
             separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
-              final item = _items[index];
-              final jobId = int.parse('${item['id']}');
-              final photoId = int.parse('${item['photo_id']}');
-              final busy = _busyJobs.contains(jobId);
-              return Container(
-                width: 250,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withAlpha(232),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Row(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
-                        ApiEndpoints.photoThumbnail(photoId),
-                        headers: _repository.imageHeaders,
-                        width: 82,
-                        height: 126,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const SizedBox(
-                          width: 82,
-                          child: Icon(Icons.auto_awesome, size: 34),
-                        ),
-                      ),
+              final photoId = int.parse('${_items[index]['photo_id']}');
+              return GestureDetector(
+                onTap: () => _openPhoto(index),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    ApiEndpoints.photoThumbnail(photoId),
+                    headers: _repository.imageHeaders,
+                    width: 82,
+                    height: 126,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => const SizedBox(
+                      width: 82,
+                      child: Icon(Icons.auto_awesome, size: 34),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${item['quality']?.toString().toUpperCase()} ready',
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          const SizedBox(height: 12),
-                          if (busy)
-                            const Center(child: CircularProgressIndicator())
-                          else ...[
-                            FilledButton.tonalIcon(
-                              onPressed: () => _save(item),
-                              icon: const Icon(Icons.download, size: 18),
-                              label: const Text('Download'),
-                            ),
-                            IconButton(
-                              tooltip: 'Share',
-                              onPressed: () => _share(item),
-                              icon: const Icon(Icons.share),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               );
             },
