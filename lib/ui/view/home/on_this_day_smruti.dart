@@ -169,6 +169,7 @@ class _StoryCircle extends StatelessWidget {
   Widget build(BuildContext context) {
     final scale = tabletScale(context);
     final circleSize = 82 * scale;
+    final scheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: SizedBox(
@@ -235,7 +236,9 @@ class _StoryCircle extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: const Color(0xFF2B211B),
+                      color: isViewed
+                          ? scheme.onSurfaceVariant
+                          : scheme.onSurface,
                       fontSize: 12 * scale,
                       fontWeight: FontWeight.w900,
                     ),
