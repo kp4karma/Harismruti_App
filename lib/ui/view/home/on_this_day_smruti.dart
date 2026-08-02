@@ -207,9 +207,10 @@ class _StoryCircle extends StatelessWidget {
               ),
               child: Container(
                 padding: EdgeInsets.all(3 * scale),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainer,
                   shape: BoxShape.circle,
+                  border: Border.all(color: scheme.outlineVariant),
                 ),
                 child: ClipOval(
                   child: NetworkImageWithLoader(

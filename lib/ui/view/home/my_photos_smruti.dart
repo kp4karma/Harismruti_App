@@ -94,6 +94,9 @@ class MyPhotosSmruti extends StatelessWidget {
               MyPhotoReviewStatus.draft =>
                 requiredDone > 0 ? 'Selfie ready to submit' : 'Add your selfie',
             };
+      final scheme = Theme.of(context).colorScheme;
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      final accent = isDark ? const Color(0xFFFFB59F) : primaryColor;
 
       return GestureDetector(
         onTap: () {
@@ -108,78 +111,120 @@ class MyPhotosSmruti extends StatelessWidget {
         },
         child: Container(
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 22),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainer,
+          child: ClipRRect(
             borderRadius: BorderRadius.circular(22),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withAlpha(14),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                height: 54,
-                width: 54,
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+              child: Container(
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: primaryColor.withAlpha(20),
-                  borderRadius: BorderRadius.circular(18),
+                  gradient: LinearGradient(
+                    colors: isDark
+                        ? [
+                            scheme.surfaceContainerHigh.withAlpha(225),
+                            const Color(0xFF3A2421).withAlpha(205),
+                            scheme.surfaceContainer.withAlpha(220),
+                          ]
+                        : [
+                            Colors.white.withAlpha(105),
+                            primaryColor.withAlpha(22),
+                            Colors.white.withAlpha(68),
+                          ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withAlpha(22)
+                        : primaryColor.withAlpha(24),
+                  ),
+                  boxShadow: isDark
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(55),
+                            blurRadius: 18,
+                            offset: const Offset(0, 7),
+                          ),
+                        ]
+                      : null,
                 ),
-                child: Icon(
-                  CupertinoIcons.person_crop_circle_badge_checkmark,
-                  color: primaryColor,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Text(
-                      'My Smruti',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: Theme.of(context).colorScheme.onSurface,
+                    Container(
+                      height: 54,
+                      width: 54,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isDark
+                              ? [
+                                  const Color(0xFF663D35),
+                                  const Color(0xFF402824),
+                                ]
+                              : [
+                                  primaryColor.withAlpha(25),
+                                  primaryColor.withAlpha(10),
+                                ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: accent.withAlpha(45)),
+                      ),
+                      child: Icon(
+                        CupertinoIcons.person_crop_circle_badge_checkmark,
+                        color: accent,
+                        size: 28,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      controller.hasMatchedSmruti
-                          ? 'Photos linked with your phone number.'
-                          : !controller.isFlowInitialized.value
-                          ? 'Checking your Smruti status.'
-                          : controller.smrutiLookupFinished
-                          ? 'No matching Smruti photos are available.'
-                          : 'Add a live front selfie to find your smruti.',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                    const SizedBox(width: 13),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'My Smruti',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: scheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            controller.hasMatchedSmruti
+                                ? 'Photos linked with your phone number.'
+                                : !controller.isFlowInitialized.value
+                                ? 'Checking your Smruti status.'
+                                : controller.smrutiLookupFinished
+                                ? 'No matching Smruti photos are available.'
+                                : 'Add a live front selfie to find your smruti.',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: scheme.onSurfaceVariant,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 7),
+                          Text(
+                            status,
+                            style: TextStyle(
+                              color: accent,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 7),
-                    Text(
-                      status,
-                      style: TextStyle(
-                        color: primaryColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
+                    if (controller.isFlowInitialized.value)
+                      Icon(CupertinoIcons.chevron_right, color: accent),
                   ],
                 ),
               ),
-              if (controller.isFlowInitialized.value)
-                Icon(CupertinoIcons.chevron_right, color: primaryColor),
-            ],
+            ),
           ),
         ),
       );
