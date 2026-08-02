@@ -964,23 +964,31 @@ class _SearchFilterBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 7),
       child: Row(
         children: [
           Expanded(
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(13),
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                 child: TextField(
                   controller: controller,
                   focusNode: focusNode,
                   textInputAction: TextInputAction.search,
+                  style: const TextStyle(fontSize: 13),
                   decoration: InputDecoration(
                     hintText: 'Search smruti',
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 11),
                     prefixIcon: Icon(
                       CupertinoIcons.search,
                       color: primaryColor,
+                      size: 19,
+                    ),
+                    prefixIconConstraints: const BoxConstraints(
+                      minWidth: 40,
+                      minHeight: 40,
                     ),
                     suffixIcon: ValueListenableBuilder<TextEditingValue>(
                       valueListenable: controller,
@@ -990,12 +998,17 @@ class _SearchFilterBar extends StatelessWidget {
                           onTap: controller.clear,
                           child: Icon(
                             CupertinoIcons.xmark_circle_fill,
+                            size: 18,
                             color: Theme.of(
                               context,
                             ).colorScheme.onSurfaceVariant,
                           ),
                         );
                       },
+                    ),
+                    suffixIconConstraints: const BoxConstraints(
+                      minWidth: 38,
+                      minHeight: 40,
                     ),
                     filled: true,
                     fillColor: Theme.of(context).brightness == Brightness.dark
@@ -1007,17 +1020,21 @@ class _SearchFilterBar extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           GestureDetector(
             onTap: onFilterTap,
             child: Container(
-              width: 52,
-              height: 52,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 color: primaryColor,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(13),
               ),
-              child: const Icon(Icons.tune_rounded, color: Colors.white),
+              child: const Icon(
+                Icons.tune_rounded,
+                color: Colors.white,
+                size: 21,
+              ),
             ),
           ),
         ],

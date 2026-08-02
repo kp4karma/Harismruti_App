@@ -11,11 +11,13 @@ import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 
 Future<void> showGalleryFilterSheet(BuildContext context) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     useSafeArea: false,
     backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withAlpha(isDark ? 72 : 38),
     builder: (_) => Align(
       alignment: Alignment.bottomCenter,
       child: ConstrainedBox(
@@ -312,10 +314,23 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
         child: Container(
           height: height,
-          color: scheme.surfaceContainer.withAlpha(245),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: scheme.brightness == Brightness.dark
+                  ? const [Color(0xC7201918), Color(0xB5120F0E)]
+                  : const [Color(0xCFFFFFFF), Color(0xB8FFF5F1)],
+            ),
+            border: Border.all(
+              color: scheme.brightness == Brightness.dark
+                  ? Colors.white.withAlpha(28)
+                  : Colors.white.withAlpha(190),
+            ),
+          ),
           child: Column(
             children: [
               const SizedBox(height: 8),
@@ -362,9 +377,9 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                       color: primaryColor,
                     ),
                     filled: true,
-                    fillColor: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white.withAlpha(18)
-                        : Theme.of(context).colorScheme.surfaceContainerHighest,
+                    fillColor: scheme.brightness == Brightness.dark
+                        ? Colors.white.withAlpha(20)
+                        : Colors.white.withAlpha(105),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide.none,
@@ -567,9 +582,7 @@ class _FilterCategoryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final accent = Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFFFFB59F)
-        : primaryColor;
+    final isDark = scheme.brightness == Brightness.dark;
     return InkWell(
       onTap: onTap,
       child: AnimatedContainer(
@@ -578,8 +591,11 @@ class _FilterCategoryTile extends StatelessWidget {
         margin: const EdgeInsets.fromLTRB(8, 3, 6, 3),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
         decoration: BoxDecoration(
-          color: selected ? primaryColor : accent.withAlpha(14),
+          color: selected
+              ? primaryColor.withAlpha(235)
+              : Colors.white.withAlpha(isDark ? 12 : 88),
           borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white.withAlpha(isDark ? 20 : 125)),
         ),
         child: Row(
           children: [
@@ -797,12 +813,15 @@ class _FilterOptionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
     final color = Theme.of(context).brightness == Brightness.dark
         ? const Color(0xFFFFB59F)
         : primaryColor;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: selected ? color.withAlpha(36) : color.withAlpha(16),
+        color: selected
+            ? color.withAlpha(isDark ? 42 : 30)
+            : Colors.white.withAlpha(isDark ? 12 : 82),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: selected ? color.withAlpha(130) : color.withAlpha(42),
@@ -873,6 +892,7 @@ class _FilterOptionsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final accent = Theme.of(context).brightness == Brightness.dark
         ? const Color(0xFFFFB59F)
         : primaryColor;
@@ -897,7 +917,9 @@ class _FilterOptionsList extends StatelessWidget {
         final color = accent;
         return DecoratedBox(
           decoration: BoxDecoration(
-            color: isSelected ? color.withAlpha(36) : color.withAlpha(16),
+            color: isSelected
+                ? color.withAlpha(isDark ? 42 : 30)
+                : Colors.white.withAlpha(isDark ? 12 : 82),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isSelected ? color.withAlpha(130) : color.withAlpha(42),
@@ -1148,12 +1170,15 @@ class _FilterActionsBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: EdgeInsets.fromLTRB(14, 10, 14, 12 + bottomInset),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainer.withAlpha(250),
+        color: scheme.brightness == Brightness.dark
+            ? const Color(0xB81A1413)
+            : const Color(0xB8FFFFFF),
         border: Border(
-          top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+          top: BorderSide(color: scheme.outlineVariant.withAlpha(120)),
         ),
       ),
       child: Row(

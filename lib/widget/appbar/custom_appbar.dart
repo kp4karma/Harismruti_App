@@ -28,6 +28,8 @@ class CustomAppbar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final accent = _appbarAccent(context);
     return Stack(
       children: [
         // Glass background layer
@@ -37,7 +39,13 @@ class CustomAppbar extends StatelessWidget implements PreferredSizeWidget {
               filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
               child: Container(
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface.withAlpha(158),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: scheme.brightness == Brightness.dark
+                        ? const [Color(0xC7241A18), Color(0xA6120E0D)]
+                        : const [Color(0xD9FFFFFF), Color(0xA6FFF8F4)],
+                  ),
                 ),
               ),
             ),
@@ -90,7 +98,7 @@ class CustomAppbar extends StatelessWidget implements PreferredSizeWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 16,
-                          color: primaryColor,
+                          color: accent,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 1,
                         ),
@@ -151,13 +159,14 @@ class _NotificationAppbarButton extends StatelessWidget {
       valueListenable: NotificationHistoryService.revision,
       builder: (_, __, ___) {
         final count = NotificationHistoryService.unreadCount;
+        final accent = _appbarAccent(context);
         return IconButton(
           tooltip: 'Notifications',
           onPressed: onTap,
           icon: Badge(
             isLabelVisible: count > 0,
             label: Text(count > 99 ? '99+' : '$count'),
-            child: Icon(CupertinoIcons.bell, color: primaryColor, size: 25),
+            child: Icon(CupertinoIcons.bell, color: accent, size: 25),
           ),
         );
       },
@@ -176,17 +185,14 @@ class _ProfileAppbarButton extends StatelessWidget {
         ? Get.find<ProfileController>()
         : Get.put(ProfileController());
     return Obx(() {
+      final accent = _appbarAccent(context);
       final isLoggedIn = StorageHelper.isLogin();
       final image = controller.profileImage.value;
       final avatarUrl = controller.avatarUrl;
 
       Widget avatarChild;
       if (!isLoggedIn) {
-        avatarChild = Icon(
-          CupertinoIcons.person,
-          color: primaryColor,
-          size: 22,
-        );
+        avatarChild = Icon(CupertinoIcons.person, color: accent, size: 22);
       } else if (image != null) {
         avatarChild = ClipOval(
           child: Image.file(
@@ -224,7 +230,7 @@ class _ProfileAppbarButton extends StatelessWidget {
           height: 44,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: primaryColor.withAlpha(22),
+            color: accent.withAlpha(28),
             shape: BoxShape.circle,
             border: Border.all(
               color: Theme.of(context).colorScheme.outlineVariant,
@@ -247,10 +253,16 @@ class _AppbarInitial extends StatelessWidget {
     return Text(
       controller.avatarInitial,
       style: TextStyle(
-        color: primaryColor,
+        color: _appbarAccent(context),
         fontSize: 18,
         fontWeight: FontWeight.w900,
       ),
     );
   }
+}
+
+Color _appbarAccent(BuildContext context) {
+  return Theme.of(context).brightness == Brightness.dark
+      ? const Color(0xFFFFB4A5)
+      : primaryColor;
 }
