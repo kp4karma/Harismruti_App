@@ -3,7 +3,6 @@ import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/api/repositories/gallery_repository.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
@@ -188,6 +187,20 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
     );
   }
 
+  void _openAllResults() {
+    final photos = List<GalleryPhoto>.unmodifiable(_results);
+    Navigator.push(
+      context,
+      CupertinoPageRoute<void>(
+        builder: (_) => GalleryDetailScreen(
+          title: 'AI Smruti Results',
+          subtitle: _lastPrompt,
+          loader: () async => photos,
+        ),
+      ),
+    );
+  }
+
   String get _languageLabel {
     for (final locale in _locales) {
       if (locale.localeId == _localeId) return locale.name;
@@ -272,54 +285,11 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
           ),
           if (_results.isNotEmpty) ...[
             const SizedBox(height: 14),
-            MasonryGridView.count(
-              crossAxisCount: MediaQuery.sizeOf(context).width > 650 ? 3 : 2,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _results.length,
-              itemBuilder: (context, index) {
-                final photo = _results[index];
-                final ratio = photo.width != null && photo.height != null
-                    ? photo.width! / photo.height!
-                    : 1.0;
-                return TweenAnimationBuilder<double>(
-                  duration: Duration(milliseconds: 240 + (index % 8) * 55),
-                  tween: Tween(begin: 0, end: 1),
-                  builder: (context, value, child) => Opacity(
-                    opacity: value,
-                    child: Transform.translate(
-                      offset: Offset(0, 12 * (1 - value)),
-                      child: child,
-                    ),
-                  ),
-                  child: GestureDetector(
-                    onTap: () => _openPhoto(index),
-                    child: Hero(
-                      tag: 'ai-search-${photo.id}',
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: AspectRatio(
-                          aspectRatio: ratio.clamp(0.72, 1.55),
-                          child: CachedNetworkImage(
-                            imageUrl: photo.thumbnailUrl,
-                            httpHeaders: _repository.imageHeaders,
-                            fit: BoxFit.cover,
-                            placeholder: (_, __) => Container(
-                              color: scheme.surfaceContainerHighest,
-                            ),
-                            errorWidget: (_, __, ___) => Container(
-                              color: scheme.surfaceContainerHighest,
-                              child: const Icon(CupertinoIcons.photo),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
+            _ChatImagePreview(
+              photos: _results,
+              imageHeaders: _repository.imageHeaders,
+              onPhotoTap: _openPhoto,
+              onViewAll: _openAllResults,
             ),
           ],
         ],
@@ -414,6 +384,131 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ChatImagePreview extends StatelessWidget {
+  const _ChatImagePreview({
+    required this.photos,
+    required this.imageHeaders,
+    required this.onPhotoTap,
+    required this.onViewAll,
+  });
+
+  final List<GalleryPhoto> photos;
+  final Map<String, String> imageHeaders;
+  final ValueChanged<int> onPhotoTap;
+  final VoidCallback onViewAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final previewCount = photos.length.clamp(1, 4);
+    final columns = previewCount == 1 ? 1 : 2;
+    final rows = (previewCount / columns).ceil();
+    final previewHeight = previewCount == 1 ? 230.0 : rows * 128.0;
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 44),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: TweenAnimationBuilder<double>(
+          duration: const Duration(milliseconds: 360),
+          tween: Tween(begin: 0, end: 1),
+          builder: (context, value, child) => Opacity(
+            opacity: value,
+            child: Transform.translate(
+              offset: Offset(0, 14 * (1 - value)),
+              child: child,
+            ),
+          ),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 340),
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest.withAlpha(215),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(5),
+                topRight: Radius.circular(18),
+                bottomLeft: Radius.circular(18),
+                bottomRight: Radius.circular(18),
+              ),
+              border: Border.all(color: scheme.outlineVariant.withAlpha(120)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: previewHeight,
+                  child: GridView.builder(
+                    padding: EdgeInsets.zero,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: columns,
+                      mainAxisSpacing: 3,
+                      crossAxisSpacing: 3,
+                      childAspectRatio: previewCount == 1 ? 1.42 : 1.25,
+                    ),
+                    itemCount: previewCount,
+                    itemBuilder: (context, index) {
+                      final remaining = photos.length - previewCount;
+                      return GestureDetector(
+                        onTap: remaining > 0 && index == previewCount - 1
+                            ? onViewAll
+                            : () => onPhotoTap(index),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              CachedNetworkImage(
+                                imageUrl: photos[index].thumbnailUrl,
+                                httpHeaders: imageHeaders,
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) => Container(
+                                  color: scheme.surfaceContainerHigh,
+                                ),
+                                errorWidget: (_, __, ___) => Container(
+                                  color: scheme.surfaceContainerHigh,
+                                  child: const Icon(CupertinoIcons.photo),
+                                ),
+                              ),
+                              if (remaining > 0 && index == previewCount - 1)
+                                ColoredBox(
+                                  color: Colors.black.withAlpha(112),
+                                  child: Center(
+                                    child: Text(
+                                      '+$remaining',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                if (photos.length > 4)
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton.icon(
+                      onPressed: onViewAll,
+                      icon: const Icon(CupertinoIcons.photo_on_rectangle),
+                      label: Text('View all ${photos.length} smrutis'),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
