@@ -70,6 +70,21 @@ class GalleryRepository {
     );
   }
 
+  Future<List<GalleryPhoto>> naturalSearch(
+    String query, {
+    int limit = 60,
+  }) async {
+    final response = await ApiClient.get(
+      ApiEndpoints.naturalSearch,
+      queryParams: {'q': query.trim(), 'limit': limit},
+      forceRefresh: true,
+    );
+    final data = asJsonMap(response.data);
+    return (data['items'] as List? ?? const [])
+        .map(GalleryPhoto.fromJson)
+        .toList(growable: false);
+  }
+
   Future<List<GalleryPhoto>> getOnThisDay({
     int limit = 60,
     bool forceRefresh = false,

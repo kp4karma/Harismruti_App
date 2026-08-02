@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
+import 'package:harismruti/api/repositories/gallery_repository.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
@@ -293,8 +294,19 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
 
   void _applyFilters() {
     final selected = _selectedForApi;
-    if (selected.isEmpty) return;
+    final naturalQuery = _searchController.text.trim();
+    if (selected.isEmpty && naturalQuery.length < 2) return;
     Navigator.pop(context);
+    if (selected.isEmpty) {
+      Get.to(
+        () => GalleryDetailScreen(
+          title: 'Natural Search',
+          subtitle: naturalQuery,
+          loader: () => const GalleryRepository().naturalSearch(naturalQuery),
+        ),
+      );
+      return;
+    }
     Get.to(
       () => GalleryDetailScreen.fromFilters(
         title: 'Filtered Smruti ($_selectedCount)',
@@ -352,7 +364,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                 child: TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText: 'Search filters',
+                    hintText: 'Describe a smruti or search filters',
                     prefixIcon: Icon(
                       CupertinoIcons.search,
                       color: primaryColor,
@@ -1150,7 +1162,7 @@ class _FilterActionsBar extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: ElevatedButton(
-              onPressed: selectedCount == 0 ? null : onApply,
+              onPressed: selectedCount == 0 && !hasSearchQuery ? null : onApply,
               style: ElevatedButton.styleFrom(
                 backgroundColor: primaryColor,
                 foregroundColor: Colors.white,
@@ -1171,7 +1183,9 @@ class _FilterActionsBar extends StatelessWidget {
               ),
               child: Text(
                 selectedCount == 0
-                    ? 'Select filters'
+                    ? hasSearchQuery
+                          ? 'Search with AI'
+                          : 'Select filters'
                     : 'Apply $selectedCount filters',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

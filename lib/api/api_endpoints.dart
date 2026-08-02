@@ -66,6 +66,7 @@ class ApiEndpoints {
   static String get ignoredPhotos => "/features/ignored-photos";
   static String get myDiary => "/me/diary";
   static String get liveStream => "/live-now";
+  static String get naturalSearch => "/search/natural";
 
   static String collectionMonths(int year) => "/collections/$year/months";
   static String collectionDays(int year, int month) =>
