@@ -36,7 +36,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
   final SmrutiSectionController sectionController =
       Get.find<SmrutiSectionController>();
@@ -47,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen>
       const LiveStreamRepository();
   String? _liveStreamUrl;
   bool _isLoadingLiveStream = false;
+  DateTime? _lastSectionSettingsRefresh;
 
   late AnimationController _appBarAnimationController;
   final StreamController<TiltStreamModel> streamController =
@@ -55,6 +56,7 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // streamController.stream.listen((data) {
     //   debugPrint("Tilt updated via stream: ${data}");
     // });
@@ -64,6 +66,7 @@ class _HomeScreenState extends State<HomeScreen>
       value: 1.0,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_refreshWebPanelSections());
       myPhotosController.refreshSmrutiFlow();
       if (authController.isLoggedIn.value) _loadLiveStream();
     });
@@ -80,9 +83,33 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
     _appBarAnimationController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_refreshWebPanelSections());
+    }
+  }
+
+  Future<void> _refreshWebPanelSections() async {
+    final now = DateTime.now();
+    if (_lastSectionSettingsRefresh != null &&
+        now.difference(_lastSectionSettingsRefresh!) <
+            const Duration(seconds: 2)) {
+      return;
+    }
+    _lastSectionSettingsRefresh = now;
+
+    final optionKey = galleryController.selectedSwami.value.apiValue;
+    await sectionController.refreshGlobalVisibility(optionKey: optionKey);
+    if (sectionController.consumeCacheRefresh(optionKey)) {
+      await galleryController.loadHome(force: true);
+    }
   }
 
   @override
@@ -198,6 +225,7 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _refreshHome() async {
     await Future.wait([
       galleryController.refreshHome(),
+      _refreshWebPanelSections(),
       myPhotosController.refreshSmrutiFlow(),
       _refreshLiveStreamForAuth(),
     ]);
