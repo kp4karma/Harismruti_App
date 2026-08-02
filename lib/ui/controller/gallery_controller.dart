@@ -1436,6 +1436,9 @@ class GalleryController extends GetxController {
     return null;
   }
 
+  AppSectionSetting? sectionSetting(String sectionKey) =>
+      _sectionSetting(sectionKey);
+
   List<GalleryPhoto> _orderPhotos(String sectionKey, List<GalleryPhoto> items) {
     final setting = _sectionSetting(sectionKey);
     final ordered = _applyConfiguredOrder<GalleryPhoto>(

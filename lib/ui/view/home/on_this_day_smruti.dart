@@ -4,28 +4,110 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
+import 'package:harismruti/api/repositories/gallery_repository.dart';
 import 'package:harismruti/services/analytics_service.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/controller/my_photos_controller.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/responsive.dart';
+import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
 
-class OnThisDaySmruti extends StatelessWidget {
+class OnThisDaySmruti extends StatefulWidget {
   const OnThisDaySmruti({super.key});
+
+  @override
+  State<OnThisDaySmruti> createState() => _OnThisDaySmrutiState();
+}
+
+class _OnThisDaySmrutiState extends State<OnThisDaySmruti> {
+  Set<String> _viewedGroupKeys = <String>{};
+  String? _activeStorageKey;
+  Timer? _refreshTimer;
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _syncViewedState(GalleryController controller) {
+    final refreshTime =
+        controller.sectionSetting('on_this_day')?.refreshTime ?? '05:00';
+    final cycle = _feedCycle(DateTime.now(), refreshTime);
+    final storageKey = '${controller.selectedSwami.value.apiValue}:$cycle';
+    if (_activeStorageKey == storageKey) return;
+    final stored = StorageHelper.getValue<Map>(
+      key: StorageKeys.onThisDayViewedStories,
+    );
+    final values = stored?[storageKey];
+    _activeStorageKey = storageKey;
+    _viewedGroupKeys = values is List
+        ? values.map((value) => value.toString()).toSet()
+        : <String>{};
+    _scheduleFeedRefresh(controller, refreshTime);
+  }
+
+  void _scheduleFeedRefresh(GalleryController controller, String refreshTime) {
+    _refreshTimer?.cancel();
+    final now = DateTime.now();
+    final parts = refreshTime.split(':');
+    final hour = parts.isNotEmpty ? int.tryParse(parts.first) ?? 5 : 5;
+    final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+    var next = DateTime(now.year, now.month, now.day, hour, minute);
+    if (!next.isAfter(now)) next = next.add(const Duration(days: 1));
+    _refreshTimer = Timer(next.difference(now), () async {
+      if (!mounted) return;
+      setState(() {
+        _activeStorageKey = null;
+        _viewedGroupKeys = <String>{};
+      });
+      await controller.refreshHome();
+    });
+  }
+
+  void _markViewed(_StoryGroup group) {
+    final storageKey = _activeStorageKey;
+    if (storageKey == null || _viewedGroupKeys.contains(group.key)) return;
+    setState(() => _viewedGroupKeys.add(group.key));
+    final existing = StorageHelper.getValue<Map>(
+      key: StorageKeys.onThisDayViewedStories,
+    );
+    final updated = <String, dynamic>{
+      if (existing != null)
+        ...existing.map((key, value) => MapEntry(key.toString(), value)),
+      storageKey: _viewedGroupKeys.toList(),
+    };
+    if (updated.length > 6) {
+      final oldestKeys = updated.keys.take(updated.length - 6).toList();
+      for (final key in oldestKeys) {
+        updated.remove(key);
+      }
+    }
+    StorageHelper.setValue(
+      key: StorageKeys.onThisDayViewedStories,
+      value: updated,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final galleryController = Get.find<GalleryController>();
     return Obx(() {
+      _syncViewedState(galleryController);
       final publicPhotos = galleryController.onThisDayPhotos;
       final mySmrutiPhotos = Get.isRegistered<MyPhotosController>()
           ? Get.find<MyPhotosController>().matchedPhotos.where(_isOnThisDay)
           : const Iterable<GalleryPhoto>.empty();
-      final groups = _buildStoryGroups(
-        publicPhotos: publicPhotos,
-        mySmrutiPhotos: mySmrutiPhotos,
-      );
+      final groups =
+          _buildStoryGroups(
+            publicPhotos: publicPhotos,
+            mySmrutiPhotos: mySmrutiPhotos,
+          )..sort((first, second) {
+            final firstViewed = _viewedGroupKeys.contains(first.key);
+            final secondViewed = _viewedGroupKeys.contains(second.key);
+            return firstViewed == secondViewed ? 0 : (firstViewed ? 1 : -1);
+          });
       if (groups.isEmpty) return const SizedBox.shrink();
 
       final scale = tabletScale(context);
@@ -39,8 +121,10 @@ class OnThisDaySmruti extends StatelessWidget {
           separatorBuilder: (_, _) => SizedBox(width: 16 * scale),
           itemBuilder: (context, index) => _StoryCircle(
             group: groups[index],
+            isViewed: _viewedGroupKeys.contains(groups[index].key),
             headers: galleryController.imageHeaders,
             onTap: () {
+              _markViewed(groups[index]);
               AnalyticsService.instance.track(
                 'On This Day Story Opened',
                 properties: {
@@ -73,11 +157,13 @@ class _StoryCircle extends StatelessWidget {
     required this.group,
     required this.headers,
     required this.onTap,
+    required this.isViewed,
   });
 
   final _StoryGroup group;
   final Map<String, String>? headers;
   final VoidCallback onTap;
+  final bool isViewed;
 
   @override
   Widget build(BuildContext context) {
@@ -95,18 +181,24 @@ class _StoryCircle extends StatelessWidget {
               padding: EdgeInsets.all(3 * scale),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [
-                    primaryColor,
-                    const Color(0xFFE4A34C),
-                    primaryColor.withAlpha(180),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                gradient: isViewed
+                    ? const LinearGradient(
+                        colors: [Color(0xFFB9B9B9), Color(0xFF777777)],
+                      )
+                    : LinearGradient(
+                        colors: [
+                          primaryColor,
+                          const Color(0xFFE4A34C),
+                          primaryColor.withAlpha(180),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                 boxShadow: [
                   BoxShadow(
-                    color: primaryColor.withAlpha(35),
+                    color: isViewed
+                        ? Colors.black.withAlpha(18)
+                        : primaryColor.withAlpha(35),
                     blurRadius: 12,
                     offset: const Offset(0, 5),
                   ),
@@ -131,7 +223,11 @@ class _StoryCircle extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(group.icon, color: primaryColor, size: 12 * scale),
+                Icon(
+                  group.icon,
+                  color: isViewed ? Colors.grey.shade600 : primaryColor,
+                  size: 12 * scale,
+                ),
                 SizedBox(width: 3 * scale),
                 Flexible(
                   child: Text(
@@ -369,6 +465,21 @@ class _StoryGroup {
   final String label;
   final IconData icon;
   final List<GalleryPhoto> photos;
+
+  String get key => type.name;
+}
+
+String _feedCycle(DateTime now, String refreshTime) {
+  final parts = refreshTime.split(':');
+  final hour = parts.isNotEmpty ? int.tryParse(parts.first) ?? 5 : 5;
+  final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+  final refreshToday = DateTime(now.year, now.month, now.day, hour, minute);
+  final cycleDate = now.isBefore(refreshToday)
+      ? now.subtract(const Duration(days: 1))
+      : now;
+  return '${cycleDate.year.toString().padLeft(4, '0')}-'
+      '${cycleDate.month.toString().padLeft(2, '0')}-'
+      '${cycleDate.day.toString().padLeft(2, '0')}';
 }
 
 List<_StoryGroup> _buildStoryGroups({
