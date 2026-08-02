@@ -172,7 +172,51 @@ ThemeData _buildTheme(Brightness brightness) {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: scheme.surfaceContainerHighest,
+      fillColor: isDark
+          ? Colors.white.withAlpha(18)
+          : scheme.surfaceContainerHighest.withAlpha(220),
+      hintStyle: TextStyle(
+        color: isDark ? Colors.white.withAlpha(145) : scheme.onSurfaceVariant,
+      ),
+      labelStyle: TextStyle(
+        color: isDark ? Colors.white.withAlpha(185) : scheme.onSurfaceVariant,
+      ),
+      floatingLabelStyle: TextStyle(
+        color: isDark ? Colors.white : primaryColor,
+        fontWeight: FontWeight.w700,
+      ),
+      prefixIconColor: isDark ? Colors.white.withAlpha(210) : primaryColor,
+      suffixIconColor: isDark
+          ? Colors.white.withAlpha(190)
+          : scheme.onSurfaceVariant,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(
+          color: isDark ? Colors.white.withAlpha(32) : scheme.outlineVariant,
+        ),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(
+          color: isDark ? Colors.white.withAlpha(38) : scheme.outlineVariant,
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(
+          color: isDark ? Colors.white.withAlpha(180) : primaryColor,
+          width: 1.4,
+        ),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: scheme.error),
+      ),
+    ),
+    textSelectionTheme: TextSelectionThemeData(
+      cursorColor: isDark ? Colors.white : primaryColor,
+      selectionColor: primaryColor.withAlpha(70),
+      selectionHandleColor: isDark ? Colors.white : primaryColor,
     ),
     appBarTheme: AppBarTheme(
       backgroundColor: Colors.transparent,

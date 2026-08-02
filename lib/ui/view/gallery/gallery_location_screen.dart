@@ -1105,9 +1105,11 @@ class _CitySearchField extends StatelessWidget {
           hintText: 'Search city or country',
           prefixIcon: Icon(CupertinoIcons.search, color: primaryColor),
           filled: true,
-          fillColor: Theme.of(
-            context,
-          ).colorScheme.surfaceContainerHighest.withAlpha(210),
+          fillColor: Theme.of(context).brightness == Brightness.dark
+              ? Colors.white.withAlpha(18)
+              : Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest.withAlpha(210),
           contentPadding: const EdgeInsets.symmetric(horizontal: 14),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),

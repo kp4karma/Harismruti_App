@@ -931,7 +931,10 @@ class _PromptComposer extends StatelessWidget {
                               ? 'Listening…'
                               : 'Ask for any smruti…',
                           filled: true,
-                          fillColor: scheme.surfaceContainerHighest,
+                          fillColor:
+                              Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white.withAlpha(18)
+                              : scheme.surfaceContainerHighest,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(22),
                             borderSide: BorderSide.none,

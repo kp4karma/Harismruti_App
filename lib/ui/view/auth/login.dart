@@ -158,9 +158,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                         height: kPhoneInputHeight,
                                         alignment: Alignment.center,
                                         decoration: BoxDecoration(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.surfaceContainerHigh,
+                                          color:
+                                              Theme.of(context).brightness ==
+                                                  Brightness.dark
+                                              ? Colors.white.withAlpha(18)
+                                              : Theme.of(context)
+                                                    .colorScheme
+                                                    .surfaceContainerHigh,
                                           borderRadius: BorderRadius.circular(
                                             kPhoneInputRadius,
                                           ),
@@ -183,15 +187,19 @@ class _LoginScreenState extends State<LoginScreen> {
                                             FilteringTextInputFormatter
                                                 .digitsOnly,
                                           ],
-                                          style: const TextStyle(
-                                            color: Color(0xFF322318),
+                                          style: TextStyle(
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.onSurface,
                                             fontSize: 15,
                                             fontWeight: FontWeight.w700,
                                           ),
-                                          decoration: const InputDecoration(
+                                          decoration: InputDecoration(
                                             hintText: 'Enter Mobile Number',
                                             hintStyle: TextStyle(
-                                              color: Color(0xFF8A817C),
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurfaceVariant,
                                               fontSize: 14,
                                               fontWeight: FontWeight.w400,
                                             ),

@@ -358,9 +358,9 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                       color: primaryColor,
                     ),
                     filled: true,
-                    fillColor: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
+                    fillColor: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white.withAlpha(18)
+                        : Theme.of(context).colorScheme.surfaceContainerHighest,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide.none,

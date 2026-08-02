@@ -990,13 +990,17 @@ class _SearchFilterBar extends StatelessWidget {
                           onTap: controller.clear,
                           child: Icon(
                             CupertinoIcons.xmark_circle_fill,
-                            color: Colors.black.withAlpha(95),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                         );
                       },
                     ),
                     filled: true,
-                    fillColor: Colors.white.withAlpha(230),
+                    fillColor: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white.withAlpha(18)
+                        : Colors.white.withAlpha(230),
                     border: InputBorder.none,
                   ),
                 ),

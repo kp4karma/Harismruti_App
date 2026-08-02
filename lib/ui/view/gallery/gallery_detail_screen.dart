@@ -2626,9 +2626,13 @@ class _TextEntryBottomSheetState extends State<_TextEntryBottomSheet> {
                               hintText:
                                   'Search ${isCollection ? 'collection' : 'tag'}',
                               filled: true,
-                              fillColor: Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainerHighest,
+                              fillColor:
+                                  Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Colors.white.withAlpha(18)
+                                  : Theme.of(
+                                      context,
+                                    ).colorScheme.surfaceContainerHighest,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
                                 borderSide: BorderSide.none,

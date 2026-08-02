@@ -513,7 +513,9 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
         color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
       filled: true,
-      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+      fillColor: Theme.of(context).brightness == Brightness.dark
+          ? Colors.white.withAlpha(18)
+          : Theme.of(context).colorScheme.surfaceContainerHighest,
       contentPadding: const EdgeInsets.all(16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
@@ -1653,9 +1655,12 @@ class _DiaryReusablePickerSheetState extends State<_DiaryReusablePickerSheet> {
                             ),
                             hintText: widget.hint,
                             filled: true,
-                            fillColor: Theme.of(
-                              context,
-                            ).colorScheme.surfaceContainerHighest,
+                            fillColor:
+                                Theme.of(context).brightness == Brightness.dark
+                                ? Colors.white.withAlpha(18)
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide.none,
