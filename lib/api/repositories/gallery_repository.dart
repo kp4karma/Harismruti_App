@@ -74,9 +74,20 @@ class GalleryRepository {
     String query, {
     int limit = 60,
   }) async {
+    final normalizedQuery = query.trim();
+    final queryParams = _scopedQueryParams({
+      'q': normalizedQuery,
+      'limit': limit,
+    });
+    final lowerQuery = normalizedQuery.toLowerCase();
+    if (lowerQuery.contains('hariprasad')) {
+      queryParams['swami'] = GallerySwami.hariprasad.apiValue;
+    } else if (lowerQuery.contains('prabodh')) {
+      queryParams['swami'] = GallerySwami.prabodh.apiValue;
+    }
     final response = await ApiClient.get(
       ApiEndpoints.naturalSearch,
-      queryParams: {'q': query.trim(), 'limit': limit},
+      queryParams: queryParams,
       forceRefresh: true,
     );
     final data = asJsonMap(response.data);
