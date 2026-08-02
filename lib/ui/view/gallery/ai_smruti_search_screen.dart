@@ -558,7 +558,7 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
                     children: [
                       _AssistantMessage(
                         text: turn.photos.isEmpty
-                            ? 'I could not find a matching smruti. Try describing the person, place, activity, or time differently.'
+                            ? 'No Smruti found matching your requirement. Try a different description.'
                             : 'I found ${turn.photos.length} matching smrutis for you.',
                       ),
                       if (turn.photos.isNotEmpty) ...[
