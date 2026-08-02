@@ -107,6 +107,7 @@ class _HomeScreenState extends State<HomeScreen>
       final bottomContentPadding = sectionController.showBottomBar.value
           ? 96.0 + bottomSystemInset
           : 24.0 + bottomSystemInset;
+      final isDark = Theme.of(context).brightness == Brightness.dark;
 
       return CustomBackground(
         child: Center(
@@ -118,17 +119,17 @@ class _HomeScreenState extends State<HomeScreen>
               enableGestureTouch: false,
               enableGestureHover: true,
               enableGestureSensors: true,
-              sensorFactor: 30.0, // Increased
+              sensorFactor: 34.0,
               enableSensorRevert: true,
               sensorRevertFactor: 0.07, // Smoother easing
-              angle: 5,
+              angle: 6,
             ),
 
             lightConfig: const LightConfig(
               minIntensity: 0.0,
               maxIntensity: 0.0,
             ),
-            shadowConfig: ShadowConfig(color: Colors.white),
+            shadowConfig: ShadowConfig(disable: isDark, color: Colors.white),
             child: Scaffold(
               backgroundColor: Colors.transparent,
               extendBodyBehindAppBar: true,

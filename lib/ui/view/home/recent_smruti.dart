@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
@@ -73,6 +74,7 @@ class _AutoSwapRecentCollagesState extends State<_AutoSwapRecentCollages> {
 
   Timer? _timer;
   int _frontGroup = 0;
+  bool _didPrecache = false;
 
   List<List<GalleryPhoto>> get _groups => [
     for (final photo in widget.photos) [photo],
@@ -87,12 +89,25 @@ class _AutoSwapRecentCollagesState extends State<_AutoSwapRecentCollages> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_didPrecache) {
+      _didPrecache = true;
+      _precachePhotos();
+    }
+  }
+
+  @override
   void didUpdateWidget(covariant _AutoSwapRecentCollages oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (_frontGroup >= _groupCount) _frontGroup = 0;
     if (oldWidget.photos.length != widget.photos.length ||
         oldWidget.autoplay != widget.autoplay) {
       _startTimer();
+    }
+    if (oldWidget.photos != widget.photos ||
+        oldWidget.headers != widget.headers) {
+      _precachePhotos();
     }
   }
 
@@ -113,6 +128,21 @@ class _AutoSwapRecentCollagesState extends State<_AutoSwapRecentCollages> {
     setState(() {
       _frontGroup = (_frontGroup + direction + _groupCount) % _groupCount;
     });
+  }
+
+  void _precachePhotos() {
+    for (final photo in widget.photos.take(6)) {
+      if (photo.thumbnailUrl.isEmpty) continue;
+      unawaited(
+        precacheImage(
+          CachedNetworkImageProvider(
+            photo.thumbnailUrl,
+            headers: widget.headers,
+          ),
+          context,
+        ),
+      );
+    }
   }
 
   List<GalleryPhoto> _groupAt(int groupIndex) {
@@ -161,7 +191,10 @@ class _AutoSwapRecentCollagesState extends State<_AutoSwapRecentCollages> {
     final groupIndex = (_frontGroup + depth) % _groupCount;
 
     return AnimatedPositioned(
-      key: ValueKey('recent-collage-$groupIndex-$depth'),
+      // Keep each image widget alive while it moves through the stack. A key
+      // tied to depth recreated the image on every swap and briefly showed its
+      // loading state again.
+      key: ValueKey('recent-collage-$groupIndex'),
       duration: _animationDuration,
       curve: Curves.easeOutCubic,
       left: layout.$1 * ratio,

@@ -226,6 +226,11 @@ class NotificationService {
   static Future<void> _showNotification(RemoteMessage message) async {
     _saveMessage(message);
     await PhoneSmrutiWidgetService.markNotificationReceived();
+    if (message.data['screen']?.toString() == 'photo_enhancement') {
+      // A foreground FCM notification does not pass through
+      // onMessageOpenedApp, so start the completed enhancement download here.
+      unawaited(_saveEnhancedPhoto(message.data));
+    }
     final notification = message.notification;
     if (notification == null || kIsWeb || _channel == null) return;
 
@@ -399,10 +404,19 @@ class NotificationService {
           responseType: ResponseType.bytes,
         ),
       );
-      var allowed = await Gal.hasAccess(toAlbum: true);
-      if (!allowed) allowed = await Gal.requestAccess(toAlbum: true);
+      // A named album requires read/write library access on iOS. Saving to the
+      // camera roll only needs add-only access and works with the permission
+      // declared by NSPhotoLibraryAddUsageDescription.
+      final needsAlbumAccess = !Platform.isIOS;
+      var allowed = await Gal.hasAccess(toAlbum: needsAlbumAccess);
+      if (!allowed) {
+        allowed = await Gal.requestAccess(toAlbum: needsAlbumAccess);
+      }
       if (!allowed) throw Exception('Photos permission is required');
-      await Gal.putImage(filePath, album: 'HariPrabodham Smruti');
+      await Gal.putImage(
+        filePath,
+        album: Platform.isIOS ? null : 'HariPrabodham Smruti',
+      );
       TopNotification.success(
         'Enhanced smruti saved to Photos',
         title: '$quality download ready',

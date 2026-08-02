@@ -47,6 +47,29 @@ double _galleryPhotoAspectRatio(GalleryPhoto photo) {
   return width / height;
 }
 
+Widget _themedPhotoActionSheet(BuildContext context, Widget child) {
+  final materialTheme = Theme.of(context);
+  final scheme = materialTheme.colorScheme;
+  return CupertinoTheme(
+    data: CupertinoThemeData(
+      brightness: materialTheme.brightness,
+      primaryColor: primaryColor,
+      scaffoldBackgroundColor: scheme.surface,
+      barBackgroundColor: scheme.surfaceContainerHigh,
+      textTheme: CupertinoTextThemeData(
+        primaryColor: primaryColor,
+        textStyle: TextStyle(color: scheme.onSurface),
+        actionTextStyle: TextStyle(
+          color: primaryColor,
+          fontSize: 20,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    ),
+    child: child,
+  );
+}
+
 class GalleryDetailScreen extends StatefulWidget {
   final String title;
   final String subtitle;
@@ -1205,46 +1228,49 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     if (!AuthRedirectHelper.ensureLoggedIn()) return;
     final quality = await showCupertinoModalPopup<String>(
       context: context,
-      builder: (context) => CupertinoActionSheet(
-        title: const Text('Download quality'),
-        message: const Text(
-          'Enhanced versions are prepared only when requested and expire automatically.',
-        ),
-        actions: const [
-          _DownloadQualityAction(
-            value: 'original',
-            title: 'Original',
-            subtitle: 'No enhancement',
+      builder: (context) => _themedPhotoActionSheet(
+        context,
+        CupertinoActionSheet(
+          title: const Text('Download quality'),
+          message: const Text(
+            'Enhanced versions are prepared only when requested and expire automatically.',
           ),
-          _DownloadQualityAction(
-            value: 'sd',
-            title: 'SD',
-            subtitle: 'Smaller download',
+          actions: const [
+            _DownloadQualityAction(
+              value: 'original',
+              title: 'Original',
+              subtitle: 'No enhancement',
+            ),
+            _DownloadQualityAction(
+              value: 'sd',
+              title: 'SD',
+              subtitle: 'Smaller download',
+            ),
+            _DownloadQualityAction(
+              value: 'hd',
+              title: 'HD',
+              subtitle: 'Up to 1280 px',
+            ),
+            _DownloadQualityAction(
+              value: 'fhd',
+              title: 'Full HD',
+              subtitle: 'Enhanced up to 1920 px',
+            ),
+            _DownloadQualityAction(
+              value: '2k',
+              title: 'Enhanced 2K',
+              subtitle: 'Prepared on demand',
+            ),
+            _DownloadQualityAction(
+              value: '4k',
+              title: 'Enhanced 4K',
+              subtitle: 'Largest file · prepared on demand',
+            ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
           ),
-          _DownloadQualityAction(
-            value: 'hd',
-            title: 'HD',
-            subtitle: 'Up to 1280 px',
-          ),
-          _DownloadQualityAction(
-            value: 'fhd',
-            title: 'Full HD',
-            subtitle: 'Enhanced up to 1920 px',
-          ),
-          _DownloadQualityAction(
-            value: '2k',
-            title: 'Enhanced 2K',
-            subtitle: 'Prepared on demand',
-          ),
-          _DownloadQualityAction(
-            value: '4k',
-            title: 'Enhanced 4K',
-            subtitle: 'Largest file · prepared on demand',
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.pop(context),
-          child: Text('Cancel'),
         ),
       ),
     );
@@ -1333,37 +1359,40 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
 
     final destination = await showCupertinoModalPopup<String>(
       context: context,
-      builder: (context) => CupertinoActionSheet(
-        title: const Text('Set as wallpaper'),
-        message: const Text('Choose where this photo should appear.'),
-        actions: [
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(context);
-              _showDownloadOptions();
-            },
-            child: Text(_isDownloading ? 'Preparing Download…' : 'Download'),
+      builder: (context) => _themedPhotoActionSheet(
+        context,
+        CupertinoActionSheet(
+          title: const Text('Set as wallpaper'),
+          message: const Text('Choose where this photo should appear.'),
+          actions: [
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(context);
+                _showDownloadOptions();
+              },
+              child: Text(_isDownloading ? 'Preparing Download…' : 'Download'),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.pop(context, 'editor'),
+              child: const Text('Crop & Adjust with Phone'),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.pop(context, 'home'),
+              child: const Text('Home Screen'),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.pop(context, 'lock'),
+              child: const Text('Lock Screen'),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.pop(context, 'both'),
+              child: const Text('Home & Lock Screens'),
+            ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
           ),
-          CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(context, 'editor'),
-            child: const Text('Crop & Adjust with Phone'),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(context, 'home'),
-            child: const Text('Home Screen'),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(context, 'lock'),
-            child: const Text('Lock Screen'),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(context, 'both'),
-            child: const Text('Home & Lock Screens'),
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
         ),
       ),
     );
@@ -2081,80 +2110,85 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   void _showMoreOptions() {
     showCupertinoModalPopup<void>(
       context: context,
-      builder: (_) => CupertinoActionSheet(
-        title: const Text('Photo options'),
-        actions: [
-          if (_photosList.length > 1)
+      builder: (context) => _themedPhotoActionSheet(
+        context,
+        CupertinoActionSheet(
+          title: const Text('Photo options'),
+          actions: [
+            if (_photosList.length > 1)
+              CupertinoActionSheetAction(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _toggleSlideshow();
+                },
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _isSlideshowPlaying
+                          ? CupertinoIcons.pause
+                          : CupertinoIcons.play,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _isSlideshowPlaying
+                          ? 'Pause Slideshow'
+                          : 'Start Slideshow',
+                    ),
+                  ],
+                ),
+              ),
             CupertinoActionSheetAction(
               onPressed: () {
                 Navigator.pop(context);
-                _toggleSlideshow();
+                _openPhotoEditor();
               },
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    _isSlideshowPlaying
-                        ? CupertinoIcons.pause
-                        : CupertinoIcons.play,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    _isSlideshowPlaying ? 'Pause Slideshow' : 'Start Slideshow',
-                  ),
-                ],
-              ),
+              child: const Text('Edit Photo'),
             ),
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(context);
-              _openPhotoEditor();
-            },
-            child: const Text('Edit Photo'),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(context);
-              _showDownloadOptions();
-            },
-            child: Text(_isDownloading ? 'Preparing Download…' : 'Download'),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(context);
-              _showWallpaperOptions();
-            },
-            child: const Text('Set as Wallpaper'),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(context);
-              _openAddTagSheet();
-            },
-            child: const Text('Add Tag'),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(context);
-              if (!AuthRedirectHelper.ensureLoggedIn()) return;
-              Navigator.push(
-                context,
-                CupertinoPageRoute(
-                  settings: const RouteSettings(name: 'Diary Entry Detail'),
-                  builder: (_) => DiaryEntryDetailScreen(
-                    date: DateTime.now(),
-                    initialImages: [_photo.fullUrl],
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(context);
+                _showDownloadOptions();
+              },
+              child: Text(_isDownloading ? 'Preparing Download…' : 'Download'),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(context);
+                _showWallpaperOptions();
+              },
+              child: const Text('Set as Wallpaper'),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(context);
+                _openAddTagSheet();
+              },
+              child: const Text('Add Tag'),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(context);
+                if (!AuthRedirectHelper.ensureLoggedIn()) return;
+                Navigator.push(
+                  context,
+                  CupertinoPageRoute(
+                    settings: const RouteSettings(name: 'Diary Entry Detail'),
+                    builder: (_) => DiaryEntryDetailScreen(
+                      date: DateTime.now(),
+                      initialImages: [_photo.fullUrl],
+                    ),
                   ),
-                ),
-              );
-            },
-            child: const Text('Add Note in Diary'),
+                );
+              },
+              child: const Text('Add Note in Diary'),
+            ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
           ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
         ),
       ),
     );
@@ -2208,9 +2242,16 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   Widget build(BuildContext context) {
     final dismissProgress = (_dismissDragOffset / 320).clamp(0.0, 1.0);
     final dismissScale = 1 - (dismissProgress * 0.12);
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final viewerBackground = _zoomModeActive
+        ? Colors.black
+        : isDark
+        ? scheme.surface
+        : Colors.white;
     return Scaffold(
       backgroundColor: Color.lerp(
-        _zoomModeActive ? Colors.black : Colors.white,
+        viewerBackground,
         Colors.black,
         dismissProgress * 0.7,
       ),
@@ -2903,6 +2944,8 @@ class _ViewerTopBar extends StatelessWidget {
           child: FutureBuilder<GalleryPhotoAttributes>(
             future: attributesFuture,
             builder: (context, snapshot) {
+              final scheme = Theme.of(context).colorScheme;
+              final isDark = Theme.of(context).brightness == Brightness.dark;
               final attrs = snapshot.data;
               final placeParts = [
                 attrs?.location,
@@ -2925,12 +2968,24 @@ class _ViewerTopBar extends StatelessWidget {
                       vertical: 9,
                     ),
                     decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainer.withAlpha(210),
+                      gradient: isDark
+                          ? LinearGradient(
+                              colors: [
+                                scheme.surfaceContainerHigh.withAlpha(205),
+                                scheme.surfaceContainer.withAlpha(165),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            )
+                          : null,
+                      color: isDark
+                          ? null
+                          : scheme.surfaceContainer.withAlpha(210),
                       borderRadius: BorderRadius.circular(28),
                       border: Border.all(
-                        color: Theme.of(context).colorScheme.outlineVariant,
+                        color: isDark
+                            ? Colors.white.withAlpha(28)
+                            : scheme.outlineVariant,
                       ),
                       boxShadow: [
                         BoxShadow(
@@ -3123,6 +3178,8 @@ class _ViewerActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 26),
       child: Row(
@@ -3135,39 +3192,50 @@ class _ViewerActions extends StatelessWidget {
           Expanded(
             child: FittedBox(
               fit: BoxFit.scaleDown,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(20),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
                     ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    _ViewerPlainButton(
-                      icon: isFavorite
-                          ? CupertinoIcons.heart_fill
-                          : CupertinoIcons.heart,
-                      color: isFavorite
-                          ? Colors.redAccent
-                          : Theme.of(context).colorScheme.onSurface,
-                      onTap: onFavorite,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? scheme.surfaceContainerHigh.withAlpha(175)
+                          : scheme.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(28),
+                      border: isDark
+                          ? Border.all(color: Colors.white.withAlpha(26))
+                          : null,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(isDark ? 45 : 20),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
                     ),
-                    _InfoToggleButton(isOpen: isInfoOpen, onTap: onInfo),
-                    _ViewerPlainButton(
-                      icon: CupertinoIcons.slider_horizontal_3,
-                      onTap: onOptions,
+                    child: Row(
+                      children: [
+                        _ViewerPlainButton(
+                          icon: isFavorite
+                              ? CupertinoIcons.heart_fill
+                              : CupertinoIcons.heart,
+                          color: isFavorite
+                              ? Colors.redAccent
+                              : scheme.onSurface,
+                          onTap: onFavorite,
+                        ),
+                        _InfoToggleButton(isOpen: isInfoOpen, onTap: onInfo),
+                        _ViewerPlainButton(
+                          icon: CupertinoIcons.slider_horizontal_3,
+                          onTap: onOptions,
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -3191,26 +3259,34 @@ class _ViewerCircleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHigh,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(18),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
+      child: ClipOval(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? scheme.surfaceContainerHigh.withAlpha(175)
+                  : scheme.surfaceContainerHigh,
+              shape: BoxShape.circle,
+              border: isDark
+                  ? Border.all(color: Colors.white.withAlpha(26))
+                  : null,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(isDark ? 45 : 18),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Icon(
-          icon,
-          color: Theme.of(context).colorScheme.onSurface,
-          size: 22,
+            child: Icon(icon, color: scheme.onSurface, size: 22),
+          ),
         ),
       ),
     );
@@ -3326,110 +3402,137 @@ class _InlineInfoPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.42,
-      ),
-      padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHigh,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: FutureBuilder<GalleryPhotoAttributes>(
-        future: attributesFuture,
-        builder: (context, snapshot) {
-          final attrs = snapshot.data;
-          final entries = attrs?.entries ?? const [];
-          return SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Photo Details',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  _formatDateTime(photo.eventDate) ?? 'Not available',
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                FutureBuilder<List<String>>(
-                  future: Future.wait([imageSizeFuture, storageSizeFuture]),
-                  builder: (context, snapshot) {
-                    final data = snapshot.data;
-                    final parts = [
-                      if (data != null && data[0] != 'Not available') data[0],
-                      if (data != null && data[1] != 'Not available') data[1],
-                    ];
-                    return Text(
-                      parts.isEmpty ? 'Loading...' : parts.join(' • '),
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    const borderRadius = BorderRadius.vertical(top: Radius.circular(20));
+    return ClipRRect(
+      borderRadius: borderRadius,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: Container(
+          width: double.infinity,
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.42,
+          ),
+          padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
+          decoration: BoxDecoration(
+            color: isDark
+                ? scheme.surfaceContainerHigh.withAlpha(190)
+                : scheme.surfaceContainerHigh,
+            borderRadius: borderRadius,
+            border: isDark
+                ? Border(top: BorderSide(color: Colors.white.withAlpha(28)))
+                : null,
+          ),
+          child: FutureBuilder<GalleryPhotoAttributes>(
+            future: attributesFuture,
+            builder: (context, snapshot) {
+              final attrs = snapshot.data;
+              final entries = attrs?.entries ?? const [];
+              return SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Photo Details',
                       style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
                       ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 14),
-                if (kDebugMode) ...[
-                  _TagInfoCard(
-                    label: 'Image Name',
-                    value: _debugImageFileName(photo),
-                    color: const Color(0xFF5965D8),
-                  ),
-                  const SizedBox(height: 14),
-                ],
-                const Text(
-                  'Image Tags',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 10),
-                if (snapshot.connectionState != ConnectionState.done)
-                  const GalleryShimmerBox(height: 86, borderRadius: 18)
-                else if (entries.isEmpty)
-                  Text(
-                    'No tags added',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
                     ),
-                  )
-                else
-                  Column(
-                    children: [
-                      for (var i = 0; i < entries.length; i++)
-                        Padding(
-                          padding: EdgeInsets.only(
-                            bottom: i == entries.length - 1 ? 0 : 10,
+                    const SizedBox(height: 10),
+                    Text(
+                      _formatDateTime(photo.eventDate) ?? 'Not available',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    FutureBuilder<List<String>>(
+                      future: Future.wait([imageSizeFuture, storageSizeFuture]),
+                      builder: (context, snapshot) {
+                        final data = snapshot.data;
+                        final parts = [
+                          if (data != null && data[0] != 'Not available')
+                            data[0],
+                          if (data != null && data[1] != 'Not available')
+                            data[1],
+                        ];
+                        return Text(
+                          parts.isEmpty ? 'Loading...' : parts.join(' • '),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
-                          child: _TagInfoCard(
-                            label: entries[i].key,
-                            value: entries[i].value,
-                            color: _tagColors[i % _tagColors.length],
-                          ),
-                        ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    if (kDebugMode) ...[
+                      _TagInfoCard(
+                        label: 'Image Name',
+                        value: _debugImageFileName(photo),
+                        color: const Color(0xFF5965D8),
+                      ),
+                      const SizedBox(height: 14),
                     ],
-                  ),
-                if ((attrs?.placeLabel ?? '').isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Location',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
-                  ),
-                  const SizedBox(height: 10),
-                  _InfoMapCard(attrs: attrs!, photo: photo),
-                ],
-              ],
-            ),
-          );
-        },
+                    const Text(
+                      'Image Tags',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    if (snapshot.connectionState != ConnectionState.done)
+                      const GalleryShimmerBox(height: 86, borderRadius: 18)
+                    else if (entries.isEmpty)
+                      Text(
+                        'No tags added',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      )
+                    else
+                      Column(
+                        children: [
+                          for (var i = 0; i < entries.length; i++)
+                            Padding(
+                              padding: EdgeInsets.only(
+                                bottom: i == entries.length - 1 ? 0 : 10,
+                              ),
+                              child: _TagInfoCard(
+                                label: entries[i].key,
+                                value: entries[i].value,
+                                color: _tagColors[i % _tagColors.length],
+                              ),
+                            ),
+                        ],
+                      ),
+                    if ((attrs?.placeLabel ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Location',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _InfoMapCard(attrs: attrs!, photo: photo),
+                    ],
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
       ),
     );
   }

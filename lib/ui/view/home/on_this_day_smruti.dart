@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -270,6 +271,7 @@ class _OnThisDayStoryViewerState extends State<_OnThisDayStoryViewer> {
   late final PageController _pageController;
   Timer? _timer;
   int _index = 0;
+  bool _didPrecache = false;
 
   GalleryPhoto get _photo => widget.group.photos[_index];
 
@@ -278,6 +280,15 @@ class _OnThisDayStoryViewerState extends State<_OnThisDayStoryViewer> {
     super.initState();
     _pageController = PageController();
     _scheduleNext();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_didPrecache) {
+      _didPrecache = true;
+      _precacheAround(0);
+    }
   }
 
   @override
@@ -305,11 +316,26 @@ class _OnThisDayStoryViewerState extends State<_OnThisDayStoryViewer> {
   }
 
   void _goTo(int index) {
+    _precacheAround(index);
     _pageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOutCubic,
     );
+  }
+
+  void _precacheAround(int index) {
+    final last = (index + 2).clamp(0, widget.group.photos.length - 1);
+    for (var position = index; position <= last; position++) {
+      final url = widget.group.photos[position].fullUrl;
+      if (url.isEmpty) continue;
+      unawaited(
+        precacheImage(
+          CachedNetworkImageProvider(url, headers: widget.headers),
+          context,
+        ),
+      );
+    }
   }
 
   @override
@@ -324,6 +350,7 @@ class _OnThisDayStoryViewerState extends State<_OnThisDayStoryViewer> {
             itemCount: widget.group.photos.length,
             onPageChanged: (index) {
               setState(() => _index = index);
+              _precacheAround(index);
               _scheduleNext();
             },
             itemBuilder: (context, index) => NetworkImageWithLoader(

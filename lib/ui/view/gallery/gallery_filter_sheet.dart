@@ -308,13 +308,14 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
   @override
   Widget build(BuildContext context) {
     final height = MediaQuery.of(context).size.height * 0.82;
+    final scheme = Theme.of(context).colorScheme;
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
           height: height,
-          color: Theme.of(context).colorScheme.surfaceContainer.withAlpha(245),
+          color: scheme.surfaceContainer.withAlpha(245),
           child: Column(
             children: [
               const SizedBox(height: 8),
@@ -322,7 +323,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                 width: 44,
                 height: 5,
                 decoration: BoxDecoration(
-                  color: Colors.black.withAlpha(35),
+                  color: scheme.onSurfaceVariant.withAlpha(70),
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
@@ -330,10 +331,11 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                 padding: const EdgeInsets.fromLTRB(18, 12, 10, 6),
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'Filter Smruti',
                         style: TextStyle(
+                          color: scheme.onSurface,
                           fontSize: 24,
                           fontWeight: FontWeight.w800,
                         ),
@@ -351,8 +353,10 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                 padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
                 child: TextField(
                   controller: _searchController,
+                  style: TextStyle(color: scheme.onSurface),
                   decoration: InputDecoration(
                     hintText: 'Search filters',
+                    hintStyle: TextStyle(color: scheme.onSurfaceVariant),
                     prefixIcon: Icon(
                       CupertinoIcons.search,
                       color: primaryColor,
@@ -405,7 +409,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                       child: Text(
                         'No filters available',
                         style: TextStyle(
-                          color: primaryColor.withAlpha(170),
+                          color: scheme.onSurfaceVariant,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -417,7 +421,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                       child: Text(
                         'No options found',
                         style: TextStyle(
-                          color: primaryColor.withAlpha(170),
+                          color: scheme.onSurfaceVariant,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -448,10 +452,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                           },
                         ),
                       ),
-                      VerticalDivider(
-                        width: 1,
-                        color: Colors.black.withAlpha(18),
-                      ),
+                      VerticalDivider(width: 1, color: scheme.outlineVariant),
                       Expanded(
                         child: AnimatedSwitcher(
                           duration: const Duration(milliseconds: 220),
@@ -565,6 +566,10 @@ class _FilterCategoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final accent = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFFFB59F)
+        : primaryColor;
     return InkWell(
       onTap: onTap,
       child: AnimatedContainer(
@@ -573,7 +578,7 @@ class _FilterCategoryTile extends StatelessWidget {
         margin: const EdgeInsets.fromLTRB(8, 3, 6, 3),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
         decoration: BoxDecoration(
-          color: selected ? primaryColor : primaryColor.withAlpha(10),
+          color: selected ? primaryColor : accent.withAlpha(14),
           borderRadius: BorderRadius.circular(18),
         ),
         child: Row(
@@ -584,7 +589,7 @@ class _FilterCategoryTile extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: selected ? Colors.white : primaryColor,
+                  color: selected ? Colors.white : scheme.onSurface,
                   fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                   fontSize: 13,
                 ),
@@ -708,6 +713,9 @@ class _MySmrutiOptionsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFFFB59F)
+        : primaryColor;
     final visibleGroups = groups
         .map((group) {
           final options = query.isEmpty
@@ -751,7 +759,7 @@ class _MySmrutiOptionsList extends StatelessWidget {
               child: Text(
                 _mySmrutiSubgroupTitle(group),
                 style: TextStyle(
-                  color: primaryColor,
+                  color: accent,
                   fontSize: 14,
                   fontWeight: FontWeight.w900,
                 ),
@@ -788,7 +796,10 @@ class _FilterOptionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = primaryColor;
+    final scheme = Theme.of(context).colorScheme;
+    final color = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFFFB59F)
+        : primaryColor;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: selected ? color.withAlpha(36) : color.withAlpha(16),
@@ -814,7 +825,7 @@ class _FilterOptionTile extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: color.withAlpha(235),
+                  color: scheme.onSurface,
                   fontWeight: FontWeight.w800,
                   fontSize: 13,
                 ),
@@ -862,6 +873,9 @@ class _FilterOptionsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFFFB59F)
+        : primaryColor;
     final options = query.isEmpty
         ? group.options
         : group.options
@@ -880,7 +894,7 @@ class _FilterOptionsList extends StatelessWidget {
       itemBuilder: (context, index) {
         final option = options[index];
         final isSelected = selectedValues.contains(option.value);
-        final color = primaryColor;
+        final color = accent;
         return DecoratedBox(
           decoration: BoxDecoration(
             color: isSelected ? color.withAlpha(36) : color.withAlpha(16),
@@ -906,7 +920,7 @@ class _FilterOptionsList extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: color.withAlpha(235),
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontWeight: FontWeight.w800,
                       fontSize: 13,
                     ),
@@ -972,6 +986,9 @@ class _DateFilterOptions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFFFB59F)
+        : primaryColor;
     return ListView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 24),
@@ -979,7 +996,7 @@ class _DateFilterOptions extends StatelessWidget {
         Text(
           'Select a date range',
           style: TextStyle(
-            color: primaryColor,
+            color: accent,
             fontSize: 18,
             fontWeight: FontWeight.w900,
           ),
@@ -1024,7 +1041,7 @@ class _DateFilterOptions extends StatelessWidget {
           Text(
             'Select From date first',
             style: TextStyle(
-              color: primaryColor.withAlpha(145),
+              color: accent.withAlpha(190),
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -1052,6 +1069,10 @@ class _DatePickerField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final accent = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFFFB59F)
+        : primaryColor;
     return InkWell(
       onTap: enabled ? onTap : null,
       borderRadius: BorderRadius.circular(14),
@@ -1062,8 +1083,8 @@ class _DatePickerField extends StatelessWidget {
           enabled: enabled,
           filled: true,
           fillColor: enabled
-              ? primaryColor.withAlpha(10)
-              : Theme.of(context).colorScheme.surfaceContainerHighest,
+              ? accent.withAlpha(10)
+              : scheme.surfaceContainerHighest,
           prefixIcon: const Icon(CupertinoIcons.calendar),
           suffixIcon: value == null
               ? const Icon(CupertinoIcons.chevron_down, size: 17)
@@ -1084,9 +1105,7 @@ class _DatePickerField extends StatelessWidget {
         child: Text(
           value ?? 'DD/MM/YYYY',
           style: TextStyle(
-            color: value == null
-                ? Theme.of(context).colorScheme.onSurfaceVariant
-                : primaryColor.withAlpha(230),
+            color: value == null ? scheme.onSurfaceVariant : scheme.onSurface,
             fontSize: 15,
             fontWeight: FontWeight.w700,
           ),
@@ -1224,6 +1243,10 @@ class _FilterSheetError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final accent = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFFFB59F)
+        : primaryColor;
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -1232,7 +1255,7 @@ class _FilterSheetError extends StatelessWidget {
           children: [
             Icon(
               CupertinoIcons.exclamationmark_triangle,
-              color: primaryColor.withAlpha(170),
+              color: accent,
               size: 32,
             ),
             const SizedBox(height: 10),
@@ -1240,7 +1263,7 @@ class _FilterSheetError extends StatelessWidget {
               message,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: primaryColor.withAlpha(170),
+                color: scheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
               ),
             ),
