@@ -245,14 +245,7 @@ class _HomeScreenState extends State<HomeScreen>
       );
     }
     if (title == SmrutiSectionKeys.aiSearch) {
-      return _AiSearchCard(
-        onTap: () => Navigator.push(
-          context,
-          CupertinoPageRoute<void>(
-            builder: (_) => const AiSmrutiSearchScreen(),
-          ),
-        ),
-      );
+      return _AiSearchCard(onTap: _openAiSearch);
     }
     if (title == SmrutiSectionKeys.downloads) {
       return const _EnhancedDownloadsSection();
@@ -328,6 +321,17 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  void _openAiSearch() {
+    if (!AuthRedirectHelper.ensureLoggedIn()) return;
+    Navigator.push(
+      context,
+      CupertinoPageRoute<void>(
+        settings: const RouteSettings(name: 'AI Smruti Search'),
+        builder: (_) => const AiSmrutiSearchScreen(),
+      ),
+    );
+  }
+
   void _openSectionDetails(String title) {
     if (title == SmrutiSectionKeys.myPhotos ||
         title == SmrutiSectionKeys.myDiary ||
@@ -398,7 +402,8 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   bool _isLoginOnlySection(String title) {
-    return title == SmrutiSectionKeys.myPhotos ||
+    return title == SmrutiSectionKeys.aiSearch ||
+        title == SmrutiSectionKeys.myPhotos ||
         title == SmrutiSectionKeys.myDiary ||
         title == SmrutiSectionKeys.myFavorite ||
         title == SmrutiSectionKeys.myCollection ||
@@ -468,7 +473,7 @@ class _EnhancedDownloadsSectionState extends State<_EnhancedDownloadsSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SubHeader(title: 'Downloads', showAction: false),
+        SubHeader(title: 'Downloads', onTap: () => _openPhoto(0)),
         SizedBox(
           height: 126,
           child: ListView.separated(

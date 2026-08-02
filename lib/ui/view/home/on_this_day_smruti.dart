@@ -362,6 +362,7 @@ class _OnThisDayStoryViewerState extends State<_OnThisDayStoryViewer> {
 
   @override
   Widget build(BuildContext context) {
+    final tags = _storyTags(_photo);
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -485,6 +486,60 @@ class _OnThisDayStoryViewerState extends State<_OnThisDayStoryViewer> {
                       fontWeight: FontWeight.w900,
                     ),
                   ),
+                  if (_photo.eventDate != null) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(
+                          CupertinoIcons.calendar,
+                          color: Colors.white.withAlpha(215),
+                          size: 15,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _formatEventDate(_photo.eventDate!),
+                          style: TextStyle(
+                            color: Colors.white.withAlpha(225),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (tags.isNotEmpty) ...[
+                    const SizedBox(height: 9),
+                    SizedBox(
+                      height: 30,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: tags.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 6),
+                        itemBuilder: (context, index) => Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withAlpha(32),
+                            borderRadius: BorderRadius.circular(99),
+                            border: Border.all(
+                              color: Colors.white.withAlpha(65),
+                            ),
+                          ),
+                          child: Text(
+                            '#${tags[index]}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 5),
                   Text(
                     '${_index + 1} of ${widget.group.photos.length}',
@@ -673,4 +728,31 @@ String _contextLabel(_StoryType type, GalleryPhoto photo) {
     _StoryType.withSmruti => 'Smruti with ${photo.smrutiWith ?? ''}',
     _StoryType.smrutiOf => 'Smruti of ${photo.smrutiOf ?? ''}',
   };
+}
+
+String _formatEventDate(DateTime date) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  return '${date.day.toString().padLeft(2, '0')} '
+      '${months[date.month - 1]} ${date.year}';
+}
+
+List<String> _storyTags(GalleryPhoto photo) {
+  final seen = <String>{};
+  return photo.tags
+      .map((tag) => tag.trim().replaceFirst(RegExp(r'^#+'), ''))
+      .where((tag) => tag.isNotEmpty && seen.add(tag.toLowerCase()))
+      .toList(growable: false);
 }

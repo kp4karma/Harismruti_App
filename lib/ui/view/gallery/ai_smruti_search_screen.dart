@@ -96,7 +96,7 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
           .toLowerCase()
           .split(RegExp('[-_]'))
           .first;
-      return language == 'en' || language == 'gu';
+      return language == 'en' || language == 'gu' || language == 'hi';
     }).toList();
     final systemLocale = await _speech.systemLocale();
     if (!mounted) return;
@@ -530,7 +530,7 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
         ),
         const SizedBox(height: 10),
         Text(
-          'Type or speak naturally in English or Gujarati.',
+          'Type or speak naturally in English, Gujarati, or Hindi.',
           textAlign: TextAlign.center,
           style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 15),
         ),

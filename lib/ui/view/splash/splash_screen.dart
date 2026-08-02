@@ -227,8 +227,10 @@ class SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: scheme.surface,
       body: AnimatedWordsBackground(
         topToBottom: true,
         opacity: 0.68,
@@ -242,11 +244,17 @@ class SplashScreenState extends State<SplashScreen>
                 gradient: RadialGradient(
                   center: Alignment.center,
                   radius: 0.86,
-                  colors: [
-                    Colors.white.withAlpha(8),
-                    Colors.white.withAlpha(76),
-                    const Color(0xFFF8F6F3).withAlpha(126),
-                  ],
+                  colors: isDark
+                      ? [
+                          Colors.transparent,
+                          const Color(0xFF241A18).withAlpha(54),
+                          Colors.black.withAlpha(105),
+                        ]
+                      : [
+                          Colors.white.withAlpha(8),
+                          Colors.white.withAlpha(76),
+                          const Color(0xFFF8F6F3).withAlpha(126),
+                        ],
                   stops: const [0, 0.62, 1],
                 ),
               ),
@@ -388,6 +396,7 @@ class _SplashLogoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SizedBox(
       width: 238,
       child: Column(
@@ -400,17 +409,19 @@ class _SplashLogoCard extends StatelessWidget {
             fit: BoxFit.contain,
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             "HariPrabodham Smruti",
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Color(0xFF241A17),
+              color: isDark ? const Color(0xFFFFE7DF) : const Color(0xFF241A17),
               fontSize: 22,
               height: 1.08,
               fontWeight: FontWeight.w800,
               shadows: [
                 Shadow(
-                  color: Color(0x33000000),
+                  color: isDark
+                      ? const Color(0x99000000)
+                      : const Color(0x33000000),
                   blurRadius: 6,
                   offset: Offset(0, 2),
                 ),

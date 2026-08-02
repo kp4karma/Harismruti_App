@@ -252,13 +252,17 @@ class _AnimatedWordLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final displayColor = isDark
+        ? Color.lerp(color, Colors.white, 0.28)!
+        : color;
     if (!chipBackground) {
       return Text(
         label,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          color: color,
+          color: displayColor,
           fontSize: 14,
           fontWeight: FontWeight.w700,
           shadows: [
@@ -281,12 +285,14 @@ class _AnimatedWordLabel extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
-            color: color.withAlpha(42),
+            color: displayColor.withAlpha(isDark ? 34 : 42),
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: color.withAlpha(135)),
+            border: Border.all(
+              color: displayColor.withAlpha(isDark ? 155 : 135),
+            ),
             boxShadow: [
               BoxShadow(
-                color: color.withAlpha(26),
+                color: displayColor.withAlpha(isDark ? 38 : 26),
                 blurRadius: 12,
                 offset: const Offset(0, 6),
               ),
@@ -297,7 +303,7 @@ class _AnimatedWordLabel extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: color,
+              color: displayColor,
               fontSize: 14,
               fontWeight: FontWeight.w800,
             ),

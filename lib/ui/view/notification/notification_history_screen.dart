@@ -11,6 +11,10 @@ class NotificationHistoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final accent = scheme.brightness == Brightness.dark
+        ? const Color(0xFFFFB4A5)
+        : primaryColor;
     return CustomBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
@@ -25,6 +29,7 @@ class NotificationHistoryScreen extends StatelessWidget {
                 }
                 return TextButton(
                   onPressed: NotificationHistoryService.markAllRead,
+                  style: TextButton.styleFrom(foregroundColor: accent),
                   child: const Text('Mark all read'),
                 );
               },
@@ -36,15 +41,22 @@ class NotificationHistoryScreen extends StatelessWidget {
           builder: (context, _, __) {
             final entries = NotificationHistoryService.entries;
             if (entries.isEmpty) {
-              return const Center(
+              return Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(CupertinoIcons.bell, size: 52, color: Colors.black38),
-                    SizedBox(height: 12),
+                    Icon(
+                      CupertinoIcons.bell,
+                      size: 52,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(height: 12),
                     Text(
                       'No notifications yet',
-                      style: TextStyle(fontSize: 16, color: Colors.black54),
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -71,13 +83,26 @@ class _NotificationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
+    final accent = isDark ? const Color(0xFFFFB4A5) : primaryColor;
     final imageUrl = entry['image_url']?.toString() ?? '';
     final isUnread = entry['is_read'] != true;
     return Material(
       color: isUnread
-          ? primaryColor.withAlpha(18)
-          : Theme.of(context).colorScheme.surfaceContainer.withAlpha(220),
-      borderRadius: BorderRadius.circular(18),
+          ? Color.alphaBlend(
+              accent.withAlpha(isDark ? 30 : 18),
+              scheme.surfaceContainerHigh,
+            )
+          : scheme.surfaceContainer.withAlpha(isDark ? 238 : 220),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: isUnread
+              ? accent.withAlpha(isDark ? 65 : 40)
+              : scheme.outlineVariant.withAlpha(120),
+        ),
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: () {
@@ -97,11 +122,11 @@ class _NotificationCard extends StatelessWidget {
                     width: 82,
                     height: 82,
                     fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) => _fallbackIcon(),
+                    errorWidget: (_, __, ___) => _fallbackIcon(context),
                   ),
                 )
               else
-                _fallbackIcon(),
+                _fallbackIcon(context),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -113,6 +138,7 @@ class _NotificationCard extends StatelessWidget {
                           child: Text(
                             entry['title']?.toString() ?? 'Notification',
                             style: TextStyle(
+                              color: scheme.onSurface,
                               fontSize: 15,
                               fontWeight: isUnread
                                   ? FontWeight.w700
@@ -125,7 +151,15 @@ class _NotificationCard extends StatelessWidget {
                             width: 8,
                             height: 8,
                             decoration: BoxDecoration(
-                              color: primaryColor,
+                              color: accent,
+                              boxShadow: isDark
+                                  ? [
+                                      BoxShadow(
+                                        color: accent.withAlpha(80),
+                                        blurRadius: 6,
+                                      ),
+                                    ]
+                                  : null,
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -136,17 +170,17 @@ class _NotificationCard extends StatelessWidget {
                       entry['body']?.toString() ?? '',
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         height: 1.35,
-                        color: Colors.black54,
+                        color: scheme.onSurfaceVariant,
                       ),
                     ),
                     const SizedBox(height: 7),
                     Text(
                       _displayTime(entry['received_at']?.toString()),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
-                        color: Colors.black38,
+                        color: scheme.onSurfaceVariant.withAlpha(180),
                       ),
                     ),
                   ],
@@ -159,16 +193,22 @@ class _NotificationCard extends StatelessWidget {
     );
   }
 
-  Widget _fallbackIcon() => Container(
-    width: 82,
-    height: 82,
-    alignment: Alignment.center,
-    decoration: BoxDecoration(
-      color: primaryColor.withAlpha(22),
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Icon(CupertinoIcons.bell_fill, color: primaryColor),
-  );
+  Widget _fallbackIcon(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final accent = scheme.brightness == Brightness.dark
+        ? const Color(0xFFFFB4A5)
+        : primaryColor;
+    return Container(
+      width: 82,
+      height: 82,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: accent.withAlpha(24),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(CupertinoIcons.bell_fill, color: accent),
+    );
+  }
 
   String _displayTime(String? raw) {
     final date = DateTime.tryParse(raw ?? '')?.toLocal();
