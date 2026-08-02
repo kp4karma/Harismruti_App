@@ -41,31 +41,41 @@ open class SmrutiHomeWidgetProvider : HomeWidgetProvider() {
             val options = appWidgetManager.getAppWidgetOptions(widgetId)
             val width = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
             val height = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
-            val columns = when {
+            val responsiveColumns = when {
                 width < 180 -> 1
                 width < 300 -> 2
                 else -> 3
             }
-            val rows = when {
+            val responsiveRows = when {
                 height < 135 -> 1
                 height < 245 -> 2
                 height < 355 -> 3
                 else -> 4
             }
-            val displayedCount = minOf(columns * rows, stories.length())
+            val rowColumns = rowColumnsFor(
+                providerName,
+                responsiveColumns,
+                responsiveRows,
+                stories.length(),
+            )
+            val displayedCount = minOf(rowColumns.sum(), stories.length())
             val compactHeight = height < 170
             val views = RemoteViews(context.packageName, R.layout.smruti_home_widget)
 
             views.setViewVisibility(
                 R.id.widget_header,
-                if (height < 105) View.GONE else View.VISIBLE,
+                if (height < 105 || providerName == "MinimalSmrutiWidgetProvider") {
+                    View.GONE
+                } else {
+                    View.VISIBLE
+                },
             )
             views.setTextViewText(
                 R.id.widget_heading,
                 if (stories.length() == 0) {
                     "HariPrabodham Smruti • Open app to load photos"
                 } else {
-                    "HariPrabodham Smruti"
+                    headingFor(providerName)
                 },
             )
             views.setTextViewText(
@@ -79,12 +89,12 @@ open class SmrutiHomeWidgetProvider : HomeWidgetProvider() {
 
             rowIds.forEachIndexed { rowIndex, rowId ->
                 views.removeAllViews(rowId)
-                if (rowIndex >= rows || stories.length() == 0) {
+                if (rowIndex >= rowColumns.size || stories.length() == 0) {
                     views.setViewVisibility(rowId, View.GONE)
                     return@forEachIndexed
                 }
                 views.setViewVisibility(rowId, View.VISIBLE)
-                repeat(columns) {
+                repeat(rowColumns[rowIndex]) {
                     if (itemIndex >= displayedCount) return@repeat
                     val story = stories.getJSONObject((page + itemIndex) % stories.length())
                     val tile = RemoteViews(context.packageName, R.layout.smruti_widget_tile)
@@ -94,7 +104,11 @@ open class SmrutiHomeWidgetProvider : HomeWidgetProvider() {
                     )
                     tile.setViewVisibility(
                         R.id.story_title,
-                        if (compactHeight) View.GONE else View.VISIBLE,
+                        if (compactHeight && providerName != "MinimalSmrutiWidgetProvider") {
+                            View.GONE
+                        } else {
+                            View.VISIBLE
+                        },
                     )
                     tile.setViewVisibility(
                         R.id.story_badge,
@@ -103,7 +117,7 @@ open class SmrutiHomeWidgetProvider : HomeWidgetProvider() {
                     if (itemIndex == 0) {
                         tile.setTextViewText(
                             R.id.story_badge,
-                            if (isNew) "NEW" else "LATEST",
+                            badgeFor(providerName, isNew),
                         )
                     }
 
@@ -123,6 +137,38 @@ open class SmrutiHomeWidgetProvider : HomeWidgetProvider() {
             }
             appWidgetManager.updateAppWidget(widgetId, views)
         }
+    }
+
+    private fun rowColumnsFor(
+        providerName: String,
+        responsiveColumns: Int,
+        responsiveRows: Int,
+        storyCount: Int,
+    ): IntArray = when (providerName) {
+        "DailyDarshanWidgetProvider" -> intArrayOf(1)
+        "SmrutiStoriesWidgetProvider" -> intArrayOf(minOf(3, storyCount))
+        "FeaturedRecentWidgetProvider" -> if (storyCount > 1 && responsiveRows > 1) {
+            intArrayOf(1, minOf(3, storyCount - 1))
+        } else {
+            intArrayOf(1)
+        }
+        "MinimalSmrutiWidgetProvider" -> intArrayOf(1)
+        else -> IntArray(responsiveRows) { responsiveColumns }
+    }
+
+    private fun headingFor(providerName: String): String = when (providerName) {
+        "DailyDarshanWidgetProvider" -> "Daily Darshan"
+        "SmrutiStoriesWidgetProvider" -> "Smruti Stories"
+        "FeaturedRecentWidgetProvider" -> "Featured + Recent"
+        "MinimalSmrutiWidgetProvider" -> "Minimal Smruti"
+        else -> "HariPrabodham Smruti"
+    }
+
+    private fun badgeFor(providerName: String, isNew: Boolean): String = when (providerName) {
+        "DailyDarshanWidgetProvider" -> "TODAY"
+        "FeaturedRecentWidgetProvider" -> "FEATURED"
+        "MinimalSmrutiWidgetProvider" -> "SMRUTI"
+        else -> if (isNew) "NEW" else "LATEST"
     }
 
     override fun onAppWidgetOptionsChanged(
