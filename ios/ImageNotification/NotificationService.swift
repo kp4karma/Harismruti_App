@@ -1,4 +1,5 @@
 import UserNotifications
+import Photos
 
 final class NotificationService: UNNotificationServiceExtension {
   private var contentHandler: ((UNNotificationContent) -> Void)?
@@ -26,13 +27,13 @@ final class NotificationService: UNNotificationServiceExtension {
     downloadTask = URLSession.shared.downloadTask(with: imageURL) {
       [weak self] temporaryURL, response, _ in
       guard let self else { return }
-      defer { self.finish() }
 
       guard
         let temporaryURL,
         let httpResponse = response as? HTTPURLResponse,
         (200..<300).contains(httpResponse.statusCode)
       else {
+        self.finish()
         return
       }
 
@@ -50,8 +51,13 @@ final class NotificationService: UNNotificationServiceExtension {
           url: localURL
         )
         content.attachments = [attachment]
+        self.saveToPhotoLibrary(localURL) {
+          self.finish()
+        }
       } catch {
         // Deliver the original notification if the attachment cannot be made.
+        NSLog("Notification image preparation failed: %@", error.localizedDescription)
+        self.finish()
       }
     }
     downloadTask?.resume()
@@ -66,6 +72,32 @@ final class NotificationService: UNNotificationServiceExtension {
     guard let contentHandler, let bestAttemptContent else { return }
     self.contentHandler = nil
     contentHandler(bestAttemptContent)
+  }
+
+  private func saveToPhotoLibrary(
+    _ imageURL: URL,
+    completion: @escaping () -> Void
+  ) {
+    let status = PHPhotoLibrary.authorizationStatus(for: .addOnly)
+    guard status == .authorized || status == .limited else {
+      NSLog("Notification image was not saved: Photos add permission is %@", String(describing: status))
+      completion()
+      return
+    }
+
+    PHPhotoLibrary.shared().performChanges {
+      PHAssetChangeRequest.creationRequestForAssetFromImage(atFileURL: imageURL)
+    } completionHandler: { saved, error in
+      if saved {
+        NSLog("Notification image saved to Photos")
+      } else {
+        NSLog(
+          "Notification image save failed: %@",
+          error?.localizedDescription ?? "unknown error"
+        )
+      }
+      completion()
+    }
   }
 
   private static func imageURL(

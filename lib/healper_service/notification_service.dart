@@ -30,6 +30,7 @@ class NotificationService {
   static const String developerTopic = 'developer_only';
   static const int _topicSubscriptionVersion = 1;
   static final Set<int> _savingEnhancementJobs = <int>{};
+  static final Set<String> _savingNotificationImages = <String>{};
 
   static const List<String> topics = [
     'recent',
@@ -63,12 +64,19 @@ class NotificationService {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     await StorageHelper.init();
-    await setupFlutterNotifications();
+    await setupFlutterNotifications(requestGalleryAccess: false);
     _saveMessage(message);
+    // iOS alert notifications are saved by ImageNotification while Flutter is
+    // suspended. Android background delivery continues through this isolate.
+    if (!Platform.isIOS) {
+      await _saveNotificationImage(message, requestAccess: false);
+    }
     await PhoneSmrutiWidgetService.markNotificationReceived();
   }
 
-  static Future<void> setupFlutterNotifications() async {
+  static Future<void> setupFlutterNotifications({
+    bool requestGalleryAccess = true,
+  }) async {
     if (_initialised) return;
 
     final settings = await FirebaseMessaging.instance.requestPermission(
@@ -80,6 +88,14 @@ class NotificationService {
       debugPrint('Notification permission was denied by the user.');
     }
     await FirebaseMessaging.instance.setAutoInitEnabled(true);
+
+    // Ask while the app is visible. Background isolates cannot present the
+    // Photos permission sheet, but can save once this access has been granted.
+    if (requestGalleryAccess &&
+        (settings.authorizationStatus == AuthorizationStatus.authorized ||
+            settings.authorizationStatus == AuthorizationStatus.provisional)) {
+      await _ensureGalleryAccess(requestIfNeeded: true);
+    }
 
     _channel = const AndroidNotificationChannel(
       'high_importance_channel',
@@ -245,22 +261,19 @@ class NotificationService {
         final response = await http.get(Uri.parse(imageUrl));
         if (response.statusCode >= 200 && response.statusCode < 300) {
           bigPicture = ByteArrayAndroidBitmap(response.bodyBytes);
+          final attachment = await _writeNotificationImage(
+            message,
+            imageUrl,
+            response.bodyBytes,
+          );
           if (Platform.isIOS) {
-            final uri = Uri.parse(imageUrl);
-            final sourceName = uri.pathSegments.isEmpty
-                ? 'notification.jpg'
-                : uri.pathSegments.last;
-            final extension = sourceName.contains('.')
-                ? sourceName.substring(sourceName.lastIndexOf('.'))
-                : '.jpg';
-            final attachment = File(
-              '${Directory.systemTemp.path}'
-              '${Platform.pathSeparator}notification-${message.messageId ?? notification.hashCode}'
-              '$extension',
-            );
-            await attachment.writeAsBytes(response.bodyBytes, flush: true);
             iOSAttachmentPath = attachment.path;
           }
+          await _saveNotificationFile(
+            message,
+            attachment.path,
+            requestAccess: true,
+          );
         }
       } catch (error) {
         debugPrint('Could not load notification image: $error');
@@ -345,6 +358,11 @@ class NotificationService {
 
   static void _navigateFromMessage(RemoteMessage message) {
     _saveMessage(message);
+    // On iOS the notification service extension already handled the image.
+    // Saving again here would create a second Photos asset when it is tapped.
+    if (!Platform.isIOS) {
+      unawaited(_saveNotificationImage(message, requestAccess: true));
+    }
     if (message.data['screen'] == 'photo_enhancement') {
       _navigateFromData(message.data);
       return;
@@ -479,6 +497,117 @@ class NotificationService {
         message.notification?.android?.imageUrl?.trim() ??
         message.notification?.apple?.imageUrl?.trim() ??
         '';
+  }
+
+  static String _notificationImageKey(RemoteMessage message) {
+    return message.messageId ??
+        '${message.sentTime?.millisecondsSinceEpoch ?? 0}-${_imageUrl(message).hashCode}';
+  }
+
+  static String _savedNotificationImageStorageKey(String messageKey) {
+    return 'notification_gallery_saved_$messageKey';
+  }
+
+  static Future<File> _writeNotificationImage(
+    RemoteMessage message,
+    String imageUrl,
+    List<int> bytes,
+  ) async {
+    final uri = Uri.tryParse(imageUrl);
+    final sourceName = uri == null || uri.pathSegments.isEmpty
+        ? 'notification.jpg'
+        : uri.pathSegments.last;
+    final extension = sourceName.contains('.')
+        ? sourceName.substring(sourceName.lastIndexOf('.'))
+        : '.jpg';
+    final directory = await getTemporaryDirectory();
+    final safeKey = _notificationImageKey(
+      message,
+    ).replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
+    final file = File(
+      '${directory.path}${Platform.pathSeparator}notification-$safeKey$extension',
+    );
+    await file.writeAsBytes(bytes, flush: true);
+    return file;
+  }
+
+  static Future<bool> _ensureGalleryAccess({
+    required bool requestIfNeeded,
+  }) async {
+    final needsAlbumAccess = !Platform.isIOS;
+    var allowed = await Gal.hasAccess(toAlbum: needsAlbumAccess);
+    if (!allowed && requestIfNeeded) {
+      allowed = await Gal.requestAccess(toAlbum: needsAlbumAccess);
+    }
+    return allowed;
+  }
+
+  static Future<void> _saveNotificationImage(
+    RemoteMessage message, {
+    required bool requestAccess,
+  }) async {
+    final imageUrl = _imageUrl(message);
+    if (imageUrl.isEmpty ||
+        message.data['screen']?.toString() == 'photo_enhancement') {
+      return;
+    }
+    final messageKey = _notificationImageKey(message);
+    if (_savingNotificationImages.contains(messageKey) ||
+        StorageHelper.getValue<bool>(
+              key: _savedNotificationImageStorageKey(messageKey),
+              defaultValue: false,
+            ) ==
+            true) {
+      return;
+    }
+    _savingNotificationImages.add(messageKey);
+    try {
+      final response = await http.get(Uri.parse(imageUrl));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw HttpException(
+          'Image download returned HTTP ${response.statusCode}',
+          uri: Uri.tryParse(imageUrl),
+        );
+      }
+      final file = await _writeNotificationImage(
+        message,
+        imageUrl,
+        response.bodyBytes,
+      );
+      await _saveNotificationFile(
+        message,
+        file.path,
+        requestAccess: requestAccess,
+      );
+    } catch (error) {
+      debugPrint('Could not save notification image to gallery: $error');
+    } finally {
+      _savingNotificationImages.remove(messageKey);
+    }
+  }
+
+  static Future<void> _saveNotificationFile(
+    RemoteMessage message,
+    String filePath, {
+    required bool requestAccess,
+  }) async {
+    final messageKey = _notificationImageKey(message);
+    final storageKey = _savedNotificationImageStorageKey(messageKey);
+    if (StorageHelper.getValue<bool>(key: storageKey, defaultValue: false) ==
+        true) {
+      return;
+    }
+    final allowed = await _ensureGalleryAccess(requestIfNeeded: requestAccess);
+    if (!allowed) {
+      debugPrint('Photos access is not available for notification image.');
+      return;
+    }
+    await Gal.putImage(
+      filePath,
+      album: Platform.isIOS ? null : 'HariPrabodham Smruti',
+    );
+    StorageHelper.setValue(key: storageKey, value: true);
+    debugPrint('Notification image saved to gallery: $messageKey');
   }
 
   static void listenForInitialAndOpenedApp() {
