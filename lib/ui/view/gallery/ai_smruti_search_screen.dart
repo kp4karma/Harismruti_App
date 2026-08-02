@@ -152,7 +152,7 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
     final prompt = (suggestedPrompt ?? _promptController.text).trim();
     if (prompt.length < 2 || _isSearching) return;
     if (_speech.isListening) await _speech.stop();
-    _promptController.text = prompt;
+    _promptController.clear();
     _promptFocus.unfocus();
     setState(() {
       _lastPrompt = prompt;
@@ -423,23 +423,38 @@ class _ChatImagePreview extends StatelessWidget {
               child: child,
             ),
           ),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 340),
-            padding: const EdgeInsets.all(5),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHighest.withAlpha(215),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(5),
-                topRight: Radius.circular(18),
-                bottomLeft: Radius.circular(18),
-                bottomRight: Radius.circular(18),
-              ),
-              border: Border.all(color: scheme.outlineVariant.withAlpha(120)),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(5),
+              topRight: Radius.circular(18),
+              bottomLeft: Radius.circular(18),
+              bottomRight: Radius.circular(18),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 340),
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      scheme.surface.withAlpha(174),
+                      scheme.surfaceContainerHighest.withAlpha(126),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(5),
+                    topRight: Radius.circular(18),
+                    bottomLeft: Radius.circular(18),
+                    bottomRight: Radius.circular(18),
+                  ),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withAlpha(105),
+                  ),
+                ),
+                child: SizedBox(
                   height: previewHeight,
                   child: GridView.builder(
                     padding: EdgeInsets.zero,
@@ -495,16 +510,7 @@ class _ChatImagePreview extends StatelessWidget {
                     },
                   ),
                 ),
-                if (photos.length > 4)
-                  SizedBox(
-                    width: double.infinity,
-                    child: TextButton.icon(
-                      onPressed: onViewAll,
-                      icon: const Icon(CupertinoIcons.photo_on_rectangle),
-                      label: Text('View all ${photos.length} smrutis'),
-                    ),
-                  ),
-              ],
+              ),
             ),
           ),
         ),
