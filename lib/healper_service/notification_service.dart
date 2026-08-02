@@ -371,7 +371,9 @@ class NotificationService {
   static Future<void> _saveEnhancedPhoto(Map<String, dynamic> data) async {
     final jobId = int.tryParse('${data['job_id']}');
     final photoId = int.tryParse('${data['photo_id']}');
-    if (jobId == null || photoId == null || _savingEnhancementJobs.contains(jobId)) {
+    if (jobId == null ||
+        photoId == null ||
+        _savingEnhancementJobs.contains(jobId)) {
       return;
     }
     _savingEnhancementJobs.add(jobId);
@@ -381,10 +383,16 @@ class NotificationService {
       final filePath =
           '${directory.path}${Platform.pathSeparator}harismruti-$photoId-$quality-enhanced.jpg';
       final repository = const GalleryRepository();
+      final payloadUrl = data['download_url']?.toString().trim() ?? '';
+      final payloadUri = Uri.tryParse(payloadUrl);
+      final downloadUrl =
+          payloadUri != null &&
+              payloadUri.hasScheme &&
+              payloadUri.host.isNotEmpty
+          ? payloadUrl
+          : ApiEndpoints.photoEnhancementDownload(jobId);
       await Dio().download(
-        data['download_url']?.toString().trim().isNotEmpty == true
-            ? data['download_url'].toString()
-            : ApiEndpoints.photoEnhancementDownload(jobId),
+        downloadUrl,
         filePath,
         options: Options(
           headers: repository.imageHeaders,
@@ -396,13 +404,25 @@ class NotificationService {
       if (!allowed) throw Exception('Photos permission is required');
       await Gal.putImage(filePath, album: 'HariPrabodham Smruti');
       TopNotification.success(
-        'Enhanced photo saved to Photos',
+        'Enhanced smruti saved to Photos',
         title: '$quality download ready',
       );
+    } on DioException catch (error) {
+      final status = error.response?.statusCode;
+      final message = switch (status) {
+        401 || 403 => 'Please open the app and sign in again.',
+        404 => 'This enhanced smruti is no longer available.',
+        409 => 'Your enhanced smruti is still being prepared.',
+        410 => 'This enhanced smruti has expired.',
+        _ => 'Could not download the enhanced smruti. Please try again.',
+      };
+      TopNotification.error(message, title: 'Smruti download failed');
     } catch (error) {
       TopNotification.error(
-        error.toString().replaceFirst('Exception: ', ''),
-        title: 'Could not save enhanced photo',
+        error is Exception
+            ? error.toString().replaceFirst('Exception: ', '')
+            : 'Could not save the enhanced smruti. Please try again.',
+        title: 'Could not save enhanced smruti',
       );
     } finally {
       _savingEnhancementJobs.remove(jobId);
