@@ -59,6 +59,10 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>HariPrabodham Smruti uses the camera to capture face training photos for My Smruti.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>HariPrabodham Smruti uses the microphone when you speak an AI Smruti search.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>HariPrabodham Smruti converts your spoken search into text to find matching smrutis.</string>
 	<key>NSMotionUsageDescription</key>
 	<string>Used to enable motion-based visual effects.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

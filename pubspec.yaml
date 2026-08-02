@@ -55,6 +55,7 @@ dependencies:
   home_widget: ^0.9.3
   gal: ^2.3.3
   pro_image_editor: 11.2.3
+  speech_to_text: 7.4.0
 
 
 

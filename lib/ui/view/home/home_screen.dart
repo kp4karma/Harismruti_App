@@ -16,7 +16,7 @@ import 'package:harismruti/ui/controller/auth_controller.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/controller/my_photos_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
-import 'package:harismruti/ui/view/gallery/gallery_filter_sheet.dart';
+import 'package:harismruti/ui/view/gallery/ai_smruti_search_screen.dart';
 import 'package:harismruti/ui/view/home/home_section_detail_screen.dart';
 import 'package:harismruti/ui/view/home/live_stream_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
@@ -154,7 +154,12 @@ class _HomeScreenState extends State<HomeScreen>
                             initialIndex:
                                 galleryController.selectedSwami.value.index,
                             onTabSelected: galleryController.selectSwami,
-                            onSearchTap: () => showGalleryFilterSheet(context),
+                            onSearchTap: () => Navigator.push(
+                              context,
+                              CupertinoPageRoute<void>(
+                                builder: (_) => const AiSmrutiSearchScreen(),
+                              ),
+                            ),
                           ),
                         ),
                       )
