@@ -86,6 +86,7 @@ class _HomeScreenState extends State<HomeScreen>
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
     _appBarAnimationController.dispose();
+    streamController.close();
     super.dispose();
   }
 

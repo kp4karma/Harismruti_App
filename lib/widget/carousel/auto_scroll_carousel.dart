@@ -23,7 +23,8 @@ class AutoScrollCarousel extends StatefulWidget {
   State<AutoScrollCarousel> createState() => _AutoScrollCarouselState();
 }
 
-class _AutoScrollCarouselState extends State<AutoScrollCarousel> {
+class _AutoScrollCarouselState extends State<AutoScrollCarousel>
+    with WidgetsBindingObserver {
   late PageController _pageController;
   Timer? _scrollTimer;
   final int virtualItemCount = 100000;
@@ -32,30 +33,51 @@ class _AutoScrollCarouselState extends State<AutoScrollCarousel> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     initialPage = virtualItemCount ~/ 2;
     _pageController = PageController(
       initialPage: initialPage,
       viewportFraction: widget.viewportFraction,
     );
-    startMarqueeScroll();
+    _startAutoScroll();
   }
 
-  void startMarqueeScroll() {
-    _scrollTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
-      if (_pageController.hasClients) {
-        final maxScroll = _pageController.position.maxScrollExtent;
-        final currentScroll = _pageController.offset;
-        if (currentScroll < maxScroll) {
-          _pageController.jumpTo(currentScroll + 0.8);
-        } else {
-          _pageController.jumpTo(0);
-        }
+  void _startAutoScroll() {
+    _scrollTimer?.cancel();
+    if (widget.imageUrls.length <= 1) return;
+    _scrollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted ||
+          !TickerMode.valuesOf(context).enabled ||
+          !_pageController.hasClients) {
+        return;
       }
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 650),
+        curve: Curves.easeInOutCubic,
+      );
     });
   }
 
   @override
+  void didUpdateWidget(covariant AutoScrollCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrls.length != widget.imageUrls.length) {
+      _startAutoScroll();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startAutoScroll();
+    } else {
+      _scrollTimer?.cancel();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scrollTimer?.cancel();
     _pageController.dispose();
     super.dispose();

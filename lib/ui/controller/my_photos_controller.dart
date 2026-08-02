@@ -141,7 +141,7 @@ class MyPhotoValidationResult {
     : this._(false, message);
 }
 
-class MyPhotosController extends GetxController {
+class MyPhotosController extends GetxController with WidgetsBindingObserver {
   MyPhotosController({GalleryRepository? repository})
     : _repository = repository ?? const GalleryRepository();
 
@@ -249,6 +249,7 @@ class MyPhotosController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    WidgetsBinding.instance.addObserver(this);
     _syncLocalStateToCurrentUser();
     _loadPhotos();
     refreshSmrutiFlow();
@@ -256,10 +257,23 @@ class MyPhotosController extends GetxController {
 
   @override
   void onClose() {
+    WidgetsBinding.instance.removeObserver(this);
     _statusTimer?.cancel();
     _faceDetector?.close();
     _lenientFaceDetector?.close();
     super.onClose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      _statusTimer?.cancel();
+      return;
+    }
+    final requestId = faceSearchRequestId.value;
+    if (requestId != null && isPendingReview) {
+      _startStatusPolling(requestId);
+    }
   }
 
   MyPhotoItem? photoForPose(MyPhotoPose pose) {

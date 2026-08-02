@@ -69,8 +69,9 @@ class _AutoSwapRecentCollages extends StatefulWidget {
       _AutoSwapRecentCollagesState();
 }
 
-class _AutoSwapRecentCollagesState extends State<_AutoSwapRecentCollages> {
-  static const _swapInterval = Duration(seconds: 3);
+class _AutoSwapRecentCollagesState extends State<_AutoSwapRecentCollages>
+    with WidgetsBindingObserver {
+  static const _swapInterval = Duration(seconds: 6);
   static const _animationDuration = Duration(milliseconds: 650);
 
   Timer? _timer;
@@ -87,6 +88,7 @@ class _AutoSwapRecentCollagesState extends State<_AutoSwapRecentCollages> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _startTimer();
   }
 
@@ -115,14 +117,27 @@ class _AutoSwapRecentCollagesState extends State<_AutoSwapRecentCollages> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startTimer();
+    } else {
+      _timer?.cancel();
+    }
   }
 
   void _startTimer() {
     _timer?.cancel();
     if (!widget.autoplay || _groupCount <= 1) return;
-    _timer = Timer.periodic(_swapInterval, (_) => unawaited(_move(1)));
+    _timer = Timer.periodic(_swapInterval, (_) {
+      if (!mounted || !TickerMode.valuesOf(context).enabled) return;
+      unawaited(_move(1));
+    });
   }
 
   Future<void> _move(int direction) async {
