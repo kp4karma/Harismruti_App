@@ -140,9 +140,7 @@ class GalleryController extends GetxController {
       // The endpoint is already scoped by Swami. Applying the client date
       // filter again can incorrectly discard cards when sample metadata differs
       // from the server's coalesced visibility date.
-      allPlaces.assignAll(
-        _orderCards('location', cards, applySectionLimit: false),
-      );
+      allPlaces.assignAll(_orderCards('location', cards));
     } catch (error) {
       if (kDebugMode) debugPrint('Complete place list request failed: $error');
     }
@@ -186,9 +184,7 @@ class GalleryController extends GetxController {
     final withPhotos = smrutiWith.isNotEmpty
         ? smrutiWith.expand((card) => card.photos).toList(growable: false)
         : recent;
-    final favorites = favoritePhotos.isNotEmpty
-        ? favoritePhotos
-        : recent;
+    final favorites = favoritePhotos.isNotEmpty ? favoritePhotos : recent;
     await PhoneSmrutiWidgetService.syncInstalledWidget(
       photoSources: {
         'SmrutiHomeWidgetProvider': _preferWidgetOrientation(
@@ -223,12 +219,14 @@ class GalleryController extends GetxController {
     final all = photos
         .where((photo) => photo.thumbnailUrl.isNotEmpty)
         .toList(growable: false);
-    final preferred = all.where((photo) {
-      final width = photo.width ?? 0;
-      final height = photo.height ?? 0;
-      if (width <= 0 || height <= 0) return false;
-      return landscape ? width >= height : height > width;
-    }).toList(growable: false);
+    final preferred = all
+        .where((photo) {
+          final width = photo.width ?? 0;
+          final height = photo.height ?? 0;
+          if (width <= 0 || height <= 0) return false;
+          return landscape ? width >= height : height > width;
+        })
+        .toList(growable: false);
     return preferred.isNotEmpty ? preferred : all;
   }
 
@@ -1450,7 +1448,7 @@ class GalleryController extends GetxController {
       (photo) => photo.eventDate ?? photo.takenAt ?? photo.createdAt,
       (photo) => photo.id,
     );
-    return ordered.take(setting?.itemLimit ?? ordered.length).toList();
+    return ordered;
   }
 
   List<GalleryPhoto> orderedSectionPhotos(
@@ -1458,11 +1456,7 @@ class GalleryController extends GetxController {
     Iterable<GalleryPhoto> items,
   ) => _orderPhotos(sectionKey, items.toList());
 
-  List<GalleryCard> _orderCards(
-    String sectionKey,
-    List<GalleryCard> items, {
-    bool applySectionLimit = true,
-  }) {
+  List<GalleryCard> _orderCards(String sectionKey, List<GalleryCard> items) {
     final setting = _sectionSetting(sectionKey);
     final ordered = _applyConfiguredOrder<GalleryCard>(
       sectionKey,
@@ -1478,8 +1472,7 @@ class GalleryController extends GetxController {
           ),
       (card) => card.id,
     );
-    if (!applySectionLimit) return ordered;
-    return ordered.take(setting?.itemLimit ?? ordered.length).toList();
+    return ordered;
   }
 
   List<T> _applyConfiguredOrder<T>(
