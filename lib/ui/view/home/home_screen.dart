@@ -594,63 +594,119 @@ class _LiveNowCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = isDark ? const Color(0xFFFFB59F) : primaryColor;
+    final statusColor = isLive && isLoggedIn
+        ? (isDark ? const Color(0xFFFF7D72) : const Color(0xFFC73C32))
+        : scheme.onSurfaceVariant;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  Colors.white.withAlpha(82),
-                  primaryColor.withAlpha(20),
-                  Colors.white.withAlpha(48),
-                ],
+                colors: isDark
+                    ? [
+                        scheme.surfaceContainerHigh.withAlpha(225),
+                        const Color(0xFF3A2421).withAlpha(205),
+                        scheme.surfaceContainer.withAlpha(220),
+                      ]
+                    : [
+                        Colors.white.withAlpha(105),
+                        primaryColor.withAlpha(22),
+                        Colors.white.withAlpha(68),
+                      ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withAlpha(22)
+                    : primaryColor.withAlpha(24),
+              ),
+              boxShadow: isDark
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(55),
+                        blurRadius: 18,
+                        offset: const Offset(0, 7),
+                      ),
+                    ]
+                  : null,
             ),
             child: Row(
               children: [
                 Container(
-                  width: 42,
-                  height: 42,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
-                    color: primaryColor.withAlpha(18),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.live_tv_rounded,
-                    color: primaryColor,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 11),
-                Expanded(
-                  child: Text(
-                    'Live Darshan',
-                    style: TextStyle(
-                      color: primaryColor,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
+                    gradient: LinearGradient(
+                      colors: isDark
+                          ? [const Color(0xFF663D35), const Color(0xFF402824)]
+                          : [
+                              primaryColor.withAlpha(25),
+                              primaryColor.withAlpha(10),
+                            ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: accent.withAlpha(45)),
+                  ),
+                  child: Icon(Icons.live_tv_rounded, color: accent, size: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Live Darshan',
+                        style: TextStyle(
+                          color: scheme.onSurface,
+                          fontSize: 16.5,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isLive && isLoggedIn
+                            ? 'Darshan is streaming now'
+                            : 'Check the current broadcast',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: scheme.onSurfaceVariant,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 8),
                 FilledButton.icon(
                   style: FilledButton.styleFrom(
                     elevation: 0,
-                    backgroundColor: primaryColor.withAlpha(16),
-                    foregroundColor: primaryColor,
-                    side: BorderSide(color: primaryColor.withAlpha(45)),
+                    backgroundColor: statusColor.withAlpha(isDark ? 30 : 18),
+                    foregroundColor: statusColor,
+                    disabledBackgroundColor: scheme.surfaceContainerHighest,
+                    disabledForegroundColor: scheme.onSurfaceVariant,
+                    side: BorderSide(color: statusColor.withAlpha(65)),
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
+                      horizontal: 11,
                       vertical: 9,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
                     ),
                   ),
                   onPressed: isLoading ? null : onTap,
@@ -660,7 +716,7 @@ class _LiveNowCard extends StatelessWidget {
                           height: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: primaryColor,
+                            color: accent,
                           ),
                         )
                       : Icon(
