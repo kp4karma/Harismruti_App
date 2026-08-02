@@ -8,6 +8,7 @@ import 'package:home_widget/home_widget.dart';
 import 'package:http/http.dart' as http;
 
 class PhoneSmrutiWidgetService {
+  static const _androidPackage = 'org.hp.harismruti';
   static const providerNames = <String>[
     'SmrutiHomeWidgetProvider',
     'DailyDarshanWidgetProvider',
@@ -46,7 +47,11 @@ class PhoneSmrutiWidgetService {
     if (!providerNames.contains(providerName)) {
       throw ArgumentError.value(providerName, 'providerName');
     }
-    await HomeWidget.requestPinWidget(name: providerName);
+    await HomeWidget.requestPinWidget(
+      name: providerName,
+      androidName: providerName,
+      qualifiedAndroidName: '$_androidPackage.$providerName',
+    );
   }
 
   static Future<void> syncInstalledWidget({
@@ -138,7 +143,11 @@ class PhoneSmrutiWidgetService {
       jsonEncode(stories),
     );
     await HomeWidget.saveWidgetData<int>('smruti_refresh_hours', refreshHours);
-    await HomeWidget.updateWidget(name: providerName);
+    await HomeWidget.updateWidget(
+      name: providerName,
+      androidName: providerName,
+      qualifiedAndroidName: '$_androidPackage.$providerName',
+    );
   }
 
   static Future<void> markNotificationReceived() async {
@@ -149,7 +158,11 @@ class PhoneSmrutiWidgetService {
         DateTime.now().millisecondsSinceEpoch,
       );
       for (final providerName in providerNames) {
-        await HomeWidget.updateWidget(name: providerName);
+        await HomeWidget.updateWidget(
+          name: providerName,
+          androidName: providerName,
+          qualifiedAndroidName: '$_androidPackage.$providerName',
+        );
       }
     } catch (_) {
       // Notifications must still be delivered if a launcher does not support

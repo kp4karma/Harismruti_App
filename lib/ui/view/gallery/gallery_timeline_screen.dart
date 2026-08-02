@@ -681,7 +681,7 @@ class _TimelinePhotoTile extends StatelessWidget {
           imageUrl: photo.thumbnailUrl,
           title: photo.title ?? 'Smruti',
           headers: headers,
-          fit: BoxFit.cover,
+          fit: BoxFit.contain,
         ),
       ),
     );
@@ -692,7 +692,9 @@ double _timelinePhotoAspectRatio(GalleryPhoto photo, int index) {
   final width = photo.width;
   final height = photo.height;
   if (width != null && width > 0 && height != null && height > 0) {
-    return (width / height).clamp(0.68, 1.55);
+    // Let the masonry grid follow the photo's real dimensions. Clamping this
+    // ratio forces very tall or wide photos to be cropped by their tile.
+    return width / height;
   }
 
   const fallbackRatios = [0.78, 1.2, 0.92, 1.35, 0.72, 1.0];

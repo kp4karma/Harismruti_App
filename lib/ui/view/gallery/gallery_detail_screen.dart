@@ -42,7 +42,9 @@ double _galleryPhotoAspectRatio(GalleryPhoto photo) {
   if (width == null || height == null || width <= 0 || height <= 0) {
     return 1.15;
   }
-  return (width / height).clamp(0.72, 1.5);
+  // Keep the source ratio so masonry tiles never crop portrait or panorama
+  // photos just to fit an artificial height range.
+  return width / height;
 }
 
 class GalleryDetailScreen extends StatefulWidget {
@@ -800,7 +802,7 @@ class _MosaicTile extends StatelessWidget {
                   imageUrl: photo.thumbnailUrl,
                   title: photo.title ?? title,
                   headers: headers,
-                  fit: BoxFit.cover,
+                  fit: BoxFit.contain,
                 ),
               ),
               if (selectionMode)

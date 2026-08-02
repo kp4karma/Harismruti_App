@@ -65,7 +65,7 @@ class ApiEndpoints {
   static String get mobileFeatures => "/features";
   static String get ignoredPhotos => "/features/ignored-photos";
   static String get myDiary => "/me/diary";
-  static String get liveStream => "$_vrundApiBaseUrl/livestream";
+  static String get liveStream => "/live-now";
 
   static String collectionMonths(int year) => "/collections/$year/months";
   static String collectionDays(int year, int month) =>
