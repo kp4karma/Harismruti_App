@@ -146,9 +146,22 @@ class SmrutiSectionController extends GetxController {
             (section) => section['title'] == SmrutiSectionKeys.onThisDay,
           );
       final remainingMissing = missingDefaults
-          .where((section) => section['title'] != SmrutiSectionKeys.onThisDay)
+          .where(
+            (section) =>
+                section['title'] != SmrutiSectionKeys.onThisDay &&
+                section['title'] != SmrutiSectionKeys.liveDarshan &&
+                section['title'] != SmrutiSectionKeys.aiSearch,
+          )
           .toList();
+      final newUtilitySections = missingDefaults
+          .where(
+            (section) =>
+                section['title'] == SmrutiSectionKeys.liveDarshan ||
+                section['title'] == SmrutiSectionKeys.aiSearch,
+          )
+          .map((section) => {...section, 'user_is_show': true});
       final mergedSections = <Map<String, dynamic>>[
+        ...newUtilitySections,
         if (isOnThisDayNew)
           {
             ...defaults.firstWhere(
@@ -352,74 +365,86 @@ class SmrutiSectionController extends GetxController {
 
   List<Map<String, dynamic>> _defaultSections() => [
     {
-      "title": SmrutiSectionKeys.onThisDay,
+      "title": SmrutiSectionKeys.liveDarshan,
       "order_index": 1,
+      "is_show": true,
+      "widget": const SizedBox(),
+    },
+    {
+      "title": SmrutiSectionKeys.aiSearch,
+      "order_index": 2,
+      "is_show": true,
+      "widget": const SizedBox(),
+    },
+    {
+      "title": SmrutiSectionKeys.onThisDay,
+      "order_index": 3,
       "is_show": true,
       "widget": const OnThisDaySmruti(),
     },
     {
       "title": SmrutiSectionKeys.recent,
-      "order_index": 2,
+      "order_index": 4,
       "is_show": true,
       "widget": const RecentSmruti(),
     },
     {
       "title": SmrutiSectionKeys.withSmruti,
-      "order_index": 3,
+      "order_index": 5,
       "is_show": true,
       "widget": const SmrutiWith(),
     },
     {
       "title": SmrutiSectionKeys.ofDarshan,
-      "order_index": 4,
+      "order_index": 6,
       "is_show": true,
       "widget": const SmrutiOf(),
     },
     {
       "title": SmrutiSectionKeys.location,
-      "order_index": 5,
+      "order_index": 7,
       "is_show": true,
       "widget": const LocationSmruti(),
     },
     {
       "title": SmrutiSectionKeys.album,
-      "order_index": 6,
+      "order_index": 8,
       "is_show": true,
       "widget": const AlbumSmruti(),
     },
     {
       "title": SmrutiSectionKeys.ofSmruti,
-      "order_index": 7,
+      "order_index": 9,
       "is_show": true,
       "widget": const SubjectSmruti(),
     },
     {
       "title": SmrutiSectionKeys.yearCollection,
-      "order_index": 8,
+      "order_index": 10,
       "is_show": true,
       "widget": const CollectionSmruti(),
     },
     {
       "title": SmrutiSectionKeys.myPhotos,
-      "order_index": 9,
+      "order_index": 11,
       "is_show": true,
       "widget": const MyPhotosSmruti(),
     },
     {
       "title": SmrutiSectionKeys.myDiary,
-      "order_index": 10,
+      "order_index": 12,
       "is_show": true,
       "widget": const MyDiarySmruti(),
     },
     {
       "title": SmrutiSectionKeys.myFavorite,
-      "order_index": 11,
+      "order_index": 13,
       "is_show": true,
       "widget": const MyFavoriteSmruti(),
     },
     {
       "title": SmrutiSectionKeys.myCollection,
-      "order_index": 12,
+      "order_index": 14,
       "is_show": true,
       "widget": const MyCollectionSmruti(),
     },
@@ -574,6 +599,8 @@ class SmrutiSectionController extends GetxController {
 
   String _sectionKeyForTitle(String title) {
     return switch (title) {
+      SmrutiSectionKeys.liveDarshan => 'live_darshan',
+      SmrutiSectionKeys.aiSearch => 'ai_search',
       SmrutiSectionKeys.recent => 'recent',
       SmrutiSectionKeys.onThisDay => 'on_this_day',
       SmrutiSectionKeys.withSmruti => 'smruti_with',

@@ -176,41 +176,10 @@ class _HomeScreenState extends State<HomeScreen>
                         height:
                             kToolbarHeight + MediaQuery.of(context).padding.top,
                       ),
-                      _LiveNowCard(
-                        isLoading: _isLoadingLiveStream,
-                        isLoggedIn: isLoggedIn,
-                        isLive: _liveStreamUrl != null,
-                        onTap: _openLiveStream,
-                      ),
-                      _AiSearchCard(
-                        onTap: () => Navigator.push(
-                          context,
-                          CupertinoPageRoute<void>(
-                            builder: (_) => const AiSmrutiSearchScreen(),
-                          ),
-                        ),
-                      ),
                       ...displaySections.map(
-                        (section) => Column(
-                          children: [
-                            SubHeader(
-                              title:
-                                  section['display_name']
-                                          ?.toString()
-                                          .trim()
-                                          .isNotEmpty ==
-                                      true
-                                  ? section['display_name'].toString()
-                                  : section['title'].toString(),
-                              showAction: _hasSectionDetailAction(
-                                section['title'].toString(),
-                              ),
-                              onTap: () => _openSectionDetails(
-                                section['title'].toString(),
-                              ),
-                            ),
-                            section['widget'],
-                          ],
+                        (section) => _buildOrderedHomeSection(
+                          section,
+                          isLoggedIn: isLoggedIn,
                         ),
                       ),
                       const _EnhancedDownloadsSection(),
@@ -232,6 +201,42 @@ class _HomeScreenState extends State<HomeScreen>
       myPhotosController.refreshSmrutiFlow(),
       _refreshLiveStreamForAuth(),
     ]);
+  }
+
+  Widget _buildOrderedHomeSection(
+    Map<String, dynamic> section, {
+    required bool isLoggedIn,
+  }) {
+    final title = section['title'].toString();
+    if (title == SmrutiSectionKeys.liveDarshan) {
+      return _LiveNowCard(
+        isLoading: _isLoadingLiveStream,
+        isLoggedIn: isLoggedIn,
+        isLive: _liveStreamUrl != null,
+        onTap: _openLiveStream,
+      );
+    }
+    if (title == SmrutiSectionKeys.aiSearch) {
+      return _AiSearchCard(
+        onTap: () => Navigator.push(
+          context,
+          CupertinoPageRoute<void>(
+            builder: (_) => const AiSmrutiSearchScreen(),
+          ),
+        ),
+      );
+    }
+    final displayName = section['display_name']?.toString().trim();
+    return Column(
+      children: [
+        SubHeader(
+          title: displayName?.isNotEmpty == true ? displayName! : title,
+          showAction: _hasSectionDetailAction(title),
+          onTap: () => _openSectionDetails(title),
+        ),
+        section['widget'],
+      ],
+    );
   }
 
   Future<void> _refreshLiveStreamForAuth() async {

@@ -126,6 +126,10 @@ class _SmrutiSectionSettingsScreenState
 
   IconData _iconForSection(String title) {
     switch (title) {
+      case SmrutiSectionKeys.liveDarshan:
+        return Icons.live_tv_rounded;
+      case SmrutiSectionKeys.aiSearch:
+        return Icons.auto_awesome_rounded;
       case SmrutiSectionKeys.recent:
         return Icons.auto_awesome_rounded;
       case SmrutiSectionKeys.withSmruti:
@@ -149,7 +153,6 @@ class _SmrutiSectionSettingsScreenState
         return Icons.grid_view_rounded;
     }
   }
-
 }
 
 // ignore: unused_element
