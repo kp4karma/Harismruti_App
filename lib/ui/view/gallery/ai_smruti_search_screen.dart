@@ -165,7 +165,6 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
     _promptController.selection = TextSelection.collapsed(
       offset: _promptController.text.length,
     );
-    if (mounted) setState(() {});
   }
 
   Future<void> _chooseLanguage() async {
@@ -460,21 +459,7 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
         ),
         body: Column(
           children: [
-            Expanded(
-              child: SingleChildScrollView(
-                controller: _chatScrollController,
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  MediaQuery.paddingOf(context).top + kToolbarHeight + 20,
-                  16,
-                  20,
-                ),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 350),
-                  child: _buildConversation(scheme),
-                ),
-              ),
-            ),
+            Expanded(child: _buildChatList(scheme)),
             _PromptComposer(
               controller: _promptController,
               focusNode: _promptFocus,
@@ -491,16 +476,45 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
     );
   }
 
-  Widget _buildConversation(ColorScheme scheme) {
-    if (_turns.isEmpty) return _buildWelcome(scheme);
-    return Column(
-      key: ValueKey(
-        '${_turns.length}-$_isSearching-${_turns.last.photos.length}',
-      ),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: _turns
-          .map((turn) => _buildChatTurn(turn, scheme))
-          .toList(growable: false),
+  Widget _buildChatList(ColorScheme scheme) {
+    final topPadding = MediaQuery.paddingOf(context).top + kToolbarHeight + 20;
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 280),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      child: _turns.isEmpty
+          ? SingleChildScrollView(
+              key: const ValueKey('ai-welcome'),
+              padding: EdgeInsets.fromLTRB(16, topPadding, 16, 20),
+              child: _buildWelcome(scheme),
+            )
+          : ListView.builder(
+              key: const ValueKey('ai-chat'),
+              controller: _chatScrollController,
+              padding: EdgeInsets.fromLTRB(16, topPadding, 16, 20),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              cacheExtent: 650,
+              itemCount: _turns.length,
+              itemBuilder: (context, index) {
+                final turn = _turns[index];
+                return RepaintBoundary(
+                  key: ValueKey(turn.id),
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: 1),
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, value, child) => Opacity(
+                      opacity: value,
+                      child: Transform.translate(
+                        offset: Offset(0, 12 * (1 - value)),
+                        child: child,
+                      ),
+                    ),
+                    child: _buildChatTurn(turn, scheme),
+                  ),
+                );
+              },
+            ),
     );
   }
 
@@ -531,24 +545,34 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
             ),
           ),
           const SizedBox(height: 18),
-          if (turn.isSearching) _SearchingReply(animation: _pulseController),
-          if (turn.error != null) _AssistantMessage(text: turn.error!),
-          if (!turn.isSearching && turn.error == null) ...[
-            _AssistantMessage(
-              text: turn.photos.isEmpty
-                  ? 'I could not find a matching smruti. Try describing the person, place, activity, or time differently.'
-                  : 'I found ${turn.photos.length} matching smrutis for you.',
-            ),
-            if (turn.photos.isNotEmpty) ...[
-              const SizedBox(height: 14),
-              _ChatImagePreview(
-                photos: turn.photos,
-                imageHeaders: _repository.imageHeaders,
-                onPhotoTap: (index) => _openPhoto(turn.photos, index),
-                onViewAll: () => _openAllResults(turn),
-              ),
-            ],
-          ],
+          AnimatedSize(
+            duration: const Duration(milliseconds: 320),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: turn.isSearching
+                ? _SearchingReply(animation: _pulseController)
+                : turn.error != null
+                ? _AssistantMessage(text: turn.error!)
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _AssistantMessage(
+                        text: turn.photos.isEmpty
+                            ? 'I could not find a matching smruti. Try describing the person, place, activity, or time differently.'
+                            : 'I found ${turn.photos.length} matching smrutis for you.',
+                      ),
+                      if (turn.photos.isNotEmpty) ...[
+                        const SizedBox(height: 14),
+                        _ChatImagePreview(
+                          photos: turn.photos,
+                          imageHeaders: _repository.imageHeaders,
+                          onPhotoTap: (index) => _openPhoto(turn.photos, index),
+                          onViewAll: () => _openAllResults(turn),
+                        ),
+                      ],
+                    ],
+                  ),
+          ),
         ],
       ),
     );
@@ -745,6 +769,12 @@ class _ChatImagePreview extends StatelessWidget {
                               CachedNetworkImage(
                                 imageUrl: photos[index].thumbnailUrl,
                                 httpHeaders: imageHeaders,
+                                memCacheWidth:
+                                    (180 *
+                                            MediaQuery.devicePixelRatioOf(
+                                              context,
+                                            ))
+                                        .round(),
                                 fit: BoxFit.cover,
                                 placeholder: (_, __) => Container(
                                   color: scheme.surfaceContainerHigh,
