@@ -72,13 +72,28 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
       },
     );
     if (!ready || !mounted) return;
-    final locales = await _speech.locales();
+    final installedLocales = await _speech.locales();
+    final locales = installedLocales.where((locale) {
+      final language = locale.localeId
+          .toLowerCase()
+          .split(RegExp('[-_]'))
+          .first;
+      return language == 'en' || language == 'gu';
+    }).toList();
     final systemLocale = await _speech.systemLocale();
     if (!mounted) return;
+    final systemLocaleId = systemLocale?.localeId;
+    final selectedLocale =
+        locales.any((locale) => locale.localeId == systemLocaleId)
+        ? systemLocaleId
+        : locales
+              .where((locale) => locale.localeId.toLowerCase().startsWith('en'))
+              .map((locale) => locale.localeId)
+              .firstOrNull;
     setState(() {
       _speechReady = true;
       _locales = locales;
-      _localeId = systemLocale?.localeId;
+      _localeId = selectedLocale ?? locales.firstOrNull?.localeId;
     });
   }
 
@@ -345,7 +360,7 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
         ),
         const SizedBox(height: 10),
         Text(
-          'Type or speak naturally in English or your local language.',
+          'Type or speak naturally in English or Gujarati.',
           textAlign: TextAlign.center,
           style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 15),
         ),
