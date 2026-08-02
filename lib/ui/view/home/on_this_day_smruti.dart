@@ -33,9 +33,9 @@ class _OnThisDaySmrutiState extends State<OnThisDaySmruti> {
   }
 
   void _syncViewedState(GalleryController controller) {
-    final refreshTime =
-        controller.sectionSetting('on_this_day')?.refreshTime ?? '05:00';
-    final cycle = _feedCycle(DateTime.now(), refreshTime);
+    final refreshTimes =
+        controller.sectionSetting('on_this_day')?.refreshTimes ?? ['05:00'];
+    final cycle = _feedCycle(DateTime.now(), refreshTimes);
     final storageKey = '${controller.selectedSwami.value.apiValue}:$cycle';
     if (_activeStorageKey == storageKey) return;
     final stored = StorageHelper.getValue<Map>(
@@ -46,17 +46,20 @@ class _OnThisDaySmrutiState extends State<OnThisDaySmruti> {
     _viewedGroupKeys = values is List
         ? values.map((value) => value.toString()).toSet()
         : <String>{};
-    _scheduleFeedRefresh(controller, refreshTime);
+    _scheduleFeedRefresh(controller, refreshTimes);
   }
 
-  void _scheduleFeedRefresh(GalleryController controller, String refreshTime) {
+  void _scheduleFeedRefresh(
+    GalleryController controller,
+    List<String> refreshTimes,
+  ) {
     _refreshTimer?.cancel();
     final now = DateTime.now();
-    final parts = refreshTime.split(':');
-    final hour = parts.isNotEmpty ? int.tryParse(parts.first) ?? 5 : 5;
-    final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
-    var next = DateTime(now.year, now.month, now.day, hour, minute);
-    if (!next.isAfter(now)) next = next.add(const Duration(days: 1));
+    final slots = _dailyRefreshSlots(now, refreshTimes);
+    var next = slots.firstWhere(
+      (slot) => slot.isAfter(now),
+      orElse: () => slots.first.add(const Duration(days: 1)),
+    );
     _refreshTimer = Timer(next.difference(now), () async {
       if (!mounted) return;
       setState(() {
@@ -272,6 +275,7 @@ class _OnThisDayStoryViewerState extends State<_OnThisDayStoryViewer> {
   Timer? _timer;
   int _index = 0;
   bool _didPrecache = false;
+  bool _isChangingPage = false;
 
   GalleryPhoto get _photo => widget.group.photos[_index];
 
@@ -303,25 +307,43 @@ class _OnThisDayStoryViewerState extends State<_OnThisDayStoryViewer> {
     _timer = Timer(_storyDuration, _next);
   }
 
-  void _next() {
+  Future<void> _next() async {
     if (_index >= widget.group.photos.length - 1) {
       Navigator.pop(context);
       return;
     }
-    _goTo(_index + 1);
+    await _goTo(_index + 1);
   }
 
   void _previous() {
-    if (_index > 0) _goTo(_index - 1);
+    if (_index > 0) unawaited(_goTo(_index - 1));
   }
 
-  void _goTo(int index) {
+  Future<void> _goTo(int index) async {
+    if (_isChangingPage || index == _index) return;
+    _isChangingPage = true;
+    await _ensurePhotoReady(index);
+    if (!mounted) return;
     _precacheAround(index);
-    _pageController.animateToPage(
+    await _pageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOutCubic,
     );
+    _isChangingPage = false;
+  }
+
+  Future<void> _ensurePhotoReady(int index) async {
+    final url = widget.group.photos[index].fullUrl;
+    if (url.isEmpty) return;
+    try {
+      await precacheImage(
+        CachedNetworkImageProvider(url, headers: widget.headers),
+        context,
+      );
+    } catch (_) {
+      // The page retains its loader/error treatment if the request fails.
+    }
   }
 
   void _precacheAround(int index) {
@@ -386,7 +408,7 @@ class _OnThisDayStoryViewerState extends State<_OnThisDayStoryViewer> {
                 Expanded(
                   child: GestureDetector(
                     behavior: HitTestBehavior.translucent,
-                    onTap: _next,
+                    onTap: () => unawaited(_next()),
                   ),
                 ),
               ],
@@ -500,17 +522,31 @@ class _StoryGroup {
   String get key => type.name;
 }
 
-String _feedCycle(DateTime now, String refreshTime) {
-  final parts = refreshTime.split(':');
-  final hour = parts.isNotEmpty ? int.tryParse(parts.first) ?? 5 : 5;
-  final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
-  final refreshToday = DateTime(now.year, now.month, now.day, hour, minute);
-  final cycleDate = now.isBefore(refreshToday)
-      ? now.subtract(const Duration(days: 1))
-      : now;
-  return '${cycleDate.year.toString().padLeft(4, '0')}-'
-      '${cycleDate.month.toString().padLeft(2, '0')}-'
-      '${cycleDate.day.toString().padLeft(2, '0')}';
+String _feedCycle(DateTime now, List<String> refreshTimes) {
+  final slots = _dailyRefreshSlots(now, refreshTimes);
+  final elapsed = slots.where((slot) => !slot.isAfter(now)).toList();
+  final cycle = elapsed.isNotEmpty
+      ? elapsed.last
+      : slots.last.subtract(const Duration(days: 1));
+  return '${cycle.year.toString().padLeft(4, '0')}-'
+      '${cycle.month.toString().padLeft(2, '0')}-'
+      '${cycle.day.toString().padLeft(2, '0')}T'
+      '${cycle.hour.toString().padLeft(2, '0')}:'
+      '${cycle.minute.toString().padLeft(2, '0')}';
+}
+
+List<DateTime> _dailyRefreshSlots(DateTime day, List<String> refreshTimes) {
+  final slots = <DateTime>[];
+  for (final value in refreshTimes) {
+    final parts = value.split(':');
+    final hour = parts.isNotEmpty ? int.tryParse(parts.first) : null;
+    final minute = parts.length > 1 ? int.tryParse(parts[1]) : null;
+    if (hour == null || minute == null || hour > 23 || minute > 59) continue;
+    slots.add(DateTime(day.year, day.month, day.day, hour, minute));
+  }
+  if (slots.isEmpty) slots.add(DateTime(day.year, day.month, day.day, 5));
+  slots.sort();
+  return slots;
 }
 
 List<_StoryGroup> _buildStoryGroups({

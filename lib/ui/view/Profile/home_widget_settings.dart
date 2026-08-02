@@ -26,15 +26,41 @@ class _HomeWidgetSettingsScreenState extends State<HomeWidgetSettingsScreen> {
   int? _addingIndex;
 
   static const _designs = [
-    ('Photo Grid', 'Responsive gallery of recent Smrutis', Icons.grid_view_rounded, 'SmrutiHomeWidgetProvider'),
-    ('Daily Darshan', 'One peaceful full-size daily photo', Icons.image_rounded, 'DailyDarshanWidgetProvider'),
-    ('Smruti Stories', 'Story-style row for quick memories', Icons.auto_awesome_motion_rounded, 'SmrutiStoriesWidgetProvider'),
-    ('Featured + Recent', 'One featured photo with recent moments', Icons.dashboard_customize_rounded, 'FeaturedRecentWidgetProvider'),
-    ('Minimal Smruti', 'Compact photo, title and date', Icons.crop_landscape_rounded, 'MinimalSmrutiWidgetProvider'),
+    (
+      'Photo Grid',
+      'Responsive gallery of recent Smrutis',
+      Icons.grid_view_rounded,
+      'SmrutiHomeWidgetProvider',
+    ),
+    (
+      'Daily Darshan',
+      'One peaceful full-size daily photo',
+      Icons.image_rounded,
+      'DailyDarshanWidgetProvider',
+    ),
+    (
+      'Smruti Stories',
+      'Story-style row for quick memories',
+      Icons.auto_awesome_motion_rounded,
+      'SmrutiStoriesWidgetProvider',
+    ),
+    (
+      'Featured + Recent',
+      'One featured photo with recent moments',
+      Icons.dashboard_customize_rounded,
+      'FeaturedRecentWidgetProvider',
+    ),
+    (
+      'Minimal Smruti',
+      'Compact photo, title and date',
+      Icons.crop_landscape_rounded,
+      'MinimalSmrutiWidgetProvider',
+    ),
   ];
 
   Future<void> _add(int index) async {
     if (_addingIndex != null) return;
+    final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
     setState(() => _addingIndex = index);
     try {
       final gallery = Get.find<GalleryController>();
@@ -48,7 +74,11 @@ class _HomeWidgetSettingsScreenState extends State<HomeWidgetSettingsScreen> {
         refreshHours: settings.smrutiStoryRefreshHours.value,
         providerName: _designs[index].$4,
       );
-      TopNotification.success('Choose where to place ${_designs[index].$1}.');
+      TopNotification.success(
+        isIOS
+            ? '${_designs[index].$1} is ready. Long-press the iPhone Home Screen, tap +, then choose HariSmruti.'
+            : 'Choose where to place ${_designs[index].$1}.',
+      );
     } on PlatformException catch (error) {
       TopNotification.error(
         error.message?.trim().isNotEmpty == true
@@ -56,7 +86,9 @@ class _HomeWidgetSettingsScreenState extends State<HomeWidgetSettingsScreen> {
             : 'Unable to add this widget. You can add it from the Home screen widget picker.',
       );
     } catch (error) {
-      TopNotification.error(error.toString().replaceFirst('Unsupported operation: ', ''));
+      TopNotification.error(
+        error.toString().replaceFirst('Unsupported operation: ', ''),
+      );
     } finally {
       if (mounted) setState(() => _addingIndex = null);
     }
@@ -83,7 +115,9 @@ class _HomeWidgetSettingsScreenState extends State<HomeWidgetSettingsScreen> {
               surfaceTintColor: Colors.white,
               color: Colors.white,
               margin: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(11),
                 child: Column(
@@ -113,17 +147,39 @@ class _HomeWidgetSettingsScreenState extends State<HomeWidgetSettingsScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(design.$1, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                              Text(
+                                design.$1,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
                               const SizedBox(height: 3),
-                              Text(design.$2, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+                              Text(
+                                design.$2,
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                  fontSize: 12,
+                                ),
+                              ),
                             ],
                           ),
                         ),
                         const SizedBox(width: 10),
                         FilledButton(
-                          onPressed: _addingIndex == null ? () => _add(index) : null,
+                          onPressed: _addingIndex == null
+                              ? () => _add(index)
+                              : null,
                           child: _addingIndex == index
-                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
                               : const Text('Add'),
                         ),
                       ],
@@ -140,39 +196,49 @@ class _HomeWidgetSettingsScreenState extends State<HomeWidgetSettingsScreen> {
 
   List<GalleryPhoto> _photosForDesign(GalleryController gallery, int index) {
     final source = switch (index) {
-      1 => gallery.onThisDayPhotos.isNotEmpty
-          ? gallery.onThisDayPhotos
-          : gallery.recentPhotos,
-      2 => gallery.smrutiWith.isNotEmpty
-          ? gallery.smrutiWith.expand((card) => card.photos)
-          : gallery.recentPhotos,
-      4 => gallery.favoritePhotos.isNotEmpty
-          ? gallery.favoritePhotos
-          : gallery.recentPhotos,
+      1 =>
+        gallery.onThisDayPhotos.isNotEmpty
+            ? gallery.onThisDayPhotos
+            : gallery.recentPhotos,
+      2 =>
+        gallery.smrutiWith.isNotEmpty
+            ? gallery.smrutiWith.expand((card) => card.photos)
+            : gallery.recentPhotos,
+      4 =>
+        gallery.favoritePhotos.isNotEmpty
+            ? gallery.favoritePhotos
+            : gallery.recentPhotos,
       _ => gallery.recentPhotos,
     };
     final all = source
         .where((photo) => photo.thumbnailUrl.isNotEmpty)
         .toList(growable: false);
     final wantsPortrait = index == 2;
-    final preferred = all.where((photo) {
-      final width = photo.width ?? 0;
-      final height = photo.height ?? 0;
-      if (width <= 0 || height <= 0) return false;
-      return wantsPortrait ? height > width : width >= height;
-    }).toList(growable: false);
+    final preferred = all
+        .where((photo) {
+          final width = photo.width ?? 0;
+          final height = photo.height ?? 0;
+          if (width <= 0 || height <= 0) return false;
+          return wantsPortrait ? height > width : width >= height;
+        })
+        .toList(growable: false);
     return (preferred.isNotEmpty ? preferred : all).take(8).toList();
   }
 }
 
 class _HomeWidgetPreview extends StatelessWidget {
-  const _HomeWidgetPreview({required this.styleIndex, required this.photos, required this.imageHeaders});
+  const _HomeWidgetPreview({
+    required this.styleIndex,
+    required this.photos,
+    required this.imageHeaders,
+  });
 
   final int styleIndex;
   final List<GalleryPhoto> photos;
   final Map<String, String> imageHeaders;
 
-  GalleryPhoto? _photo(int index) => photos.isEmpty ? null : photos[index % photos.length];
+  GalleryPhoto? _photo(int index) =>
+      photos.isEmpty ? null : photos[index % photos.length];
 
   @override
   Widget build(BuildContext context) {
@@ -187,30 +253,93 @@ class _HomeWidgetPreview extends StatelessWidget {
       child: switch (styleIndex) {
         0 => Column(
           children: [
-            Expanded(child: Row(children: [Expanded(child: _PreviewTile(photo: _photo(0), headers: imageHeaders)), const SizedBox(width: 3), Expanded(child: _PreviewTile(photo: _photo(1), headers: imageHeaders))])),
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _PreviewTile(
+                      photo: _photo(0),
+                      headers: imageHeaders,
+                    ),
+                  ),
+                  const SizedBox(width: 3),
+                  Expanded(
+                    child: _PreviewTile(
+                      photo: _photo(1),
+                      headers: imageHeaders,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 3),
-            Expanded(child: Row(children: [Expanded(child: _PreviewTile(photo: _photo(2), headers: imageHeaders)), const SizedBox(width: 3), Expanded(child: _PreviewTile(photo: _photo(3), headers: imageHeaders))])),
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _PreviewTile(
+                      photo: _photo(2),
+                      headers: imageHeaders,
+                    ),
+                  ),
+                  const SizedBox(width: 3),
+                  Expanded(
+                    child: _PreviewTile(
+                      photo: _photo(3),
+                      headers: imageHeaders,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
-        1 => _PreviewTile(photo: _photo(0), headers: imageHeaders, showCaption: true),
+        1 => _PreviewTile(
+          photo: _photo(0),
+          headers: imageHeaders,
+          showCaption: true,
+        ),
         2 => Row(
           children: [
             for (var index = 0; index < 4; index++) ...[
-              Expanded(child: _PreviewTile(photo: _photo(index), headers: imageHeaders, round: true)),
+              Expanded(
+                child: _PreviewTile(
+                  photo: _photo(index),
+                  headers: imageHeaders,
+                  round: true,
+                ),
+              ),
               if (index != 3) const SizedBox(width: 3),
             ],
           ],
         ),
         3 => Row(
           children: [
-            Expanded(flex: 2, child: _PreviewTile(photo: _photo(0), headers: imageHeaders, showCaption: true)),
+            Expanded(
+              flex: 2,
+              child: _PreviewTile(
+                photo: _photo(0),
+                headers: imageHeaders,
+                showCaption: true,
+              ),
+            ),
             SizedBox(width: 3),
             Expanded(
               child: Column(
                 children: [
-                  Expanded(child: _PreviewTile(photo: _photo(1), headers: imageHeaders)),
+                  Expanded(
+                    child: _PreviewTile(
+                      photo: _photo(1),
+                      headers: imageHeaders,
+                    ),
+                  ),
                   const SizedBox(height: 3),
-                  Expanded(child: _PreviewTile(photo: _photo(2), headers: imageHeaders)),
+                  Expanded(
+                    child: _PreviewTile(
+                      photo: _photo(2),
+                      headers: imageHeaders,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -218,7 +347,10 @@ class _HomeWidgetPreview extends StatelessWidget {
         ),
         _ => Row(
           children: [
-            SizedBox(width: 74, child: _PreviewTile(photo: _photo(0), headers: imageHeaders)),
+            SizedBox(
+              width: 74,
+              child: _PreviewTile(photo: _photo(0), headers: imageHeaders),
+            ),
             const SizedBox(width: 10),
             const Expanded(child: _PreviewText()),
           ],
@@ -229,7 +361,12 @@ class _HomeWidgetPreview extends StatelessWidget {
 }
 
 class _PreviewTile extends StatelessWidget {
-  const _PreviewTile({required this.photo, required this.headers, this.showCaption = false, this.round = false});
+  const _PreviewTile({
+    required this.photo,
+    required this.headers,
+    this.showCaption = false,
+    this.round = false,
+  });
 
   final GalleryPhoto? photo;
   final Map<String, String> headers;
@@ -281,9 +418,18 @@ class _PreviewTile extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                 decoration: BoxDecoration(
                   color: Colors.black.withAlpha(80),
-                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(11)),
+                  borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.circular(11),
+                  ),
                 ),
-                child: const Text('Today’s Smruti', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+                child: const Text(
+                  'Today’s Smruti',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ),
         ],
@@ -301,7 +447,14 @@ class _PreviewText extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('HariPrabodham Smruti', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 11, fontWeight: FontWeight.w800)),
+        Text(
+          'HariPrabodham Smruti',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
         const SizedBox(height: 7),
         GalleryShimmerBox(height: 5, width: 100, borderRadius: 4),
         const SizedBox(height: 5),

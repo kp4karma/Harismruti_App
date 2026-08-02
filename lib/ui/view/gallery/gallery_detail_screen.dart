@@ -459,8 +459,8 @@ class _MusicStyleHeader extends StatelessWidget {
       title: selectionMode
           ? Text(
               '$selectedCount selected',
-              style: const TextStyle(
-                color: Colors.black,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
                 fontWeight: FontWeight.w800,
               ),
             )
@@ -623,6 +623,10 @@ class _ExpandedHeroHeaderContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final accent = isDark ? const Color(0xFFFFB59F) : primaryColor;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -654,10 +658,14 @@ class _ExpandedHeroHeaderContent extends StatelessWidget {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w800,
-            color: Colors.black,
+            color: scheme.onSurface,
+            height: 1.08,
+            shadows: [
+              Shadow(color: scheme.surface.withAlpha(190), blurRadius: 10),
+            ],
           ),
         ),
         const SizedBox(height: 6),
@@ -667,7 +675,7 @@ class _ExpandedHeroHeaderContent extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: primaryColor,
+              color: accent,
               fontSize: 15,
               fontWeight: FontWeight.w700,
             ),
@@ -2968,24 +2976,25 @@ class _ViewerTopBar extends StatelessWidget {
                       vertical: 9,
                     ),
                     decoration: BoxDecoration(
-                      gradient: isDark
-                          ? LinearGradient(
-                              colors: [
-                                scheme.surfaceContainerHigh.withAlpha(205),
-                                scheme.surfaceContainer.withAlpha(165),
+                      gradient: LinearGradient(
+                        colors: isDark
+                            ? [
+                                Colors.white.withAlpha(24),
+                                scheme.surface.withAlpha(108),
+                              ]
+                            : [
+                                Colors.white.withAlpha(174),
+                                scheme.surface.withAlpha(92),
                               ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            )
-                          : null,
-                      color: isDark
-                          ? null
-                          : scheme.surfaceContainer.withAlpha(210),
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                       borderRadius: BorderRadius.circular(28),
                       border: Border.all(
                         color: isDark
-                            ? Colors.white.withAlpha(28)
-                            : scheme.outlineVariant,
+                            ? Colors.white.withAlpha(42)
+                            : Colors.white.withAlpha(210),
+                        width: 1.1,
                       ),
                       boxShadow: [
                         BoxShadow(
@@ -3202,13 +3211,26 @@ class _ViewerActions extends StatelessWidget {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: isDark
-                          ? scheme.surfaceContainerHigh.withAlpha(175)
-                          : scheme.surfaceContainerHigh,
+                      gradient: LinearGradient(
+                        colors: isDark
+                            ? [
+                                Colors.white.withAlpha(24),
+                                scheme.surface.withAlpha(105),
+                              ]
+                            : [
+                                Colors.white.withAlpha(170),
+                                scheme.surface.withAlpha(88),
+                              ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                       borderRadius: BorderRadius.circular(28),
-                      border: isDark
-                          ? Border.all(color: Colors.white.withAlpha(26))
-                          : null,
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withAlpha(40)
+                            : Colors.white.withAlpha(205),
+                        width: 1.1,
+                      ),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withAlpha(isDark ? 45 : 20),
@@ -3270,13 +3292,26 @@ class _ViewerCircleButton extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: isDark
-                  ? scheme.surfaceContainerHigh.withAlpha(175)
-                  : scheme.surfaceContainerHigh,
+              gradient: LinearGradient(
+                colors: isDark
+                    ? [
+                        Colors.white.withAlpha(25),
+                        scheme.surface.withAlpha(105),
+                      ]
+                    : [
+                        Colors.white.withAlpha(176),
+                        scheme.surface.withAlpha(90),
+                      ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               shape: BoxShape.circle,
-              border: isDark
-                  ? Border.all(color: Colors.white.withAlpha(26))
-                  : null,
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withAlpha(42)
+                    : Colors.white.withAlpha(210),
+                width: 1.1,
+              ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withAlpha(isDark ? 45 : 18),
@@ -3912,18 +3947,43 @@ class _GlassIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.all(8),
       child: ClipOval(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
           child: Material(
-            color: Colors.white.withAlpha(180),
+            color: Colors.transparent,
             child: InkWell(
               onTap: onTap,
-              child: SizedBox(
+              child: Ink(
                 width: 42,
                 height: 42,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isDark
+                        ? [
+                            Colors.white.withAlpha(25),
+                            scheme.surface.withAlpha(105),
+                          ]
+                        : [
+                            Colors.white.withAlpha(176),
+                            scheme.surface.withAlpha(90),
+                          ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withAlpha(42)
+                        : Colors.white.withAlpha(210),
+                    width: 1.1,
+                  ),
+                ),
                 child: Icon(icon, color: primaryColor),
               ),
             ),

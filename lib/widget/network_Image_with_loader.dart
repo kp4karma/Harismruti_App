@@ -34,6 +34,9 @@ class NetworkImageWithLoader extends StatelessWidget {
         return CachedNetworkImage(
           imageUrl: imageUrl,
           httpHeaders: headers,
+          useOldImageOnUrlChange: true,
+          fadeInDuration: Duration.zero,
+          fadeOutDuration: Duration.zero,
           memCacheWidth: decodeWidth,
           maxWidthDiskCache: 1600,
           placeholder: (context, url) => const GalleryShimmerBox(

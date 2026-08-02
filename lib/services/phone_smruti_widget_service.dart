@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 
 class PhoneSmrutiWidgetService {
   static const _androidPackage = 'org.hp.harismruti';
+  static const _iosAppGroup = 'group.org.hp.harismruti.widgets';
   static const providerNames = <String>[
     'SmrutiHomeWidgetProvider',
     'DailyDarshanWidgetProvider',
@@ -24,10 +25,17 @@ class PhoneSmrutiWidgetService {
     required int refreshHours,
     String providerName = 'SmrutiHomeWidgetProvider',
   }) async {
-    if (!Platform.isAndroid) {
+    if (!Platform.isAndroid && !Platform.isIOS) {
       throw UnsupportedError(
-        'Adding the phone widget from inside the app is currently available on Android.',
+        'Home screen widgets are not supported on this device.',
       );
+    }
+
+    if (!providerNames.contains(providerName)) {
+      throw ArgumentError.value(providerName, 'providerName');
+    }
+    if (Platform.isIOS) {
+      await HomeWidget.setAppGroupId(_iosAppGroup);
     }
 
     await _prepareData(
@@ -38,14 +46,17 @@ class PhoneSmrutiWidgetService {
       providerName: providerName,
     );
 
+    if (Platform.isIOS) {
+      // iOS does not allow apps to pin widgets programmatically. Data is now
+      // ready for the user to add this design from the system widget gallery.
+      return;
+    }
+
     final canPin = await HomeWidget.isRequestPinWidgetSupported() ?? false;
     if (!canPin) {
       throw UnsupportedError(
         'Your launcher does not support adding widgets from inside the app. Long-press the phone Home screen and choose Widgets.',
       );
-    }
-    if (!providerNames.contains(providerName)) {
-      throw ArgumentError.value(providerName, 'providerName');
     }
     await HomeWidget.requestPinWidget(
       name: providerName,
@@ -58,10 +69,14 @@ class PhoneSmrutiWidgetService {
     required Map<String, List<GalleryPhoto>> photoSources,
     required Map<String, String> imageHeaders,
   }) async {
-    if (!Platform.isAndroid) return;
+    if (!Platform.isAndroid && !Platform.isIOS) return;
     try {
-      final installed = await HomeWidget.getInstalledWidgets();
-      if (installed.isEmpty) return;
+      if (Platform.isIOS) {
+        await HomeWidget.setAppGroupId(_iosAppGroup);
+      } else {
+        final installed = await HomeWidget.getInstalledWidgets();
+        if (installed.isEmpty) return;
+      }
       final count =
           StorageHelper.getValue<int>(
             key: StorageKeys.smrutiStoryCount,
@@ -147,12 +162,14 @@ class PhoneSmrutiWidgetService {
       name: providerName,
       androidName: providerName,
       qualifiedAndroidName: '$_androidPackage.$providerName',
+      iOSName: providerName,
     );
   }
 
   static Future<void> markNotificationReceived() async {
-    if (!Platform.isAndroid) return;
+    if (!Platform.isAndroid && !Platform.isIOS) return;
     try {
+      if (Platform.isIOS) await HomeWidget.setAppGroupId(_iosAppGroup);
       await HomeWidget.saveWidgetData<int>(
         'smruti_notification_at',
         DateTime.now().millisecondsSinceEpoch,
@@ -162,6 +179,7 @@ class PhoneSmrutiWidgetService {
           name: providerName,
           androidName: providerName,
           qualifiedAndroidName: '$_androidPackage.$providerName',
+          iOSName: providerName,
         );
       }
     } catch (_) {

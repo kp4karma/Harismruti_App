@@ -48,10 +48,13 @@ class ProfileScreen extends StatelessWidget {
                   constraints: const BoxConstraints(maxWidth: kContentMaxWidth),
                   child: ListView(
                     shrinkWrap: true,
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                     children: [
                       _ProfileIdCard(profileController: profileController),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       _ProfileOption(
                         icon: Icons.tune_outlined,
                         label: 'Customize Preferences',
@@ -68,7 +71,7 @@ class ProfileScreen extends StatelessWidget {
                           );
                         },
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 6),
                       _ProfileOption(
                         icon: Icons.widgets_outlined,
                         label: 'Home Screen Widgets',
@@ -81,7 +84,7 @@ class ProfileScreen extends StatelessWidget {
                           );
                         },
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 6),
                       Obx(() {
                         final themeController = Get.find<ThemeController>();
                         return _ProfileOption(
@@ -99,19 +102,19 @@ class ProfileScreen extends StatelessWidget {
                           ),
                         );
                       }),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 6),
                       _ProfileOption(
                         icon: Icons.star_outline_rounded,
                         label: 'Rate this app',
                         onTap: _rateApp,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 6),
                       _ProfileOption(
                         icon: Icons.logout_outlined,
                         label: 'Logout',
                         onTap: _logout,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 6),
                       _ProfileOption(
                         icon: Icons.delete_outline_rounded,
                         label: 'Delete Account',
@@ -215,7 +218,9 @@ class _ProfileIdCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     return Obx(() {
       final myPhotos = Get.isRegistered<MyPhotosController>()
           ? Get.find<MyPhotosController>()
@@ -239,101 +244,128 @@ class _ProfileIdCard extends StatelessWidget {
         ),
       ].where((row) => row.value.isNotEmpty).toList();
 
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainer.withAlpha(205),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: scheme.outlineVariant),
-              boxShadow: [
-                BoxShadow(
-                  color: primaryColor.withAlpha(18),
-                  blurRadius: 26,
-                  offset: const Offset(0, 10),
-                ),
-              ],
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(isDark ? 42 : 22),
+              blurRadius: 28,
+              offset: const Offset(0, 12),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => _openMySmrutiUpload(context),
-                      child: _ProfileAvatar(
-                        profileController: profileController,
-                        smrutiPhoto: smrutiPhoto,
-                        showAddBadge: smrutiPhoto == null,
+            BoxShadow(
+              color: primaryColor.withAlpha(isDark ? 18 : 12),
+              blurRadius: 18,
+              spreadRadius: -2,
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: isDark
+                      ? [
+                          Colors.white.withAlpha(24),
+                          scheme.surface.withAlpha(105),
+                        ]
+                      : [
+                          Colors.white.withAlpha(178),
+                          scheme.surface.withAlpha(112),
+                        ],
+                ),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withAlpha(42)
+                      : Colors.white.withAlpha(205),
+                  width: 1.1,
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => _openMySmrutiUpload(context),
+                        child: _ProfileAvatar(
+                          profileController: profileController,
+                          smrutiPhoto: smrutiPhoto,
+                          showAddBadge: smrutiPhoto == null,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  profileController.displayName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: scheme.onSurface,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    profileController.displayName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: scheme.onSurface,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 6),
-                              Tooltip(
-                                message: 'Edit name',
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(10),
-                                  onTap: () => _openMySmrutiUpload(context),
-                                  child: Container(
-                                    width: 30,
-                                    height: 30,
-                                    decoration: BoxDecoration(
-                                      color: primaryColor.withAlpha(10),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: primaryColor.withAlpha(35),
+                                const SizedBox(width: 6),
+                                Tooltip(
+                                  message: 'Edit name',
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(10),
+                                    onTap: () => _openMySmrutiUpload(context),
+                                    child: Container(
+                                      width: 30,
+                                      height: 30,
+                                      decoration: BoxDecoration(
+                                        color: primaryColor.withAlpha(10),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: primaryColor.withAlpha(35),
+                                        ),
+                                      ),
+                                      child: Icon(
+                                        Icons.edit_outlined,
+                                        color: primaryColor,
+                                        size: 16,
                                       ),
                                     ),
-                                    child: Icon(
-                                      Icons.edit_outlined,
-                                      color: primaryColor,
-                                      size: 16,
-                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ],
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                if (rows.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Divider(height: 1, color: scheme.outlineVariant),
-                  const SizedBox(height: 5),
-                ],
-                Column(
-                  children: [
-                    for (int index = 0; index < rows.length; index++) ...[
-                      _ProfileInfoRow(data: rows[index]),
-                      if (index != rows.length - 1) const SizedBox(height: 2),
                     ],
+                  ),
+                  if (rows.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Divider(height: 1, color: scheme.outlineVariant),
+                    const SizedBox(height: 5),
                   ],
-                ),
-              ],
+                  Column(
+                    children: [
+                      for (int index = 0; index < rows.length; index++) ...[
+                        _ProfileInfoRow(data: rows[index]),
+                        if (index != rows.length - 1) const SizedBox(height: 2),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -489,11 +521,7 @@ class _ProfileInfoRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         children: [
-          Icon(
-            data.icon,
-            color: primaryColor,
-            size: 15 * tabletScale(context),
-          ),
+          Icon(data.icon, color: primaryColor, size: 15 * tabletScale(context)),
           const SizedBox(width: 8),
           SizedBox(
             width: 48,
@@ -546,22 +574,22 @@ class _ProfileOption extends StatelessWidget {
         : Theme.of(context).colorScheme.onSurface;
     return Material(
       color: Theme.of(context).colorScheme.surface.withAlpha(230),
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           child: Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
                   color: destructive
                       ? Colors.red.withAlpha(10)
                       : primaryColor.withAlpha(10),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(9),
                   border: Border.all(
                     color: destructive
                         ? Colors.red.withAlpha(42)
@@ -571,22 +599,32 @@ class _ProfileOption extends StatelessWidget {
                 child: Icon(
                   icon,
                   color: destructive ? color : primaryColor,
-                  size: 21,
+                  size: 18,
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   label,
-                  style: TextStyle(fontSize: 16, color: color),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: color,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-              trailing ??
-                  Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 16,
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
+              if (trailing != null)
+                SizedBox(
+                  width: 42,
+                  height: 28,
+                  child: FittedBox(fit: BoxFit.contain, child: trailing),
+                )
+              else
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 14,
+                  color: Theme.of(context).colorScheme.outline,
+                ),
             ],
           ),
         ),

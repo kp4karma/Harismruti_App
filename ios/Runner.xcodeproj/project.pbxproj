@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		A10000000000000000000001 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000003 /* NotificationService.swift */; };
 		A10000000000000000000002 /* ImageNotification.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A10000000000000000000005 /* ImageNotification.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		B20000000000000000000001 /* SmrutiWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000003 /* SmrutiWidgets.swift */; };
+		B20000000000000000000002 /* SmrutiWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B20000000000000000000006 /* SmrutiWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		3136577162F6C5C299552F7C /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AE2DD54CDF417F39DF05828F /* Pods_Runner.framework */; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
@@ -30,6 +32,13 @@
 			remoteGlobalIDString = A1000000000000000000000A;
 			remoteInfo = ImageNotification;
 		};
+		B20000000000000000000007 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B2000000000000000000000A;
+			remoteInfo = SmrutiWidgets;
+		};
 		331C8085294A63A400263BE5 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
@@ -47,6 +56,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				A10000000000000000000002 /* ImageNotification.appex in Embed App Extensions */,
+				B20000000000000000000002 /* SmrutiWidgets.appex in Embed App Extensions */,
 			);
 			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -67,6 +77,10 @@
 		A10000000000000000000003 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		A10000000000000000000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A10000000000000000000005 /* ImageNotification.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ImageNotification.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B20000000000000000000003 /* SmrutiWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmrutiWidgets.swift; sourceTree = "<group>"; };
+		B20000000000000000000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B20000000000000000000005 /* SmrutiWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SmrutiWidgets.entitlements; sourceTree = "<group>"; };
+		B20000000000000000000006 /* SmrutiWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SmrutiWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		0D7E277F9A723281D37775ED /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
@@ -103,6 +117,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B20000000000000000000008 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		97C146EB1CF9000F007C117D /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -130,6 +151,16 @@
 				A10000000000000000000004 /* Info.plist */,
 			);
 			path = ImageNotification;
+			sourceTree = "<group>";
+		};
+		B20000000000000000000009 /* SmrutiWidgets */ = {
+			isa = PBXGroup;
+			children = (
+				B20000000000000000000003 /* SmrutiWidgets.swift */,
+				B20000000000000000000004 /* Info.plist */,
+				B20000000000000000000005 /* SmrutiWidgets.entitlements */,
+			);
+			path = SmrutiWidgets;
 			sourceTree = "<group>";
 		};
 		331C8082294A63A400263BE5 /* RunnerTests */ = {
@@ -180,6 +211,7 @@
 				9740EEB11CF90186004384FC /* Flutter */,
 				97C146F01CF9000F007C117D /* Runner */,
 				A10000000000000000000009 /* ImageNotification */,
+				B20000000000000000000009 /* SmrutiWidgets */,
 				97C146EF1CF9000F007C117D /* Products */,
 				331C8082294A63A400263BE5 /* RunnerTests */,
 				7CF6A5FC4F20DC47FECB1168 /* Pods */,
@@ -192,6 +224,7 @@
 			children = (
 				97C146EE1CF9000F007C117D /* Runner.app */,
 				A10000000000000000000005 /* ImageNotification.appex */,
+				B20000000000000000000006 /* SmrutiWidgets.appex */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
 			);
 			name = Products;
@@ -234,6 +267,23 @@
 			productReference = A10000000000000000000005 /* ImageNotification.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		B2000000000000000000000A /* SmrutiWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B20000000000000000000011 /* Build configuration list for PBXNativeTarget "SmrutiWidgets" */;
+			buildPhases = (
+				B2000000000000000000000C /* Sources */,
+				B20000000000000000000008 /* Frameworks */,
+				B2000000000000000000000B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SmrutiWidgets;
+			productName = SmrutiWidgets;
+			productReference = B20000000000000000000006 /* SmrutiWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		331C8080294A63A400263BE5 /* RunnerTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 331C8087294A63A400263BE5 /* Build configuration list for PBXNativeTarget "RunnerTests" */;
@@ -272,6 +322,7 @@
 			);
 			dependencies = (
 				A1000000000000000000000D /* PBXTargetDependency */,
+				B2000000000000000000000D /* PBXTargetDependency */,
 			);
 			name = Runner;
 			packageProductDependencies = (
@@ -292,6 +343,9 @@
 				ORGANIZATIONNAME = "";
 				TargetAttributes = {
 					A1000000000000000000000A = {
+						CreatedOnToolsVersion = 15.0;
+					};
+					B2000000000000000000000A = {
 						CreatedOnToolsVersion = 15.0;
 					};
 					331C8080294A63A400263BE5 = {
@@ -322,6 +376,7 @@
 			targets = (
 				97C146ED1CF9000F007C117D /* Runner */,
 				A1000000000000000000000A /* ImageNotification */,
+				B2000000000000000000000A /* SmrutiWidgets */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
 			);
 		};
@@ -329,6 +384,13 @@
 
 /* Begin PBXResourcesBuildPhase section */
 		A1000000000000000000000B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B2000000000000000000000B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -477,6 +539,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B2000000000000000000000C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B20000000000000000000001 /* SmrutiWidgets.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		331C807D294A63A400263BE5 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -501,6 +571,11 @@
 			isa = PBXTargetDependency;
 			target = A1000000000000000000000A /* ImageNotification */;
 			targetProxy = A10000000000000000000006 /* PBXContainerItemProxy */;
+		};
+		B2000000000000000000000D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B2000000000000000000000A /* SmrutiWidgets */;
+			targetProxy = B20000000000000000000007 /* PBXContainerItemProxy */;
 		};
 		331C8086294A63A400263BE5 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -529,6 +604,70 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		B2000000000000000000000E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = SmrutiWidgets/SmrutiWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = 459224PK3J;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SmrutiWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = org.hp.harismruti.SmrutiWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B2000000000000000000000F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = SmrutiWidgets/SmrutiWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = 459224PK3J;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SmrutiWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = org.hp.harismruti.SmrutiWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		B20000000000000000000010 /* Profile */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = SmrutiWidgets/SmrutiWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = 459224PK3J;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SmrutiWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = org.hp.harismruti.SmrutiWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Profile;
+		};
 		A1000000000000000000000E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 9740EEB31CF90195004384FC /* Generated.xcconfig */;
@@ -898,6 +1037,16 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		B20000000000000000000011 /* Build configuration list for PBXNativeTarget "SmrutiWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B2000000000000000000000E /* Debug */,
+				B2000000000000000000000F /* Release */,
+				B20000000000000000000010 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		A10000000000000000000011 /* Build configuration list for PBXNativeTarget "ImageNotification" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

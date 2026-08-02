@@ -110,118 +110,129 @@ class MyPhotosSmruti extends StatelessWidget {
           );
         },
         child: Container(
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 22),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(22),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: isDark
-                        ? [
-                            scheme.surfaceContainerHigh.withAlpha(225),
-                            const Color(0xFF3A2421).withAlpha(205),
-                            scheme.surfaceContainer.withAlpha(220),
-                          ]
-                        : [
-                            Colors.white.withAlpha(105),
-                            primaryColor.withAlpha(22),
-                            Colors.white.withAlpha(68),
-                          ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white.withAlpha(22)
-                        : primaryColor.withAlpha(24),
-                  ),
-                  boxShadow: isDark
-                      ? [
-                          BoxShadow(
-                            color: Colors.black.withAlpha(55),
-                            blurRadius: 18,
-                            offset: const Offset(0, 7),
-                          ),
-                        ]
-                      : null,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(isDark ? 42 : 18),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      height: 54,
-                      width: 54,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: isDark
-                              ? [
-                                  const Color(0xFF663D35),
-                                  const Color(0xFF402824),
-                                ]
-                              : [
-                                  primaryColor.withAlpha(25),
-                                  primaryColor.withAlpha(10),
-                                ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 9,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: isDark
+                          ? [
+                              Colors.white.withAlpha(24),
+                              const Color(0xFF6D4238).withAlpha(52),
+                              scheme.surface.withAlpha(92),
+                            ]
+                          : [
+                              Colors.white.withAlpha(174),
+                              primaryColor.withAlpha(16),
+                              Colors.white.withAlpha(108),
+                            ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withAlpha(42)
+                          : Colors.white.withAlpha(205),
+                      width: 1.1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        height: 40,
+                        width: 40,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: isDark
+                                ? [
+                                    const Color(0xFF663D35),
+                                    const Color(0xFF402824),
+                                  ]
+                                : [
+                                    primaryColor.withAlpha(25),
+                                    primaryColor.withAlpha(10),
+                                  ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(13),
+                          border: Border.all(color: accent.withAlpha(45)),
                         ),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: accent.withAlpha(45)),
+                        child: Icon(
+                          CupertinoIcons.person_crop_circle_badge_checkmark,
+                          color: accent,
+                          size: 22,
+                        ),
                       ),
-                      child: Icon(
-                        CupertinoIcons.person_crop_circle_badge_checkmark,
-                        color: accent,
-                        size: 28,
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'My Smruti',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                                color: scheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              controller.hasMatchedSmruti
+                                  ? 'Photos linked with your phone number.'
+                                  : !controller.isFlowInitialized.value
+                                  ? 'Checking your Smruti status.'
+                                  : controller.smrutiLookupFinished
+                                  ? 'No matching Smruti photos are available.'
+                                  : 'Add a live front selfie to find your smruti.',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: scheme.onSurfaceVariant,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              status,
+                              style: TextStyle(
+                                color: accent,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 13),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'My Smruti',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: scheme.onSurface,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            controller.hasMatchedSmruti
-                                ? 'Photos linked with your phone number.'
-                                : !controller.isFlowInitialized.value
-                                ? 'Checking your Smruti status.'
-                                : controller.smrutiLookupFinished
-                                ? 'No matching Smruti photos are available.'
-                                : 'Add a live front selfie to find your smruti.',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: scheme.onSurfaceVariant,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 7),
-                          Text(
-                            status,
-                            style: TextStyle(
-                              color: accent,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (controller.isFlowInitialized.value)
-                      Icon(CupertinoIcons.chevron_right, color: accent),
-                  ],
+                      if (controller.isFlowInitialized.value)
+                        Icon(
+                          CupertinoIcons.chevron_right,
+                          color: accent,
+                          size: 18,
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),

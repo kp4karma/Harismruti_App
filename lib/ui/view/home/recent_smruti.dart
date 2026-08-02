@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
+import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
@@ -75,6 +76,7 @@ class _AutoSwapRecentCollagesState extends State<_AutoSwapRecentCollages> {
   Timer? _timer;
   int _frontGroup = 0;
   bool _didPrecache = false;
+  bool _isMoving = false;
 
   List<List<GalleryPhoto>> get _groups => [
     for (final photo in widget.photos) [photo],
@@ -120,14 +122,39 @@ class _AutoSwapRecentCollagesState extends State<_AutoSwapRecentCollages> {
   void _startTimer() {
     _timer?.cancel();
     if (!widget.autoplay || _groupCount <= 1) return;
-    _timer = Timer.periodic(_swapInterval, (_) => _move(1));
+    _timer = Timer.periodic(_swapInterval, (_) => unawaited(_move(1)));
   }
 
-  void _move(int direction) {
-    if (!mounted || _groupCount <= 1) return;
+  Future<void> _move(int direction) async {
+    if (!mounted || _groupCount <= 1 || _isMoving) return;
+    _isMoving = true;
+    final nextFront = (_frontGroup + direction + _groupCount) % _groupCount;
+    await _precacheVisibleGroups(nextFront);
+    if (!mounted) return;
     setState(() {
-      _frontGroup = (_frontGroup + direction + _groupCount) % _groupCount;
+      _frontGroup = nextFront;
     });
+    _isMoving = false;
+  }
+
+  Future<void> _precacheVisibleGroups(int frontGroup) async {
+    final visibleCount = _groupCount.clamp(1, 3);
+    await Future.wait([
+      for (var depth = 0; depth < visibleCount; depth++)
+        _precachePhoto(_groups[(frontGroup + depth) % _groupCount].first),
+    ]);
+  }
+
+  Future<void> _precachePhoto(GalleryPhoto photo) async {
+    if (photo.thumbnailUrl.isEmpty) return;
+    try {
+      await precacheImage(
+        CachedNetworkImageProvider(photo.thumbnailUrl, headers: widget.headers),
+        context,
+      );
+    } catch (_) {
+      // Let the image widget show its normal error state after the transition.
+    }
   }
 
   void _precachePhotos() {
@@ -158,10 +185,10 @@ class _AutoSwapRecentCollagesState extends State<_AutoSwapRecentCollages> {
         final velocity = details.primaryVelocity ?? 0;
         if (velocity < -120) {
           _timer?.cancel();
-          _move(1);
+          unawaited(_move(1));
         } else if (velocity > 120) {
           _timer?.cancel();
-          _move(-1);
+          unawaited(_move(-1));
         }
       },
       child: Padding(
@@ -284,11 +311,33 @@ class _MasonryPage extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap == null ? null : () => onTap!(photo),
-          child: NetworkImageWithLoader(
-            imageUrl: photo.thumbnailUrl,
-            title: photo.title ?? 'Recent Smruti',
-            headers: headers,
-            fit: BoxFit.contain,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Transform.scale(
+                scale: 1.08,
+                child: ImageFiltered(
+                  imageFilter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                  child: NetworkImageWithLoader(
+                    imageUrl: photo.thumbnailUrl,
+                    title: photo.title ?? 'Recent Smruti',
+                    headers: headers,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7EF).withAlpha(30),
+                ),
+              ),
+              NetworkImageWithLoader(
+                imageUrl: photo.thumbnailUrl,
+                title: photo.title ?? 'Recent Smruti',
+                headers: headers,
+                fit: BoxFit.contain,
+              ),
+            ],
           ),
         ),
       ),
@@ -304,15 +353,23 @@ class _StackSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const radius = BorderRadius.all(Radius.circular(22));
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: radius,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(28),
-            blurRadius: 26,
-            offset: const Offset(0, 12),
+            color: Colors.black.withAlpha(isDark ? 28 : 34),
+            blurRadius: isDark ? 26 : 22,
+            offset: const Offset(0, 10),
           ),
+          if (!isDark)
+            BoxShadow(
+              color: primaryColor.withAlpha(15),
+              blurRadius: 10,
+              spreadRadius: 1,
+            ),
         ],
       ),
       child: ClipRRect(
@@ -322,9 +379,16 @@ class _StackSurface extends StatelessWidget {
           filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: Colors.transparent,
+              color: isDark
+                  ? Colors.transparent
+                  : theme.colorScheme.surface.withAlpha(210),
               borderRadius: radius,
-              border: Border.all(color: Colors.white.withAlpha(42), width: 1),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withAlpha(42)
+                    : primaryColor.withAlpha(52),
+                width: isDark ? 1 : 1.15,
+              ),
             ),
             child: child,
           ),

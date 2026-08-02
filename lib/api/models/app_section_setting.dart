@@ -7,6 +7,7 @@ class AppSectionSetting {
   final int freshnessDays;
   final int itemLimit;
   final String refreshTime;
+  final List<String> refreshTimes;
 
   const AppSectionSetting({
     required this.sectionKey,
@@ -17,6 +18,7 @@ class AppSectionSetting {
     required this.freshnessDays,
     required this.itemLimit,
     required this.refreshTime,
+    required this.refreshTimes,
   });
 
   factory AppSectionSetting.fromJson(Map<String, dynamic> json) {
@@ -30,6 +32,12 @@ class AppSectionSetting {
           int.tryParse(json['freshness_days']?.toString() ?? '') ?? 7,
       itemLimit: int.tryParse(json['item_limit']?.toString() ?? '') ?? 10,
       refreshTime: json['refresh_time']?.toString() ?? '05:00',
+      refreshTimes: json['refresh_times'] is List
+          ? (json['refresh_times'] as List)
+                .map((value) => value.toString())
+                .where((value) => value.isNotEmpty)
+                .toList()
+          : [json['refresh_time']?.toString() ?? '05:00'],
     );
   }
 
@@ -42,6 +50,7 @@ class AppSectionSetting {
     'freshness_days': freshnessDays,
     'item_limit': itemLimit,
     'refresh_time': refreshTime,
+    'refresh_times': refreshTimes,
   };
 }
 
