@@ -29,7 +29,7 @@ class SubHeader extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 18.sp,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF322318),
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ),

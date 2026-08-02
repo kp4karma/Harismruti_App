@@ -110,7 +110,7 @@ class MyPhotosSmruti extends StatelessWidget {
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 22),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surfaceContainer,
             borderRadius: BorderRadius.circular(22),
             boxShadow: [
               BoxShadow(
@@ -140,11 +140,12 @@ class MyPhotosSmruti extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'My Smruti',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -159,7 +160,7 @@ class MyPhotosSmruti extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: Colors.black.withAlpha(140),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),

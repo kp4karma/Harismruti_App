@@ -103,6 +103,7 @@ class GalleryMosaicCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final images = card.imageUrls.isNotEmpty
         ? card.imageUrls.take(4).toList(growable: false)
         : <String>[card.coverUrl];
@@ -116,7 +117,9 @@ class GalleryMosaicCard extends StatelessWidget {
             : const EdgeInsets.all(8),
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: overlappingTitle ? Colors.transparent : Colors.white,
+          color: overlappingTitle
+              ? Colors.transparent
+              : colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(16),
           boxShadow: overlappingTitle
               ? null
@@ -152,9 +155,12 @@ class GalleryMosaicCard extends StatelessWidget {
                           constraints: const BoxConstraints(minHeight: 66),
                           padding: const EdgeInsets.fromLTRB(12, 9, 10, 9),
                           decoration: BoxDecoration(
-                            color: Colors.white.withAlpha(242),
+                            color: colorScheme.surfaceContainer.withAlpha(242),
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.white, width: 1.2),
+                            border: Border.all(
+                              color: colorScheme.outlineVariant,
+                              width: 1.2,
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: primaryColor.withAlpha(42),
@@ -175,8 +181,8 @@ class GalleryMosaicCard extends StatelessWidget {
                                       card.title,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Color(0xFF171717),
+                                      style: TextStyle(
+                                        color: colorScheme.onSurface,
                                         fontWeight: FontWeight.w900,
                                         fontSize: 18,
                                       ),
@@ -188,7 +194,7 @@ class GalleryMosaicCard extends StatelessWidget {
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         fontSize: 11,
-                                        color: Colors.black.withAlpha(115),
+                                        color: colorScheme.onSurfaceVariant,
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),
@@ -235,7 +241,8 @@ class GalleryMosaicCard extends StatelessWidget {
                     card.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
@@ -244,7 +251,10 @@ class GalleryMosaicCard extends StatelessWidget {
                     card.subtitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
