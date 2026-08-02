@@ -39,6 +39,7 @@ class StorageKeys {
   static const String smrutiStoryRefreshHours = 'smrutiStoryRefreshHours';
   static const String darkMode = 'darkMode';
   static const String aiSearchHistory = 'aiSearchHistoryV1';
+  static const String aiSearchChatHistory = 'aiSearchChatHistoryV2';
   static const String onThisDayViewedStories = 'onThisDayViewedStoriesV1';
 }
 

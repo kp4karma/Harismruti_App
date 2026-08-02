@@ -27,24 +27,6 @@ class _AiChatTurn {
   bool isSearching;
 }
 
-class _AiHistoryItem {
-  const _AiHistoryItem({
-    required this.prompt,
-    required this.createdAt,
-    required this.resultCount,
-  });
-
-  final String prompt;
-  final DateTime createdAt;
-  final int resultCount;
-
-  Map<String, dynamic> toJson() => {
-    'prompt': prompt,
-    'created_at': createdAt.toIso8601String(),
-    'result_count': resultCount,
-  };
-}
-
 class AiSmrutiSearchScreen extends StatefulWidget {
   const AiSmrutiSearchScreen({super.key});
 
@@ -69,7 +51,6 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
   late final AnimationController _pulseController;
 
   final List<_AiChatTurn> _turns = [];
-  List<_AiHistoryItem> _history = const [];
   List<LocaleName> _locales = const [];
   String? _localeId;
   bool _isSearching = false;
@@ -83,7 +64,8 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..repeat(reverse: true);
-    _loadHistory();
+    _loadChatHistory();
+    _scrollToBottom();
     _prepareSpeech();
   }
 
@@ -219,7 +201,6 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
       final photos = await _repository.naturalSearch(prompt, limit: 80);
       if (!mounted) return;
       setState(() => turn.photos = photos);
-      _saveHistory(prompt, photos.length, turn.createdAt);
       _scrollToBottom();
     } catch (_) {
       if (!mounted) return;
@@ -232,6 +213,7 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
           turn.isSearching = false;
           _isSearching = false;
         });
+        if (turn.error == null) _persistChatHistory();
       }
     }
   }
@@ -274,73 +256,81 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
     );
   }
 
-  void _loadHistory() {
-    final raw = StorageHelper.getValue<List>(key: StorageKeys.aiSearchHistory);
-    final cutoff = DateTime.now().subtract(const Duration(days: 30));
-    final items = (raw ?? const [])
-        .whereType<Map>()
-        .map((item) {
-          final data = Map<String, dynamic>.from(item);
-          final createdAt = DateTime.tryParse(
-            data['created_at']?.toString() ?? '',
-          );
-          final prompt = data['prompt']?.toString().trim() ?? '';
-          if (createdAt == null ||
-              prompt.isEmpty ||
-              createdAt.isBefore(cutoff)) {
-            return null;
-          }
-          return _AiHistoryItem(
-            prompt: prompt,
-            createdAt: createdAt,
-            resultCount:
-                int.tryParse(data['result_count']?.toString() ?? '') ?? 0,
-          );
-        })
-        .whereType<_AiHistoryItem>()
-        .take(50)
-        .toList();
-    _history = items;
-    StorageHelper.setValue(
-      key: StorageKeys.aiSearchHistory,
-      value: items.map((item) => item.toJson()).toList(),
+  void _loadChatHistory() {
+    final raw = StorageHelper.getValue<List>(
+      key: StorageKeys.aiSearchChatHistory,
     );
-  }
-
-  void _saveHistory(String prompt, int resultCount, DateTime createdAt) {
-    final updated = [
-      _AiHistoryItem(
+    final cutoff = DateTime.now().subtract(const Duration(days: 3));
+    final restored = <_AiChatTurn>[];
+    for (final item in (raw ?? const []).whereType<Map>()) {
+      final data = Map<String, dynamic>.from(item);
+      final createdAt = DateTime.tryParse(data['created_at']?.toString() ?? '');
+      final prompt = data['prompt']?.toString().trim() ?? '';
+      if (createdAt == null || prompt.isEmpty || createdAt.isBefore(cutoff)) {
+        continue;
+      }
+      final rawPhotos = data['photos'];
+      final photos = rawPhotos is List
+          ? rawPhotos
+                .whereType<Map>()
+                .map(
+                  (photo) =>
+                      GalleryPhoto.fromJson(Map<String, dynamic>.from(photo)),
+                )
+                .where((photo) => photo.id > 0)
+                .toList(growable: false)
+          : const <GalleryPhoto>[];
+      final turn = _AiChatTurn(
+        id:
+            int.tryParse(data['id']?.toString() ?? '') ??
+            createdAt.microsecondsSinceEpoch,
         prompt: prompt,
         createdAt: createdAt,
-        resultCount: resultCount,
-      ),
-      ..._history.where(
-        (item) => item.prompt.toLowerCase() != prompt.toLowerCase(),
-      ),
-    ].take(50).toList();
-    setState(() => _history = updated);
-    StorageHelper.setValue(
-      key: StorageKeys.aiSearchHistory,
-      value: updated.map((item) => item.toJson()).toList(),
+      );
+      turn
+        ..photos = photos
+        ..isSearching = false;
+      restored.add(turn);
+    }
+    restored.sort(
+      (first, second) => first.createdAt.compareTo(second.createdAt),
     );
+    _turns.addAll(restored.take(50));
+    _persistChatHistory();
   }
 
-  void _deleteHistory(int index) {
-    final updated = [..._history]..removeAt(index);
-    setState(() => _history = updated);
+  void _persistChatHistory() {
+    final cutoff = DateTime.now().subtract(const Duration(days: 3));
+    final completed = _turns
+        .where((turn) => !turn.isSearching && turn.error == null)
+        .where((turn) => !turn.createdAt.isBefore(cutoff))
+        .toList();
+    final retained = completed.length > 50
+        ? completed.sublist(completed.length - 50)
+        : completed;
     StorageHelper.setValue(
-      key: StorageKeys.aiSearchHistory,
-      value: updated.map((item) => item.toJson()).toList(),
+      key: StorageKeys.aiSearchChatHistory,
+      value: retained
+          .map(
+            (turn) => {
+              'id': turn.id,
+              'prompt': turn.prompt,
+              'created_at': turn.createdAt.toIso8601String(),
+              'photos': turn.photos
+                  .map(
+                    (photo) => {
+                      'id': photo.id,
+                      'title': photo.title,
+                      'width': photo.width,
+                      'height': photo.height,
+                      'event_date': photo.eventDate?.toIso8601String(),
+                    },
+                  )
+                  .toList(),
+            },
+          )
+          .toList(),
     );
-  }
-
-  void _clearHistory() {
-    setState(() {
-      _history = const [];
-      _turns.clear();
-    });
-    StorageHelper.removeValue(StorageKeys.aiSearchHistory);
-    Navigator.pop(context);
   }
 
   String get _languageLabel {
@@ -350,91 +340,6 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
     return 'Language';
   }
 
-  Future<void> _showHistory() async {
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (context, refreshSheet) => SafeArea(
-          child: SizedBox(
-            height: MediaQuery.sizeOf(context).height * 0.7,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 0, 8, 8),
-                  child: Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'Search history',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      if (_history.isNotEmpty)
-                        TextButton(
-                          onPressed: _clearHistory,
-                          child: const Text('Clear all'),
-                        ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: _history.isEmpty
-                      ? const Center(child: Text('No saved searches yet'))
-                      : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
-                          itemCount: _history.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1),
-                          itemBuilder: (context, index) {
-                            final item = _history[index];
-                            return ListTile(
-                              leading: const Icon(CupertinoIcons.clock),
-                              title: Text(
-                                item.prompt,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              subtitle: Text(
-                                '${item.resultCount} smrutis · ${_historyDate(item.createdAt)}',
-                              ),
-                              trailing: IconButton(
-                                tooltip: 'Delete',
-                                icon: const Icon(CupertinoIcons.delete),
-                                onPressed: () {
-                                  _deleteHistory(index);
-                                  refreshSheet(() {});
-                                },
-                              ),
-                              onTap: () {
-                                Navigator.pop(sheetContext);
-                                _search(item.prompt);
-                              },
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _historyDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-    if (difference.inMinutes < 1) return 'Just now';
-    if (difference.inHours < 1) return '${difference.inMinutes}m ago';
-    if (difference.inDays < 1) return '${difference.inHours}h ago';
-    if (difference.inDays < 7) return '${difference.inDays}d ago';
-    return '${date.day}/${date.month}/${date.year}';
-  }
-
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -442,21 +347,7 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
       child: Scaffold(
         backgroundColor: Colors.transparent,
         extendBodyBehindAppBar: true,
-        appBar: DetailAppbar(
-          title: 'AI Smruti Search',
-          actions: [
-            IconButton(
-              tooltip: 'Search history',
-              onPressed: _showHistory,
-              icon: Badge(
-                isLabelVisible: _history.isNotEmpty,
-                smallSize: 7,
-                child: const Icon(CupertinoIcons.clock_fill),
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-        ),
+        appBar: const DetailAppbar(title: 'AI Smruti Search'),
         body: Column(
           children: [
             Expanded(child: _buildChatList(scheme)),
@@ -497,26 +388,39 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
               itemCount: _turns.length,
               itemBuilder: (context, index) {
                 final turn = _turns[index];
+                final showDate =
+                    index == 0 ||
+                    !_sameDay(_turns[index - 1].createdAt, turn.createdAt);
                 return RepaintBoundary(
                   key: ValueKey(turn.id),
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0, end: 1),
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, value, child) => Opacity(
-                      opacity: value,
-                      child: Transform.translate(
-                        offset: Offset(0, 12 * (1 - value)),
-                        child: child,
+                  child: Column(
+                    children: [
+                      if (showDate) _ChatDateDivider(date: turn.createdAt),
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0, end: 1),
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, value, child) => Opacity(
+                          opacity: value,
+                          child: Transform.translate(
+                            offset: Offset(0, 12 * (1 - value)),
+                            child: child,
+                          ),
+                        ),
+                        child: _buildChatTurn(turn, scheme),
                       ),
-                    ),
-                    child: _buildChatTurn(turn, scheme),
+                    ],
                   ),
                 );
               },
             ),
     );
   }
+
+  bool _sameDay(DateTime first, DateTime second) =>
+      first.year == second.year &&
+      first.month == second.month &&
+      first.day == second.day;
 
   Widget _buildChatTurn(_AiChatTurn turn, ColorScheme scheme) {
     return Padding(
@@ -806,6 +710,47 @@ class _ChatImagePreview extends StatelessWidget {
                   ),
                 ),
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChatDateDivider extends StatelessWidget {
+  const _ChatDateDivider({required this.date});
+
+  final DateTime date;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final value = DateTime(date.year, date.month, date.day);
+    final difference = today.difference(value).inDays;
+    final label = difference == 0
+        ? 'Today'
+        : difference == 1
+        ? 'Yesterday'
+        : '${date.day}/${date.month}/${date.year}';
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHighest.withAlpha(185),
+            borderRadius: BorderRadius.circular(99),
+            border: Border.all(color: scheme.outlineVariant.withAlpha(90)),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: scheme.onSurfaceVariant,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
