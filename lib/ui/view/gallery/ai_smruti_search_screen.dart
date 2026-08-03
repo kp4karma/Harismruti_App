@@ -38,6 +38,13 @@ class _AiChatTurn {
   bool isSearching;
 }
 
+class _FollowUpSuggestion {
+  const _FollowUpSuggestion(this.label, this.prompt);
+
+  final String label;
+  final String prompt;
+}
+
 class AiSmrutiSearchScreen extends StatefulWidget {
   const AiSmrutiSearchScreen({super.key});
 
@@ -483,7 +490,11 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
                             child: child,
                           ),
                         ),
-                        child: _buildChatTurn(turn, scheme),
+                        child: _buildChatTurn(
+                          turn,
+                          scheme,
+                          showSuggestions: index == _turns.length - 1,
+                        ),
                       ),
                     ],
                   ),
@@ -498,7 +509,11 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
       first.month == second.month &&
       first.day == second.day;
 
-  Widget _buildChatTurn(_AiChatTurn turn, ColorScheme scheme) {
+  Widget _buildChatTurn(
+    _AiChatTurn turn,
+    ColorScheme scheme, {
+    required bool showSuggestions,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 24),
       child: Column(
@@ -576,12 +591,72 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
                           onViewAll: () => _openAllResults(turn),
                         ),
                       ],
+                      if (showSuggestions && turn.error == null) ...[
+                        const SizedBox(height: 14),
+                        _buildFollowUpSuggestions(turn, scheme),
+                      ],
                     ],
                   ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildFollowUpSuggestions(_AiChatTurn turn, ColorScheme scheme) {
+    final suggestions = _followUpSuggestions(turn);
+    if (suggestions.isEmpty) return const SizedBox.shrink();
+    return SizedBox(
+      height: 38,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: suggestions.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final suggestion = suggestions[index];
+          return ActionChip(
+            avatar: Icon(
+              index == 0 && turn.photos.isNotEmpty
+                  ? CupertinoIcons.arrow_down_circle
+                  : CupertinoIcons.sparkles,
+              size: 16,
+            ),
+            label: Text(suggestion.label),
+            backgroundColor: scheme.surface.withAlpha(210),
+            side: BorderSide(color: scheme.outlineVariant),
+            onPressed: _isSearching ? null : () => _search(suggestion.prompt),
+          );
+        },
+      ),
+    );
+  }
+
+  List<_FollowUpSuggestion> _followUpSuggestions(_AiChatTurn turn) {
+    final query = turn.searchQuery;
+    final lower = query.toLowerCase();
+    final subject = lower.contains('hariprasad')
+        ? 'Hariprasad Swamiji'
+        : lower.contains('prabodh')
+        ? 'Prabodh Swamiji'
+        : lower.contains('guru hari') || lower.contains('guruhari')
+        ? 'Guru Hari'
+        : 'Swamiji';
+    final suggestions = <_FollowUpSuggestion>[
+      if (turn.photos.isNotEmpty)
+        const _FollowUpSuggestion('More like this', 'more'),
+      if (!lower.contains('recent') &&
+          !lower.contains('latest') &&
+          !lower.contains('today') &&
+          !lower.contains('yesterday'))
+        _FollowUpSuggestion('Recent Smrutis', 'Recent $subject Smrutis'),
+      if (!lower.contains('children') && !lower.contains('kids'))
+        _FollowUpSuggestion('With children', '$subject with children'),
+      if (!lower.contains('car') && !lower.contains('vehicle'))
+        _FollowUpSuggestion('In car', '$subject in car'),
+      if (!lower.contains('walk'))
+        _FollowUpSuggestion('Morning walk', '$subject morning walk'),
+    ];
+    return suggestions.take(3).toList(growable: false);
   }
 
   Widget _buildWelcome(ColorScheme scheme) {
