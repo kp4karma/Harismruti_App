@@ -609,6 +609,7 @@ DATA: $responseData
         case 401:
         case 403:
         case 404:
+        case 422:
         case 440:
         case 500:
           if (kDebugMode) {

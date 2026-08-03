@@ -202,10 +202,13 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
       if (!mounted) return;
       setState(() => turn.photos = photos);
       _scrollToBottom();
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
-        turn.error = 'I could not search these smrutis. Please try again.';
+        final message = error.toString().replaceFirst('Exception: ', '').trim();
+        turn.error = message.isEmpty || message.startsWith('⚠️')
+            ? 'I could not search these smrutis. Please try again.'
+            : message;
       });
     } finally {
       if (mounted) {
