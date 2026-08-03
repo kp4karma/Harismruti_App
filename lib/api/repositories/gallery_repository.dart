@@ -97,11 +97,13 @@ class GalleryRepository {
   Future<NaturalSearchResult> naturalSearch(
     String query, {
     int limit = 24,
+    int offset = 0,
   }) async {
     final normalizedQuery = query.trim();
     final queryParams = _scopedQueryParams({
       'q': normalizedQuery,
       'limit': limit,
+      'offset': offset,
     });
     final lowerQuery = normalizedQuery.toLowerCase();
     if (lowerQuery.contains('hariprasad')) {

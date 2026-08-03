@@ -14,15 +14,22 @@ import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 class _AiChatTurn {
-  _AiChatTurn({required this.id, required this.prompt, required this.createdAt})
-    : photos = const [],
-      error = null,
-      clarificationQuestion = null,
-      clarificationOptions = const [],
-      isSearching = true;
+  _AiChatTurn({
+    required this.id,
+    required this.prompt,
+    required this.searchQuery,
+    required this.resultOffset,
+    required this.createdAt,
+  }) : photos = const [],
+       error = null,
+       clarificationQuestion = null,
+       clarificationOptions = const [],
+       isSearching = true;
 
   final int id;
   final String prompt;
+  final String searchQuery;
+  final int resultOffset;
   final DateTime createdAt;
   List<GalleryPhoto> photos;
   String? error;
@@ -187,12 +194,30 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
   Future<void> _search([String? suggestedPrompt]) async {
     final prompt = (suggestedPrompt ?? _promptController.text).trim();
     if (prompt.length < 3 || _isSearching) return;
+    final isMoreRequest = _isMorePrompt(prompt);
+    final previousResult = isMoreRequest
+        ? _turns.reversed.where((turn) => turn.photos.isNotEmpty).firstOrNull
+        : null;
+    if (isMoreRequest && previousResult == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Search for a Smruti first, then ask for more.'),
+        ),
+      );
+      return;
+    }
+    final searchQuery = previousResult?.searchQuery ?? prompt;
+    final resultOffset = previousResult == null
+        ? 0
+        : previousResult.resultOffset + previousResult.photos.length;
     if (_speech.isListening) await _speech.stop();
     _promptController.clear();
     _promptFocus.unfocus();
     final turn = _AiChatTurn(
       id: DateTime.now().microsecondsSinceEpoch,
       prompt: prompt,
+      searchQuery: searchQuery,
+      resultOffset: resultOffset,
       createdAt: DateTime.now(),
     );
     setState(() {
@@ -202,7 +227,11 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
     });
     _scrollToBottom();
     try {
-      final result = await _repository.naturalSearch(prompt, limit: 24);
+      final result = await _repository.naturalSearch(
+        searchQuery,
+        limit: 24,
+        offset: resultOffset,
+      );
       if (!mounted) return;
       setState(() {
         turn.photos = result.photos;
@@ -229,6 +258,32 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
         }
       }
     }
+  }
+
+  bool _isMorePrompt(String prompt) {
+    final value = prompt.toLowerCase().trim().replaceAll(
+      RegExp(r'[.!?]+$'),
+      '',
+    );
+    return const {
+      'more',
+      'more images',
+      'more photos',
+      'more smrutis',
+      'show more',
+      'bija',
+      'biji',
+      'biju',
+      'bija batavo',
+      'vadhu',
+      'vadhu batavo',
+      'વધુ',
+      'વધુ બતાવો',
+      'બીજા',
+      'બીજી',
+      'और',
+      'और दिखाओ',
+    }.contains(value);
   }
 
   void _scrollToBottom() {
@@ -298,6 +353,11 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
             int.tryParse(data['id']?.toString() ?? '') ??
             createdAt.microsecondsSinceEpoch,
         prompt: prompt,
+        searchQuery: data['search_query']?.toString().trim().isNotEmpty == true
+            ? data['search_query'].toString().trim()
+            : prompt,
+        resultOffset:
+            int.tryParse(data['result_offset']?.toString() ?? '') ?? 0,
         createdAt: createdAt,
       );
       turn
@@ -329,6 +389,8 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
             (turn) => {
               'id': turn.id,
               'prompt': turn.prompt,
+              'search_query': turn.searchQuery,
+              'result_offset': turn.resultOffset,
               'created_at': turn.createdAt.toIso8601String(),
               'photos': turn.photos
                   .map(
