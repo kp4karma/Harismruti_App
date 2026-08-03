@@ -10,6 +10,30 @@ import 'package:harismruti/utils/storage_helper.dart';
 
 enum GallerySwami { prabodh, hariprasad }
 
+class NaturalSearchClarificationOption {
+  const NaturalSearchClarificationOption({
+    required this.label,
+    required this.prompt,
+  });
+
+  final String label;
+  final String prompt;
+}
+
+class NaturalSearchResult {
+  const NaturalSearchResult({
+    required this.photos,
+    this.clarificationQuestion,
+    this.clarificationOptions = const [],
+  });
+
+  final List<GalleryPhoto> photos;
+  final String? clarificationQuestion;
+  final List<NaturalSearchClarificationOption> clarificationOptions;
+
+  bool get needsClarification => clarificationOptions.isNotEmpty;
+}
+
 extension GallerySwamiApiValue on GallerySwami {
   String get apiValue => switch (this) {
     GallerySwami.prabodh => 'prabodh',
@@ -70,7 +94,7 @@ class GalleryRepository {
     );
   }
 
-  Future<List<GalleryPhoto>> naturalSearch(
+  Future<NaturalSearchResult> naturalSearch(
     String query, {
     int limit = 24,
   }) async {
@@ -91,9 +115,29 @@ class GalleryRepository {
       forceRefresh: true,
     );
     final data = asJsonMap(response.data);
-    return (data['items'] as List? ?? const [])
+    final photos = (data['items'] as List? ?? const [])
         .map(GalleryPhoto.fromJson)
         .toList(growable: false);
+    final clarification = data['clarification'];
+    final clarificationMap = clarification is Map
+        ? Map<String, dynamic>.from(clarification)
+        : const <String, dynamic>{};
+    final options = (clarificationMap['options'] as List? ?? const [])
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .map(
+          (item) => NaturalSearchClarificationOption(
+            label: item['label']?.toString() ?? '',
+            prompt: item['prompt']?.toString() ?? '',
+          ),
+        )
+        .where((item) => item.label.isNotEmpty && item.prompt.isNotEmpty)
+        .toList(growable: false);
+    return NaturalSearchResult(
+      photos: photos,
+      clarificationQuestion: clarificationMap['question']?.toString(),
+      clarificationOptions: options,
+    );
   }
 
   Future<List<GalleryPhoto>> getOnThisDay({

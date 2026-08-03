@@ -17,6 +17,8 @@ class _AiChatTurn {
   _AiChatTurn({required this.id, required this.prompt, required this.createdAt})
     : photos = const [],
       error = null,
+      clarificationQuestion = null,
+      clarificationOptions = const [],
       isSearching = true;
 
   final int id;
@@ -24,6 +26,8 @@ class _AiChatTurn {
   final DateTime createdAt;
   List<GalleryPhoto> photos;
   String? error;
+  String? clarificationQuestion;
+  List<NaturalSearchClarificationOption> clarificationOptions;
   bool isSearching;
 }
 
@@ -198,9 +202,13 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
     });
     _scrollToBottom();
     try {
-      final photos = await _repository.naturalSearch(prompt, limit: 24);
+      final result = await _repository.naturalSearch(prompt, limit: 24);
       if (!mounted) return;
-      setState(() => turn.photos = photos);
+      setState(() {
+        turn.photos = result.photos;
+        turn.clarificationQuestion = result.clarificationQuestion;
+        turn.clarificationOptions = result.clarificationOptions;
+      });
       _scrollToBottom();
     } catch (error) {
       if (!mounted) return;
@@ -216,7 +224,9 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
           turn.isSearching = false;
           _isSearching = false;
         });
-        if (turn.error == null) _persistChatHistory();
+        if (turn.error == null && turn.clarificationOptions.isEmpty) {
+          _persistChatHistory();
+        }
       }
     }
   }
@@ -306,6 +316,7 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
     final cutoff = DateTime.now().subtract(const Duration(days: 3));
     final completed = _turns
         .where((turn) => !turn.isSearching && turn.error == null)
+        .where((turn) => turn.clarificationOptions.isEmpty)
         .where((turn) => !turn.createdAt.isBefore(cutoff))
         .toList();
     final retained = completed.length > 50
@@ -460,6 +471,32 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
                 ? _SearchingReply(animation: _pulseController)
                 : turn.error != null
                 ? _AssistantMessage(text: turn.error!)
+                : turn.clarificationOptions.isNotEmpty
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _AssistantMessage(
+                        text:
+                            turn.clarificationQuestion ??
+                            'What do you mean by old?',
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: turn.clarificationOptions
+                            .map(
+                              (option) => ActionChip(
+                                label: Text(option.label),
+                                onPressed: _isSearching
+                                    ? null
+                                    : () => _search(option.prompt),
+                              ),
+                            )
+                            .toList(growable: false),
+                      ),
+                    ],
+                  )
                 : Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
