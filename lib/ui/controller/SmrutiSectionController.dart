@@ -29,6 +29,8 @@ class SmrutiSectionController extends GetxController {
     'prabodh': 'P.P.Prabodh Swamiji',
     'hariprasad': 'P.P.Hariprasad Swamiji',
   }.obs;
+  final RxMap<String, bool> appFeatures = <String, bool>{}.obs;
+  bool isFeatureEnabled(String key) => appFeatures[key] ?? true;
   final Set<String> _pendingCacheRefresh = {};
   final RxInt visibleCount = 3.obs;
   final RxBool showBottomBar = true.obs;
@@ -466,6 +468,7 @@ class SmrutiSectionController extends GetxController {
       final configuration = await _appSectionRepository.getConfiguration(
         optionKey: optionKey,
       );
+      appFeatures.assignAll(configuration.features);
       final revisions = _loadCachedCacheRevisions();
       if (revisions[optionKey] != configuration.cacheRevision) {
         _pendingCacheRefresh.add(optionKey);

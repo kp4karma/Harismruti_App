@@ -122,6 +122,7 @@ class _HomeScreenState extends State<HomeScreen>
               .where(
                 (section) =>
                     section['is_show'] == true &&
+                    _featureAllowsSection(section['title'].toString()) &&
                     (isLoggedIn ||
                         !_isLoginOnlySection(section['title'].toString())) &&
                     _hasHomeSectionContent(section['title'].toString()),
@@ -262,6 +263,18 @@ class _HomeScreenState extends State<HomeScreen>
         section['widget'],
       ],
     );
+  }
+
+  bool _featureAllowsSection(String title) {
+    final key = switch (title) {
+      SmrutiSectionKeys.aiSearch => 'ai_search',
+      SmrutiSectionKeys.liveDarshan => 'live_darshan',
+      SmrutiSectionKeys.downloads => 'ai_enhancement',
+      SmrutiSectionKeys.myPhotos => 'my_smruti',
+      SmrutiSectionKeys.myDiary => 'my_diary',
+      _ => null,
+    };
+    return key == null || sectionController.isFeatureEnabled(key);
   }
 
   Future<void> _refreshLiveStreamForAuth() async {

@@ -72,17 +72,20 @@ class ProfileScreen extends StatelessWidget {
                         },
                       ),
                       const SizedBox(height: 6),
-                      _ProfileOption(
-                        icon: Icons.widgets_outlined,
-                        label: 'Home Screen Widgets',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            CupertinoPageRoute(
-                              builder: (_) => const HomeWidgetSettingsScreen(),
-                            ),
-                          );
-                        },
+                      Obx(
+                        () => smrutiController.isFeatureEnabled('home_widgets')
+                            ? _ProfileOption(
+                                icon: Icons.widgets_outlined,
+                                label: 'Home Screen Widgets',
+                                onTap: () => Navigator.push(
+                                  context,
+                                  CupertinoPageRoute(
+                                    builder: (_) =>
+                                        const HomeWidgetSettingsScreen(),
+                                  ),
+                                ),
+                              )
+                            : const SizedBox.shrink(),
                       ),
                       const SizedBox(height: 6),
                       Obx(() {

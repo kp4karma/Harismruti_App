@@ -3,8 +3,10 @@ import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/api/repositories/gallery_repository.dart';
+import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/storage_helper.dart';
@@ -441,7 +443,12 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
               isSearching: _isSearching,
               languageLabel: _languageLabel,
               onLanguage: _chooseLanguage,
-              onMic: _toggleListening,
+              onMic:
+                  Get.find<SmrutiSectionController>().isFeatureEnabled(
+                    'voice_search',
+                  )
+                  ? _toggleListening
+                  : null,
               onSend: _search,
             ),
           ],
@@ -1001,7 +1008,7 @@ class _PromptComposer extends StatelessWidget {
   final bool isSearching;
   final String languageLabel;
   final VoidCallback onLanguage;
-  final VoidCallback onMic;
+  final VoidCallback? onMic;
   final VoidCallback onSend;
 
   const _PromptComposer({
@@ -1069,15 +1076,17 @@ class _PromptComposer extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    IconButton.filledTonal(
-                      onPressed: onMic,
-                      icon: Icon(
-                        isListening
-                            ? CupertinoIcons.stop_fill
-                            : CupertinoIcons.mic_fill,
+                    if (onMic != null) ...[
+                      IconButton.filledTonal(
+                        onPressed: onMic,
+                        icon: Icon(
+                          isListening
+                              ? CupertinoIcons.stop_fill
+                              : CupertinoIcons.mic_fill,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 6),
+                      const SizedBox(width: 6),
+                    ],
                     IconButton.filled(
                       onPressed: isSearching ? null : onSend,
                       style: IconButton.styleFrom(

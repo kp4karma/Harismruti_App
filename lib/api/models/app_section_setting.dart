@@ -91,6 +91,7 @@ class AppSectionsConfiguration {
   final int cacheRevision;
   final List<AppSectionOptionLabel> options;
   final List<AppSectionSetting> sections;
+  final Map<String, bool> features;
 
   const AppSectionsConfiguration({
     required this.selectedOption,
@@ -98,6 +99,7 @@ class AppSectionsConfiguration {
     required this.cacheRevision,
     required this.options,
     required this.sections,
+    required this.features,
   });
 
   factory AppSectionsConfiguration.fromJson(Map<String, dynamic> json) {
@@ -131,6 +133,11 @@ class AppSectionsConfiguration {
           )
           .where((item) => item.sectionKey.isNotEmpty)
           .toList(),
+      features: json['features'] is Map
+          ? Map<String, dynamic>.from(
+              json['features'] as Map,
+            ).map((key, value) => MapEntry(key, value != false))
+          : const {},
     );
   }
 }
