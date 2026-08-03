@@ -106,9 +106,15 @@ class GalleryRepository {
       'offset': offset,
     });
     final lowerQuery = normalizedQuery.toLowerCase();
-    if (lowerQuery.contains('hariprasad')) {
+    if (lowerQuery.contains('hariprasad') ||
+        (lowerQuery.contains('swamiji') &&
+            !lowerQuery.contains('prabodh') &&
+            !lowerQuery.contains('guruhari') &&
+            !lowerQuery.contains('guru hari'))) {
       queryParams['swami'] = GallerySwami.hariprasad.apiValue;
-    } else if (lowerQuery.contains('prabodh')) {
+    } else if (lowerQuery.contains('prabodh') ||
+        lowerQuery.contains('guruhari') ||
+        lowerQuery.contains('guru hari')) {
       queryParams['swami'] = GallerySwami.prabodh.apiValue;
     }
     final response = await ApiClient.get(

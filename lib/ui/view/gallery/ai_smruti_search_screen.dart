@@ -640,7 +640,7 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
         ? 'Prabodh Swamiji'
         : lower.contains('guru hari') || lower.contains('guruhari')
         ? 'Guru Hari'
-        : 'Swamiji';
+        : 'Hariprasad Swamiji';
     final suggestions = <_FollowUpSuggestion>[
       if (turn.photos.isNotEmpty)
         const _FollowUpSuggestion('More like this', 'more'),
