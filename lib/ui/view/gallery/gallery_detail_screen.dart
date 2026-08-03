@@ -19,6 +19,7 @@ import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:harismruti/services/deep_link_service.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/controller/my_photos_controller.dart';
+import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
 import 'package:harismruti/ui/view/gallery/gallery_location_screen.dart';
 import 'package:harismruti/ui/view/home/my_diary_smruti.dart';
 import 'package:harismruti/utils/app_color.dart';
@@ -1234,6 +1235,8 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   Future<void> _showDownloadOptions() async {
     if (_isDownloading) return;
     if (!AuthRedirectHelper.ensureLoggedIn()) return;
+    final allowEnhancement = Get.find<SmrutiSectionController>()
+        .isFeatureEnabled('ai_enhancement');
     final quality = await showCupertinoModalPopup<String>(
       context: context,
       builder: (context) => _themedPhotoActionSheet(
@@ -1243,37 +1246,22 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
           message: const Text(
             'Enhanced versions are prepared only when requested and expire automatically.',
           ),
-          actions: const [
-            _DownloadQualityAction(
+          actions: [
+            const _DownloadQualityAction(
               value: 'original',
               title: 'Original',
               subtitle: 'No enhancement',
             ),
-            _DownloadQualityAction(
-              value: 'sd',
-              title: 'SD',
-              subtitle: 'Smaller download',
-            ),
-            _DownloadQualityAction(
-              value: 'hd',
-              title: 'HD',
-              subtitle: 'Up to 1280 px',
-            ),
-            _DownloadQualityAction(
-              value: 'fhd',
-              title: 'Full HD',
-              subtitle: 'Enhanced up to 1920 px',
-            ),
-            _DownloadQualityAction(
-              value: '2k',
-              title: 'Enhanced 2K',
-              subtitle: 'Prepared on demand',
-            ),
-            _DownloadQualityAction(
-              value: '4k',
-              title: 'Enhanced 4K',
-              subtitle: 'Largest file · prepared on demand',
-            ),
+            if (allowEnhancement)
+              const _DownloadQualityAction(value: 'sd', title: 'SD', subtitle: 'Smaller download'),
+            if (allowEnhancement)
+              const _DownloadQualityAction(value: 'hd', title: 'HD', subtitle: 'Up to 1280 px'),
+            if (allowEnhancement)
+              const _DownloadQualityAction(value: 'fhd', title: 'Full HD', subtitle: 'Enhanced up to 1920 px'),
+            if (allowEnhancement)
+              const _DownloadQualityAction(value: '2k', title: 'Enhanced 2K', subtitle: 'Prepared on demand'),
+            if (allowEnhancement)
+              const _DownloadQualityAction(value: '4k', title: 'Enhanced 4K', subtitle: 'Largest file · prepared on demand'),
           ],
           cancelButton: CupertinoActionSheetAction(
             onPressed: () => Navigator.pop(context),
