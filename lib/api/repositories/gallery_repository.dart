@@ -72,7 +72,7 @@ class GalleryRepository {
 
   Future<List<GalleryPhoto>> naturalSearch(
     String query, {
-    int limit = 60,
+    int limit = 24,
   }) async {
     final normalizedQuery = query.trim();
     final queryParams = _scopedQueryParams({

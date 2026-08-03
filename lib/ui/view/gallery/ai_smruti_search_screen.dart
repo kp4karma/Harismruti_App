@@ -182,7 +182,7 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
 
   Future<void> _search([String? suggestedPrompt]) async {
     final prompt = (suggestedPrompt ?? _promptController.text).trim();
-    if (prompt.length < 2 || _isSearching) return;
+    if (prompt.length < 3 || _isSearching) return;
     if (_speech.isListening) await _speech.stop();
     _promptController.clear();
     _promptFocus.unfocus();
@@ -198,7 +198,7 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
     });
     _scrollToBottom();
     try {
-      final photos = await _repository.naturalSearch(prompt, limit: 80);
+      final photos = await _repository.naturalSearch(prompt, limit: 24);
       if (!mounted) return;
       setState(() => turn.photos = photos);
       _scrollToBottom();
