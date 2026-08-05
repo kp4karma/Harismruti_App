@@ -2889,15 +2889,29 @@ class _FullscreenImage extends StatelessWidget {
           fadeInDuration: Duration.zero,
           fadeOutDuration: Duration.zero,
           memCacheWidth: cacheWidth,
-          placeholder: (context, url) => CachedNetworkImage(
-            imageUrl: photo.thumbnailUrl,
-            httpHeaders: headers,
-            fit: BoxFit.contain,
+          // Use the exact same bounds and BoxFit as the final image so loading
+          // never jumps from a small thumbnail to a large full-resolution
+          // photo. The thumbnail may be softer briefly, but layout is stable.
+          placeholder: (_, __) => Stack(
             alignment: Alignment.center,
-            fadeInDuration: Duration.zero,
-            fadeOutDuration: Duration.zero,
-            errorWidget: (_, __, ___) =>
-                Icon(CupertinoIcons.photo, color: primaryColor, size: 42),
+            children: [
+              const GalleryShimmerBox(
+                width: double.infinity,
+                height: double.infinity,
+                borderRadius: 0,
+              ),
+              Positioned.fill(
+                child: CachedNetworkImage(
+                  imageUrl: photo.thumbnailUrl,
+                  httpHeaders: headers,
+                  fit: BoxFit.contain,
+                  alignment: Alignment.center,
+                  fadeInDuration: Duration.zero,
+                  fadeOutDuration: Duration.zero,
+                  errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
+            ],
           ),
           errorWidget: (_, __, ___) =>
               Icon(CupertinoIcons.photo, color: primaryColor, size: 42),
