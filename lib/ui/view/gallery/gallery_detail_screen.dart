@@ -1253,15 +1253,35 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
               subtitle: 'No enhancement',
             ),
             if (allowEnhancement)
-              const _DownloadQualityAction(value: 'sd', title: 'SD', subtitle: 'Smaller download'),
+              const _DownloadQualityAction(
+                value: 'sd',
+                title: 'SD',
+                subtitle: 'Smaller download',
+              ),
             if (allowEnhancement)
-              const _DownloadQualityAction(value: 'hd', title: 'HD', subtitle: 'Up to 1280 px'),
+              const _DownloadQualityAction(
+                value: 'hd',
+                title: 'HD',
+                subtitle: 'Up to 1280 px',
+              ),
             if (allowEnhancement)
-              const _DownloadQualityAction(value: 'fhd', title: 'Full HD', subtitle: 'Enhanced up to 1920 px'),
+              const _DownloadQualityAction(
+                value: 'fhd',
+                title: 'Full HD',
+                subtitle: 'Enhanced up to 1920 px',
+              ),
             if (allowEnhancement)
-              const _DownloadQualityAction(value: '2k', title: 'Enhanced 2K', subtitle: 'Prepared on demand'),
+              const _DownloadQualityAction(
+                value: '2k',
+                title: 'Enhanced 2K',
+                subtitle: 'Prepared on demand',
+              ),
             if (allowEnhancement)
-              const _DownloadQualityAction(value: '4k', title: 'Enhanced 4K', subtitle: 'Largest file · prepared on demand'),
+              const _DownloadQualityAction(
+                value: '4k',
+                title: 'Enhanced 4K',
+                subtitle: 'Largest file · prepared on demand',
+              ),
           ],
           cancelButton: CupertinoActionSheetAction(
             onPressed: () => Navigator.pop(context),
@@ -1916,6 +1936,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
         return;
       }
     }
+    _clampZoomTranslation();
     final isZoomed = _transformationController.value.getMaxScaleOnAxis() > 1.05;
     if (!isZoomed || (_isZoomed && _zoomModeActive && !_chromeVisible)) {
       return;
@@ -1948,6 +1969,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       }
       return;
     }
+    _clampZoomTranslation();
     final isZoomed = _transformationController.value.getMaxScaleOnAxis() > 1.05;
     if (!isZoomed) {
       if (_gesturePointerCount <= 1 &&
@@ -1982,9 +2004,71 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     _zoomAnimationStatusListener = null;
   }
 
+  void _clampZoomTranslation([Matrix4? candidate]) {
+    final matrix = candidate ?? _transformationController.value;
+    final scale = matrix.getMaxScaleOnAxis();
+    if (scale <= 1) return;
+
+    final viewport = MediaQuery.sizeOf(context);
+    final sourceWidth = _photo.width?.toDouble() ?? viewport.width;
+    final sourceHeight = _photo.height?.toDouble() ?? viewport.height;
+    if (sourceWidth <= 0 || sourceHeight <= 0) return;
+
+    final sourceAspect = sourceWidth / sourceHeight;
+    final viewportAspect = viewport.width / viewport.height;
+    final fittedWidth = sourceAspect > viewportAspect
+        ? viewport.width
+        : viewport.height * sourceAspect;
+    final fittedHeight = sourceAspect > viewportAspect
+        ? viewport.width / sourceAspect
+        : viewport.height;
+    final fittedLeft = (viewport.width - fittedWidth) / 2;
+    final fittedTop = (viewport.height - fittedHeight) / 2;
+    final storage = matrix.storage;
+
+    double constrainedTranslation({
+      required double translation,
+      required double contentStart,
+      required double contentSize,
+      required double viewportSize,
+    }) {
+      final scaledSize = contentSize * scale;
+      if (scaledSize <= viewportSize) {
+        return (viewportSize - scaledSize) / 2 - contentStart * scale;
+      }
+      final minimum = viewportSize - (contentStart + contentSize) * scale;
+      final maximum = -contentStart * scale;
+      return translation.clamp(minimum, maximum).toDouble();
+    }
+
+    final x = constrainedTranslation(
+      translation: storage[12],
+      contentStart: fittedLeft,
+      contentSize: fittedWidth,
+      viewportSize: viewport.width,
+    );
+    final y = constrainedTranslation(
+      translation: storage[13],
+      contentStart: fittedTop,
+      contentSize: fittedHeight,
+      viewportSize: viewport.height,
+    );
+    if ((x - storage[12]).abs() < 0.01 && (y - storage[13]).abs() < 0.01) {
+      return;
+    }
+
+    final clamped = matrix.clone()..setTranslationRaw(x, y, storage[14]);
+    if (candidate != null) {
+      candidate.setFrom(clamped);
+    } else {
+      _transformationController.value = clamped;
+    }
+  }
+
   void _animateZoomTo(Matrix4 target, {required bool isZoomed}) {
     _zoomAnimationController.stop();
     _clearZoomAnimation();
+    if (isZoomed) _clampZoomTranslation(target);
     final animation =
         Matrix4Tween(
           begin: _transformationController.value,
@@ -2291,7 +2375,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                             maxScale: 5,
                             scaleEnabled: true,
                             panEnabled: _zoomModeActive,
-                            boundaryMargin: const EdgeInsets.all(96),
+                            boundaryMargin: EdgeInsets.zero,
                             clipBehavior: Clip.hardEdge,
                             onInteractionStart: _handleZoomInteractionStart,
                             onInteractionUpdate: _handleZoomInteractionUpdate,
