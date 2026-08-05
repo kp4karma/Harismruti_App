@@ -57,7 +57,7 @@ Widget _transparentPhotoHeroFlight(
   required GalleryPhoto photo,
   required Map<String, String>? headers,
 }) {
-  return Material(
+  final image = Material(
     type: MaterialType.transparency,
     child: CachedNetworkImage(
       imageUrl: photo.fullUrl,
@@ -76,6 +76,19 @@ Widget _transparentPhotoHeroFlight(
         errorWidget: (_, __, ___) => const SizedBox.shrink(),
       ),
       errorWidget: (_, __, ___) => const SizedBox.shrink(),
+    ),
+  );
+  final radiusTween = direction == HeroFlightDirection.push
+      ? Tween<double>(begin: 14, end: 0)
+      : Tween<double>(begin: 0, end: 14);
+
+  return AnimatedBuilder(
+    animation: animation,
+    child: image,
+    builder: (_, child) => ClipRRect(
+      borderRadius: BorderRadius.circular(radiusTween.evaluate(animation)),
+      clipBehavior: Clip.antiAlias,
+      child: child,
     ),
   );
 }
