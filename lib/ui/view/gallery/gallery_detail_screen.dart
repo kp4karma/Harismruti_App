@@ -48,6 +48,38 @@ double _galleryPhotoAspectRatio(GalleryPhoto photo) {
   return width / height;
 }
 
+Widget _transparentPhotoHeroFlight(
+  BuildContext flightContext,
+  Animation<double> animation,
+  HeroFlightDirection direction,
+  BuildContext fromHeroContext,
+  BuildContext toHeroContext, {
+  required GalleryPhoto photo,
+  required Map<String, String>? headers,
+}) {
+  return Material(
+    type: MaterialType.transparency,
+    child: CachedNetworkImage(
+      imageUrl: photo.fullUrl,
+      httpHeaders: headers,
+      fit: BoxFit.contain,
+      alignment: Alignment.center,
+      fadeInDuration: Duration.zero,
+      fadeOutDuration: Duration.zero,
+      placeholder: (_, __) => CachedNetworkImage(
+        imageUrl: photo.thumbnailUrl,
+        httpHeaders: headers,
+        fit: BoxFit.contain,
+        alignment: Alignment.center,
+        fadeInDuration: Duration.zero,
+        fadeOutDuration: Duration.zero,
+        errorWidget: (_, __, ___) => const SizedBox.shrink(),
+      ),
+      errorWidget: (_, __, ___) => const SizedBox.shrink(),
+    ),
+  );
+}
+
 Widget _themedPhotoActionSheet(BuildContext context, Widget child) {
   final materialTheme = Theme.of(context);
   final scheme = materialTheme.colorScheme;
@@ -823,6 +855,17 @@ class _MosaicTile extends StatelessWidget {
       onLongPress: () => onToggleSelection(photo),
       child: Hero(
         tag: 'photo-${photo.id}',
+        flightShuttleBuilder:
+            (flightContext, animation, direction, fromContext, toContext) =>
+                _transparentPhotoHeroFlight(
+                  flightContext,
+                  animation,
+                  direction,
+                  fromContext,
+                  toContext,
+                  photo: photo,
+                  headers: headers,
+                ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(14),
           child: Stack(
@@ -2383,6 +2426,22 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                             child: Center(
                               child: Hero(
                                 tag: 'photo-${photo.id}',
+                                flightShuttleBuilder:
+                                    (
+                                      flightContext,
+                                      animation,
+                                      direction,
+                                      fromContext,
+                                      toContext,
+                                    ) => _transparentPhotoHeroFlight(
+                                      flightContext,
+                                      animation,
+                                      direction,
+                                      fromContext,
+                                      toContext,
+                                      photo: photo,
+                                      headers: _controller.imageHeaders,
+                                    ),
                                 child: RepaintBoundary(
                                   child: _FullscreenImage(
                                     photo: photo,
