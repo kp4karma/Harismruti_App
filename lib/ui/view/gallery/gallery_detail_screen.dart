@@ -927,7 +927,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     super.initState();
     _localPhotos = List<GalleryPhoto>.of(widget.photos);
     _index = widget.initialIndex;
-    _allowIgnore = _isMySmruti;
+    _allowIgnore = false;
     _loadIgnoreFeature();
     _pageController = PageController(initialPage: widget.initialIndex);
     _thumbnailScrollController = ScrollController();
@@ -1776,12 +1776,10 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   }
 
   Future<void> _loadIgnoreFeature() async {
-    if (_isMySmruti) {
-      if (mounted) setState(() => _allowIgnore = true);
-      return;
-    }
     try {
-      final features = await _repository.getMobileFeatures();
+      final features = await _repository.getMobileFeatures(
+        forMySmruti: _isMySmruti,
+      );
       if (!mounted) return;
       setState(() => _allowIgnore = features['allow_ignore'] == true);
     } catch (_) {
