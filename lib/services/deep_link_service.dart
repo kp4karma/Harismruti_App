@@ -37,14 +37,14 @@ class DeepLinkService {
     final token = base64Url
         .encode(utf8.encode('${photo.id}'))
         .replaceAll('=', '');
-    return Uri.https('hpsmruti.suhrad.digital', '/hps/$token');
+    return Uri.https('hariprabodham.app', '/hps/$token');
   }
 
   void _handle(Uri uri) {
     if (uri == _lastHandledUri) return;
     final isHttpsLink =
         uri.scheme == 'https' &&
-        uri.host == 'hpsmruti.suhrad.digital' &&
+        uri.host == 'hariprabodham.app' &&
         uri.pathSegments.length == 2 &&
         uri.pathSegments.first == 'hps';
     if (!isHttpsLink) return;

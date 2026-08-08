@@ -9,6 +9,7 @@ import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/utils/size_config.dart';
 import 'package:harismruti/widget/auth/country_dial_code_picker.dart';
+import 'package:harismruti/widget/appbar/detail_appbar.dart';
 import 'package:harismruti/widget/buttons/custom_button.dart';
 import 'package:harismruti/widget/carousel/auth_recent_carousel.dart';
 
@@ -68,40 +69,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
     return Scaffold(
-      appBar: AppBar(
-        scrolledUnderElevation: 0,
-        leadingWidth: SizeConfig.widthMultiplier! * 16,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: GestureDetector(
-          onTap: () {
-            Navigator.pop(context);
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Padding(
-                    padding: EdgeInsets.all(6.0),
-                    child: Icon(
-                      CupertinoIcons.left_chevron,
-                      color: Color(0xFF322318),
-                      size: 18,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        title: const Text("Register", style: TextStyle(letterSpacing: 1)),
-      ),
+      appBar: const DetailAppbar(title: 'Register'),
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         child: Stack(

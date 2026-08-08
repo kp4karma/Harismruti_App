@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_pin_code_fields/flutter_pin_code_fields.dart';
 import 'package:get/get.dart';
@@ -11,6 +10,7 @@ import 'package:harismruti/utils/email_mask_helper.dart';
 import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/utils/size_config.dart';
 import 'package:harismruti/widget/buttons/custom_button.dart';
+import 'package:harismruti/widget/appbar/detail_appbar.dart';
 import 'package:harismruti/widget/carousel/auth_recent_carousel.dart';
 
 class OTPScreen extends StatefulWidget {
@@ -46,39 +46,7 @@ class _OTPScreenState extends State<OTPScreen> {
     final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
     return Scaffold(
-      appBar: AppBar(
-        scrolledUnderElevation: 0,
-        leadingWidth: 56,
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
-          child: GestureDetector(
-            onTap: () {
-              Navigator.pop(context);
-            },
-            child: Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                shape: BoxShape.circle,
-              ),
-              child: const Padding(
-                padding: EdgeInsets.all(6.0),
-                child: Icon(
-                  CupertinoIcons.left_chevron,
-                  color: Color(0xFF322318),
-                  size: 18,
-                ),
-              ),
-            ),
-          ),
-        ),
-        title: const Text(
-          "OTP Verification",
-          style: TextStyle(letterSpacing: 1),
-        ),
-      ),
+      appBar: const DetailAppbar(title: 'OTP Verification'),
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         child: LayoutBuilder(

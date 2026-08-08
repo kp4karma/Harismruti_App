@@ -27,6 +27,7 @@ import 'package:harismruti/widget/appbar/custom_appbar.dart';
 import 'package:harismruti/widget/appbar/sub_header.dart';
 import 'package:harismruti/widget/background/custom_background.dart';
 import 'package:harismruti/widget/bottom_bar/bottom_bar.dart';
+import 'package:harismruti/widget/internet_status_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -205,6 +206,12 @@ class _HomeScreenState extends State<HomeScreen>
                       SizedBox(
                         height:
                             kToolbarHeight + MediaQuery.of(context).padding.top,
+                      ),
+                      ValueListenableBuilder<bool>(
+                        valueListenable: InternetStatusWidget.isConnected,
+                        builder: (context, isConnected, _) => isConnected
+                            ? const SizedBox.shrink()
+                            : const _OfflineHomeCard(),
                       ),
                       ...displaySections.map(
                         (section) => _buildOrderedHomeSection(
@@ -427,6 +434,52 @@ class _HomeScreenState extends State<HomeScreen>
         title == 'My Favot' ||
         title == 'My Favorites' ||
         title == 'My Collectino';
+  }
+}
+
+class _OfflineHomeCard extends StatelessWidget {
+  const _OfflineHomeCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh.withAlpha(235),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Icon(CupertinoIcons.wifi_slash, color: primaryColor),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'No internet connection',
+                  style: TextStyle(
+                    color: scheme.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'You can continue browsing photos already saved on this device.',
+                  style: TextStyle(
+                    color: scheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

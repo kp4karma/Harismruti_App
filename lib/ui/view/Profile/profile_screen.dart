@@ -55,74 +55,95 @@ class ProfileScreen extends StatelessWidget {
                     children: [
                       _ProfileIdCard(profileController: profileController),
                       const SizedBox(height: 12),
-                      _ProfileOption(
-                        icon: Icons.tune_outlined,
-                        label: 'Customize Preferences',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            CupertinoPageRoute(
-                              settings: const RouteSettings(
-                                name: 'Smruti Section Settings',
+                      _AdminManagedProfileOption(
+                        featureKey: 'customize_preferences',
+                        child: _ProfileOption(
+                          icon: Icons.tune_outlined,
+                          label: 'Customize Preferences',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              CupertinoPageRoute(
+                                settings: const RouteSettings(
+                                  name: 'Smruti Section Settings',
+                                ),
+                                builder: (context) =>
+                                    SmrutiSectionSettingsScreen(),
                               ),
-                              builder: (context) =>
-                                  SmrutiSectionSettingsScreen(),
-                            ),
-                          );
-                        },
+                            );
+                          },
+                        ),
                       ),
-                      const SizedBox(height: 6),
                       Obx(
                         () => smrutiController.isFeatureEnabled('home_widgets')
-                            ? _ProfileOption(
-                                icon: Icons.widgets_outlined,
-                                label: 'Home Screen Widgets',
-                                onTap: () => Navigator.push(
-                                  context,
-                                  CupertinoPageRoute(
-                                    builder: (_) =>
-                                        const HomeWidgetSettingsScreen(),
+                            ? Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: _ProfileOption(
+                                  icon: Icons.widgets_outlined,
+                                  label: 'Home Screen Widgets',
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    CupertinoPageRoute(
+                                      builder: (_) =>
+                                          const HomeWidgetSettingsScreen(),
+                                    ),
                                   ),
                                 ),
                               )
                             : const SizedBox.shrink(),
                       ),
-                      const SizedBox(height: 6),
-                      Obx(() {
-                        final themeController = Get.find<ThemeController>();
-                        return _ProfileOption(
-                          icon: themeController.isDarkMode.value
-                              ? Icons.dark_mode_outlined
-                              : Icons.light_mode_outlined,
-                          label: 'Dark mode',
-                          trailing: Switch.adaptive(
-                            value: themeController.isDarkMode.value,
-                            activeThumbColor: primaryColor,
-                            onChanged: themeController.setDarkMode,
-                          ),
-                          onTap: () => themeController.setDarkMode(
-                            !themeController.isDarkMode.value,
-                          ),
-                        );
-                      }),
-                      const SizedBox(height: 6),
-                      _ProfileOption(
-                        icon: Icons.star_outline_rounded,
-                        label: 'Rate this app',
-                        onTap: _rateApp,
+                      _AdminManagedProfileOption(
+                        featureKey: 'my_smruti',
+                        child: _ProfileOption(
+                          icon: Icons.face_retouching_natural_outlined,
+                          label: 'My Smruti',
+                          onTap: () => _openMySmrutiUpload(context),
+                        ),
                       ),
-                      const SizedBox(height: 6),
-                      _ProfileOption(
-                        icon: Icons.logout_outlined,
-                        label: 'Logout',
-                        onTap: _logout,
+                      _AdminManagedProfileOption(
+                        featureKey: 'dark_mode',
+                        child: Obx(() {
+                          final themeController = Get.find<ThemeController>();
+                          return _ProfileOption(
+                            icon: themeController.isDarkMode.value
+                                ? Icons.dark_mode_outlined
+                                : Icons.light_mode_outlined,
+                            label: 'Dark mode',
+                            trailing: Switch.adaptive(
+                              value: themeController.isDarkMode.value,
+                              activeThumbColor: primaryColor,
+                              onChanged: themeController.setDarkMode,
+                            ),
+                            onTap: () => themeController.setDarkMode(
+                              !themeController.isDarkMode.value,
+                            ),
+                          );
+                        }),
                       ),
-                      const SizedBox(height: 6),
-                      _ProfileOption(
-                        icon: Icons.delete_outline_rounded,
-                        label: 'Delete Account',
-                        destructive: true,
-                        onTap: () => _confirmDeleteAccount(context),
+                      _AdminManagedProfileOption(
+                        featureKey: 'rate_app',
+                        child: _ProfileOption(
+                          icon: Icons.star_outline_rounded,
+                          label: 'Rate this app',
+                          onTap: _rateApp,
+                        ),
+                      ),
+                      _AdminManagedProfileOption(
+                        featureKey: 'logout',
+                        child: _ProfileOption(
+                          icon: Icons.logout_outlined,
+                          label: 'Logout',
+                          onTap: _logout,
+                        ),
+                      ),
+                      _AdminManagedProfileOption(
+                        featureKey: 'delete_account',
+                        child: _ProfileOption(
+                          icon: Icons.delete_outline_rounded,
+                          label: 'Delete Account',
+                          destructive: true,
+                          onTap: () => _confirmDeleteAccount(context),
+                        ),
                       ),
                     ],
                   ),
@@ -229,6 +250,10 @@ class _ProfileIdCard extends StatelessWidget {
           ? Get.find<MyPhotosController>()
           : null;
       final smrutiPhoto = myPhotos?.photoForPose(MyPhotoPose.front);
+      final hasProfilePicture =
+          smrutiPhoto != null ||
+          profileController.profileImage.value != null ||
+          profileController.hasAccountAvatar;
       final rows = [
         _ProfileInfoRowData(
           icon: CupertinoIcons.phone,
@@ -297,11 +322,13 @@ class _ProfileIdCard extends StatelessWidget {
                   Row(
                     children: [
                       GestureDetector(
-                        onTap: () => _openMySmrutiUpload(context),
+                        onTap: hasProfilePicture
+                            ? null
+                            : () => _openMySmrutiUpload(context),
                         child: _ProfileAvatar(
                           profileController: profileController,
                           smrutiPhoto: smrutiPhoto,
-                          showAddBadge: smrutiPhoto == null,
+                          showAddBadge: !hasProfilePicture,
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -320,30 +347,6 @@ class _ProfileIdCard extends StatelessWidget {
                                       color: scheme.onSurface,
                                       fontSize: 16,
                                       fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Tooltip(
-                                  message: 'Edit name',
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(10),
-                                    onTap: () => _openMySmrutiUpload(context),
-                                    child: Container(
-                                      width: 30,
-                                      height: 30,
-                                      decoration: BoxDecoration(
-                                        color: primaryColor.withAlpha(10),
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(
-                                          color: primaryColor.withAlpha(35),
-                                        ),
-                                      ),
-                                      child: Icon(
-                                        Icons.edit_outlined,
-                                        color: primaryColor,
-                                        size: 16,
-                                      ),
                                     ),
                                   ),
                                 ),
@@ -551,6 +554,26 @@ class _ProfileInfoRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AdminManagedProfileOption extends StatelessWidget {
+  final String featureKey;
+  final Widget child;
+
+  const _AdminManagedProfileOption({
+    required this.featureKey,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = Get.find<SmrutiSectionController>();
+    return Obx(
+      () => controller.isFeatureEnabled(featureKey)
+          ? Padding(padding: const EdgeInsets.only(top: 6), child: child)
+          : const SizedBox.shrink(),
     );
   }
 }

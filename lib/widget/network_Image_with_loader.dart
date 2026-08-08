@@ -118,7 +118,6 @@ class _NetworkImageWithLoaderState extends State<NetworkImageWithLoader> {
     final delay = Duration(milliseconds: 500 * (1 << _attempt));
     _retryTimer = Timer(delay, () async {
       _retryTimer = null;
-      await CachedNetworkImage.evictFromCache(_displayImageUrl);
       if (!mounted) return;
       setState(() => _attempt++);
     });
@@ -129,7 +128,6 @@ class _NetworkImageWithLoaderState extends State<NetworkImageWithLoader> {
     _authenticationRefreshAttempted = true;
     try {
       await ApiClient.refreshAccessToken();
-      await CachedNetworkImage.evictFromCache(_displayImageUrl);
       if (mounted) setState(() => _attempt++);
     } finally {
       _refreshingAuthentication = false;
@@ -137,7 +135,6 @@ class _NetworkImageWithLoaderState extends State<NetworkImageWithLoader> {
   }
 
   void _retryNow() {
-    CachedNetworkImage.evictFromCache(_displayImageUrl);
     setState(() {
       _attempt++;
       _failedPermanently = false;

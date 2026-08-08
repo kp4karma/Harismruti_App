@@ -227,6 +227,8 @@ ThemeData _buildTheme(Brightness brightness) {
     appBarTheme: AppBarTheme(
       backgroundColor: Colors.transparent,
       foregroundColor: scheme.onSurface,
+      iconTheme: IconThemeData(color: scheme.onSurface),
+      actionsIconTheme: IconThemeData(color: scheme.onSurface),
       shadowColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
       scrolledUnderElevation: 0,

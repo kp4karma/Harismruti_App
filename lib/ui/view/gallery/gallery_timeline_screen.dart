@@ -138,7 +138,12 @@ class _GalleryTimelineScreenState extends State<GalleryTimelineScreen> {
             elevation: 0,
             scrolledUnderElevation: 0,
             leading: IconButton(
-              icon: Icon(CupertinoIcons.chevron_left, color: primaryColor),
+              icon: Icon(
+                CupertinoIcons.chevron_left,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Theme.of(context).colorScheme.onSurface
+                    : primaryColor,
+              ),
               onPressed: () => Navigator.pop(context),
             ),
             flexibleSpace: const _TimelineHeaderGlass(),

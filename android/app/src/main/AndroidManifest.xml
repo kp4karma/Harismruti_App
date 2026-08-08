@@ -61,7 +61,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="https"
-                    android:host="hpsmruti.suhrad.digital"
+                    android:host="hariprabodham.app"
                     android:pathPrefix="/hps/" />
             </intent-filter>
         </activity>

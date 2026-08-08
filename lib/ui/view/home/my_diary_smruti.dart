@@ -810,6 +810,8 @@ class _DiaryGlassAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
     return Stack(
       children: [
         Positioned.fill(
@@ -821,11 +823,17 @@ class _DiaryGlassAppBar extends StatelessWidget implements PreferredSizeWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.white.withAlpha(235),
-                      Colors.white.withAlpha(178),
-                      Colors.white.withAlpha(70),
-                    ],
+                    colors: isDark
+                        ? [
+                            scheme.surface.withAlpha(238),
+                            scheme.surface.withAlpha(198),
+                            scheme.surface.withAlpha(95),
+                          ]
+                        : [
+                            Colors.white.withAlpha(235),
+                            Colors.white.withAlpha(178),
+                            Colors.white.withAlpha(70),
+                          ],
                   ),
                 ),
               ),
@@ -871,6 +879,7 @@ class _GlassIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: ClipOval(
@@ -894,7 +903,13 @@ class _GlassIconButton extends StatelessWidget {
                 ),
               ],
             ),
-            child: Icon(icon, color: primaryColor, size: 21),
+            child: Icon(
+              icon,
+              color: scheme.brightness == Brightness.dark
+                  ? scheme.onSurface
+                  : primaryColor,
+              size: 21,
+            ),
           ),
         ),
       ),

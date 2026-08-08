@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:harismruti/widget/appbar/frosted_appbar.dart';
 import 'package:harismruti/helper/log_helper.dart' show SecureLogger;
 
 class ErrorLogScreen extends StatefulWidget {
@@ -37,7 +38,7 @@ class _ErrorLogScreenState extends State<ErrorLogScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: FrostedAppBar(
         title: const Text('🔐 Encrypted Log Viewer'),
         actions: [
           IconButton(

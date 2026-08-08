@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:harismruti/widget/appbar/frosted_appbar.dart';
 
 class NotificationImageScreen extends StatelessWidget {
   const NotificationImageScreen({
@@ -15,11 +16,7 @@ class NotificationImageScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        foregroundColor: Colors.white,
-        backgroundColor: Colors.black,
-        title: Text(title ?? 'Notification'),
-      ),
+      appBar: FrostedAppBar(title: Text(title ?? 'Notification')),
       body: Center(
         child: InteractiveViewer(
           minScale: 0.8,

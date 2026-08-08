@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:harismruti/widget/appbar/frosted_appbar.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:camera/camera.dart';
@@ -282,7 +283,7 @@ class _MyPhoneGuideScreenState extends State<MyPhoneGuideScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(
+      appBar: FrostedAppBar(
         centerTitle: true,
         title: Text(
           'My Smruti',
@@ -291,13 +292,7 @@ class _MyPhoneGuideScreenState extends State<MyPhoneGuideScreen> {
             fontWeight: FontWeight.w900,
           ),
         ),
-        leading: IconButton(
-          icon: Icon(CupertinoIcons.chevron_left, color: primaryColor),
-          onPressed: () => Navigator.pop(context),
-        ),
-        backgroundColor: Theme.of(context).colorScheme.surface.withAlpha(190),
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
+        leading: const FrostedBackButton(),
       ),
       body: Obx(() {
         if (!controller.isFlowInitialized.value &&

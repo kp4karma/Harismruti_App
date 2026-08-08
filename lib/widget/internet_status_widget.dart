@@ -1,45 +1,29 @@
-import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:get/get.dart';
-import 'package:flutter/scheduler.dart';
+import 'package:flutter/material.dart';
 
+/// Tracks connectivity without placing a modal barrier over the application.
 class InternetStatusWidget extends StatefulWidget {
   const InternetStatusWidget({super.key});
 
+  static final ValueNotifier<bool> isConnected = ValueNotifier<bool>(true);
+
   @override
-  InternetStatusWidgetState createState() => InternetStatusWidgetState();
-
-  static void showNoInternetDialog() {
-    if (!(Get.isDialogOpen ?? false)) {
-      Get.dialog(
-        const PopScope(
-          canPop: false,
-          child: AlertDialog(
-            title: Text("🚫 No Internet"),
-            content: Text("Please check your network connection."),
-            actions: [],
-          ),
-        ),
-        barrierDismissible: false,
-      );
-    }
-  }
-
-  static void closeNoInternetDialog() {
-    if (Get.isDialogOpen ?? false) {
-      Get.back();
-    }
-  }
+  State<InternetStatusWidget> createState() => InternetStatusWidgetState();
 }
 
 class InternetStatusWidgetState extends State<InternetStatusWidget> {
-  late Stream<List<ConnectivityResult>> _internetStream;
-  bool _isDialogOpen = false; // Track dialog state
+  late final Stream<List<ConnectivityResult>> _internetStream;
 
   @override
   void initState() {
     super.initState();
     _internetStream = Connectivity().onConnectivityChanged;
+    Connectivity().checkConnectivity().then(_updateStatus);
+  }
+
+  void _updateStatus(List<ConnectivityResult> results) {
+    InternetStatusWidget.isConnected.value =
+        results.isNotEmpty && !results.contains(ConnectivityResult.none);
   }
 
   @override
@@ -47,20 +31,10 @@ class InternetStatusWidgetState extends State<InternetStatusWidget> {
     return StreamBuilder<List<ConnectivityResult>>(
       stream: _internetStream,
       builder: (context, snapshot) {
-        if (snapshot.hasData) {
-          bool hasInternet =
-              snapshot.data!.contains(ConnectivityResult.wifi) ||
-              snapshot.data!.contains(ConnectivityResult.mobile) ||
-              snapshot.data!.contains(ConnectivityResult.ethernet);
-
-          SchedulerBinding.instance.addPostFrameCallback((_) {
-            if (!hasInternet && !_isDialogOpen) {
-              InternetStatusWidget.showNoInternetDialog();
-              _isDialogOpen = true;
-            } else if (hasInternet && _isDialogOpen) {
-              InternetStatusWidget.closeNoInternetDialog();
-              _isDialogOpen = false;
-            }
+        final results = snapshot.data;
+        if (results != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _updateStatus(results);
           });
         }
         return const SizedBox.shrink();

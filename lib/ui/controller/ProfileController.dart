@@ -101,6 +101,13 @@ class ProfileController extends GetxController {
     uploadedProfileImageUrl.value = '';
   }
 
+  bool get hasAccountAvatar {
+    final avatar = profile['avatar']?.toString().trim() ?? '';
+    return avatar.isNotEmpty &&
+        avatar != 'null' &&
+        avatar != 'img/default-avatar.jpg';
+  }
+
   String _mobileUserKey() {
     for (final key in ['id', 'user_id', 'mobile', 'username', 'email']) {
       final value = profile[key]?.toString().trim() ?? '';

@@ -17,7 +17,6 @@ import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/widget/background/animated_words_background.dart';
-import 'package:harismruti/widget/internet_status_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -47,12 +46,6 @@ class SplashScreenState extends State<SplashScreen>
         connectivity.contains(ConnectivityResult.wifi) ||
         connectivity.contains(ConnectivityResult.mobile) ||
         connectivity.contains(ConnectivityResult.ethernet);
-
-    if (!hasInternet) {
-      Future.delayed(const Duration(milliseconds: 500), () {
-        InternetStatusWidget.showNoInternetDialog();
-      });
-    }
 
     if (hasInternet && StorageHelper.isLogin()) {
       try {

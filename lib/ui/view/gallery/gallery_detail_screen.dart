@@ -1501,38 +1501,80 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   }
 
   Future<void> _sharePhoto() async {
-    final url = _photo.fullUrl.isNotEmpty
-        ? _photo.fullUrl
-        : _photo.thumbnailUrl;
-    if (url.isEmpty) {
-      TopNotification.error('Photo is not ready to share');
-      return;
-    }
-
     try {
-      final tempDir = await getTemporaryDirectory();
-      final fileName = _shareFileName(url);
-      final filePath = '${tempDir.path}${Platform.pathSeparator}$fileName';
-      await Dio().download(
-        url,
-        filePath,
-        options: Options(
-          headers: _controller.imageHeaders,
-          responseType: ResponseType.bytes,
-        ),
+      final attributes = await _attributesFor(_photo.id);
+      final name = _firstShareValue([
+        _photo.darshanOf,
+        _photo.smrutiOf,
+        attributes.person,
+        _photo.title,
+      ]);
+      final date = _shareDate(
+        _photo.eventDate ?? _photo.takenAt ?? _photo.createdAt,
       );
+      final location = _shareLocation(attributes);
+      final link = DeepLinkService.photoUri(_photo);
+
       await SharePlus.instance.share(
         ShareParams(
-          files: [XFile(filePath, mimeType: _shareMimeType(fileName))],
-          text: 'View this Smruti:\n${DeepLinkService.photoUri(_photo)}',
-          subject: _photo.title?.trim().isNotEmpty == true
-              ? _photo.title!.trim()
-              : 'HariPrabodham Smruti photo',
+          text:
+              '📲 HariPrabodham Smruti\n\n'
+              '🙏 Darshan of: $name\n'
+              '📅 $date\n'
+              '📍 $location\n\n'
+              '🔗 Open Smruti Darshan:\n$link',
+          subject: 'HariPrabodham Smruti',
         ),
       );
     } catch (_) {
       TopNotification.error('Unable to share this photo');
     }
+  }
+
+  String _firstShareValue(List<String?> values) {
+    for (final value in values) {
+      final text = value?.trim();
+      if (text != null && text.isNotEmpty) return text;
+    }
+    return 'HariPrabodham';
+  }
+
+  String _shareDate(DateTime? date) {
+    if (date == null) return 'Date not available';
+    final localDate = date.toLocal();
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${localDate.day} ${months[localDate.month - 1]} ${localDate.year}';
+  }
+
+  String _shareLocation(GalleryPhotoAttributes attributes) {
+    final parts = <String>[];
+    for (final value in [
+      attributes.location,
+      _photo.location,
+      attributes.country,
+      _photo.country,
+    ]) {
+      final text = value?.trim();
+      if (text == null || text.isEmpty) continue;
+      if (parts.any((part) => part.toLowerCase() == text.toLowerCase())) {
+        continue;
+      }
+      parts.add(text);
+    }
+    return parts.isEmpty ? 'Location not available' : parts.join(', ');
   }
 
   Future<void> _showDownloadOptions() async {

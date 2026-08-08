@@ -6,7 +6,7 @@
 	<string>development</string>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>applinks:hpsmruti.suhrad.digital</string>
+		<string>applinks:hariprabodham.app</string>
 	</array>
 	<key>com.apple.security.application-groups</key>
 	<array>

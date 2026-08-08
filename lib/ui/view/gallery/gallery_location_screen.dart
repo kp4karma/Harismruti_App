@@ -297,7 +297,7 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
                   locationMarkers: locationMarkers,
                   activeCard: _activeCard,
                   photos: photos,
-                  locationLabel: _activeCard.title,
+                  locationLabel: _locationCountryLabel(_activeCard),
                   headers: _controller.imageHeaders,
                   loading: loading,
                   hasCityCoordinate:
@@ -313,7 +313,7 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
                 right: 0,
                 top: 0,
                 child: _LocationTopPanel(
-                  title: _activeCard.title,
+                  title: _locationCountryLabel(_activeCard),
                   count: total,
                   mappedCount: clusters.fold<int>(
                     0,

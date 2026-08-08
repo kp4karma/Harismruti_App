@@ -5,6 +5,7 @@ import 'package:harismruti/healper_service/notification_service.dart';
 import 'package:harismruti/services/notification_history_service.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/widget/background/custom_background.dart';
+import 'package:harismruti/widget/appbar/frosted_appbar.dart';
 
 class NotificationHistoryScreen extends StatelessWidget {
   const NotificationHistoryScreen({super.key});
@@ -18,7 +19,7 @@ class NotificationHistoryScreen extends StatelessWidget {
     return CustomBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: AppBar(
+        appBar: FrostedAppBar(
           title: const Text('Notifications'),
           actions: [
             ValueListenableBuilder<int>(
