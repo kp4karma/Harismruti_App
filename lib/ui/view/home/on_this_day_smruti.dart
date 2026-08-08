@@ -25,6 +25,16 @@ class _OnThisDaySmrutiState extends State<OnThisDaySmruti> {
   Set<String> _viewedGroupKeys = <String>{};
   String? _activeStorageKey;
   Timer? _refreshTimer;
+  bool _openFromNotification = false;
+  bool _notificationOpenScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final arguments = Get.arguments;
+    _openFromNotification =
+        arguments is Map && arguments['notification_screen'] == 'on_this_day';
+  }
 
   @override
   void dispose() {
@@ -114,6 +124,20 @@ class _OnThisDaySmrutiState extends State<OnThisDaySmruti> {
           });
       if (groups.isEmpty) return const SizedBox.shrink();
 
+      if (_openFromNotification && !_notificationOpenScheduled) {
+        _notificationOpenScheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || groups.isEmpty) return;
+          _openStory(
+            context,
+            groups.first,
+            galleryController,
+            fromNotification: true,
+          );
+          _openFromNotification = false;
+        });
+      }
+
       final scale = tabletScale(context);
       return SizedBox(
         height: 132 * scale,
@@ -127,32 +151,38 @@ class _OnThisDaySmrutiState extends State<OnThisDaySmruti> {
             group: groups[index],
             isViewed: _viewedGroupKeys.contains(groups[index].key),
             headers: galleryController.imageHeaders,
-            onTap: () {
-              _markViewed(groups[index]);
-              AnalyticsService.instance.track(
-                'On This Day Story Opened',
-                properties: {
-                  'category': groups[index].label,
-                  'photo_count': groups[index].photos.length,
-                },
-              );
-              Navigator.push(
-                context,
-                CupertinoPageRoute(
-                  settings: RouteSettings(
-                    name: 'On This Day ${groups[index].label} Story',
-                  ),
-                  builder: (_) => _OnThisDayStoryViewer(
-                    group: groups[index],
-                    headers: galleryController.imageHeaders,
-                  ),
-                ),
-              );
-            },
+            onTap: () => _openStory(context, groups[index], galleryController),
           ),
         ),
       );
     });
+  }
+
+  void _openStory(
+    BuildContext context,
+    _StoryGroup group,
+    GalleryController controller, {
+    bool fromNotification = false,
+  }) {
+    _markViewed(group);
+    AnalyticsService.instance.track(
+      'On This Day Story Opened',
+      properties: {
+        'category': group.label,
+        'photo_count': group.photos.length,
+        if (fromNotification) 'source': 'notification',
+      },
+    );
+    Navigator.push(
+      context,
+      CupertinoPageRoute(
+        settings: RouteSettings(name: 'On This Day ${group.label} Story'),
+        builder: (_) => _OnThisDayStoryViewer(
+          group: group,
+          headers: controller.imageHeaders,
+        ),
+      ),
+    );
   }
 }
 

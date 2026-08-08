@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -317,43 +316,32 @@ class _MasonryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _tile(photos.first);
+    return _tile(context, photos.first);
   }
 
-  Widget _tile(GalleryPhoto photo) {
-    return SizedBox.expand(
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap == null ? null : () => onTap!(photo),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Transform.scale(
-                scale: 1.08,
-                child: ImageFiltered(
-                  imageFilter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                  child: NetworkImageWithLoader(
-                    imageUrl: photo.thumbnailUrl,
-                    title: photo.title ?? 'Recent Smruti',
-                    headers: headers,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7EF).withAlpha(30),
-                ),
-              ),
-              NetworkImageWithLoader(
-                imageUrl: photo.thumbnailUrl,
-                title: photo.title ?? 'Recent Smruti',
-                headers: headers,
-                fit: BoxFit.contain,
-              ),
-            ],
-          ),
+  Widget _tile(BuildContext context, GalleryPhoto photo) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap == null ? null : () => onTap!(photo),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              'assets/recent_smruti_pattern.jpg',
+              fit: BoxFit.cover,
+              color: isDark ? const Color(0xFF3A302A) : null,
+              colorBlendMode: isDark ? BlendMode.multiply : null,
+              filterQuality: FilterQuality.medium,
+            ),
+            NetworkImageWithLoader(
+              imageUrl: photo.thumbnailUrl,
+              title: photo.title ?? 'Recent Smruti',
+              headers: headers,
+              fit: BoxFit.contain,
+            ),
+          ],
         ),
       ),
     );
@@ -387,26 +375,20 @@ class _StackSurface extends StatelessWidget {
             ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: radius,
-        clipBehavior: Clip.antiAlias,
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: isDark
-                  ? Colors.transparent
-                  : theme.colorScheme.surface.withAlpha(210),
-              borderRadius: radius,
-              border: Border.all(
-                color: isDark
-                    ? Colors.white.withAlpha(42)
-                    : primaryColor.withAlpha(52),
-                width: isDark ? 1 : 1.15,
-              ),
-            ),
-            child: child,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: radius,
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withAlpha(34)
+                : primaryColor.withAlpha(45),
+            width: 1,
           ),
+        ),
+        child: ClipRRect(
+          borderRadius: radius,
+          clipBehavior: Clip.antiAlias,
+          child: child,
         ),
       ),
     );

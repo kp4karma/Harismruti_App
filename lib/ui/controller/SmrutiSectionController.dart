@@ -42,6 +42,8 @@ class SmrutiSectionController extends GetxController {
   }
 
   final Set<String> _pendingCacheRefresh = {};
+  int _visibilityRequestId = 0;
+  String? _latestRequestedOptionKey;
   final RxInt visibleCount = 3.obs;
   final RxBool showBottomBar = true.obs;
   final RxBool showSmrutiStoryLine = false.obs;
@@ -474,11 +476,12 @@ class SmrutiSectionController extends GetxController {
   ];
 
   Future<void> refreshGlobalVisibility({required String optionKey}) async {
+    final requestId = ++_visibilityRequestId;
+    _latestRequestedOptionKey = optionKey;
     try {
       final configuration = await _appSectionRepository.getConfiguration(
         optionKey: optionKey,
       );
-      appFeatures.assignAll(configuration.features);
       final revisions = _loadCachedCacheRevisions();
       if (revisions[optionKey] != configuration.cacheRevision) {
         _pendingCacheRefresh.add(optionKey);
@@ -492,10 +495,6 @@ class SmrutiSectionController extends GetxController {
         for (final section in remoteSections)
           section.sectionKey: section.enabled,
       };
-      StorageHelper.setValue(
-        key: StorageKeys.appSectionVisibility,
-        value: visibility,
-      );
       StorageHelper.setValue(
         key: StorageKeys.appSectionSettingsByOption,
         value: {
@@ -511,14 +510,39 @@ class SmrutiSectionController extends GetxController {
         key: StorageKeys.appSectionOptionLabels,
         value: Map<String, String>.from(optionLabels),
       );
+      // A slower response for a previously selected tab may still be cached,
+      // but it must never replace the sections currently visible on screen.
+      if (requestId != _visibilityRequestId ||
+          optionKey != _latestRequestedOptionKey) {
+        return;
+      }
+      appFeatures.assignAll(configuration.features);
+      StorageHelper.setValue(
+        key: StorageKeys.appSectionVisibility,
+        value: visibility,
+      );
       _applyGlobalSettings(remoteSections);
     } catch (_) {
+      if (requestId != _visibilityRequestId ||
+          optionKey != _latestRequestedOptionKey) {
+        return;
+      }
       final cachedSettings = _loadCachedGlobalSettings(optionKey);
       if (cachedSettings.isNotEmpty) {
         _applyGlobalSettings(cachedSettings);
       } else {
         _applyGlobalVisibility(_loadCachedGlobalVisibility());
       }
+    }
+  }
+
+  /// Switch the visible section configuration immediately while the fresh
+  /// server configuration is loading.
+  void applyCachedGlobalSettings(String optionKey) {
+    _latestRequestedOptionKey = optionKey;
+    final cachedSettings = _loadCachedGlobalSettings(optionKey);
+    if (cachedSettings.isNotEmpty) {
+      _applyGlobalSettings(cachedSettings);
     }
   }
 

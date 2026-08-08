@@ -127,6 +127,7 @@ class GalleryController extends GetxController {
   int _mySmrutiFiltersRequestId = 0;
   int _mySmrutiYearsRequestId = 0;
   int _allPlacesRequestId = 0;
+  int _swamiSelectionVersion = 0;
 
   Future<void> loadAllPlaces() async {
     final requestId = ++_allPlacesRequestId;
@@ -461,6 +462,7 @@ class GalleryController extends GetxController {
   Future<void> selectSwami(int index) async {
     final next = index == 1 ? GallerySwami.hariprasad : GallerySwami.prabodh;
     if (selectedSwami.value == next) return;
+    final selectionVersion = ++_swamiSelectionVersion;
 
     selectedSwami.value = next;
     GalleryRepository.activeSwami = next;
@@ -468,6 +470,11 @@ class GalleryController extends GetxController {
       key: StorageKeys.selectedSwami,
       value: next.apiValue,
     );
+    if (Get.isRegistered<SmrutiSectionController>()) {
+      Get.find<SmrutiSectionController>().applyCachedGlobalSettings(
+        next.apiValue,
+      );
+    }
     AnalyticsService.instance.track(
       'Gallery Persona Selected',
       properties: {'persona': next.apiValue},
@@ -486,7 +493,10 @@ class GalleryController extends GetxController {
 
     final pendingLoad = _inFlightLoad;
     if (pendingLoad != null) await pendingLoad;
-    if (selectedSwami.value != next) return;
+    if (selectionVersion != _swamiSelectionVersion ||
+        selectedSwami.value != next) {
+      return;
+    }
 
     await Future.wait([
       loadMyLibrary(),
@@ -1404,7 +1414,9 @@ class GalleryController extends GetxController {
     errorMessage.value = '';
 
     try {
-      final cacheRevisionChanged = await _refreshSectionSettings();
+      final cacheRevisionChanged = await _refreshSectionSettings(
+        requestedSwami,
+      );
       if (cacheRevisionChanged) {
         _tabSnapshots.remove(requestedSwami);
       }
@@ -1451,13 +1463,14 @@ class GalleryController extends GetxController {
     }
   }
 
-  Future<bool> _refreshSectionSettings() async {
+  Future<bool> _refreshSectionSettings(GallerySwami requestedSwami) async {
     if (!Get.isRegistered<SmrutiSectionController>()) return false;
     final controller = Get.find<SmrutiSectionController>();
     await controller.refreshGlobalVisibility(
-      optionKey: selectedSwami.value.apiValue,
+      optionKey: requestedSwami.apiValue,
     );
-    return controller.consumeCacheRefresh(selectedSwami.value.apiValue);
+    if (selectedSwami.value != requestedSwami) return false;
+    return controller.consumeCacheRefresh(requestedSwami.apiValue);
   }
 
   void _clearGallerySections() {

@@ -385,10 +385,6 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
                 child: _LocationTopPanel(
                   title: _locationCountryLabel(_activeCard),
                   count: total,
-                  mappedCount: clusters.fold<int>(
-                    0,
-                    (sum, cluster) => sum + cluster.photos.length,
-                  ),
                   controller: _searchController,
                   cities: cities,
                   activeCard: _activeCard,
@@ -754,7 +750,6 @@ class _MarkerTipPainter extends CustomPainter {
 class _LocationTopPanel extends StatelessWidget {
   final String title;
   final int count;
-  final int mappedCount;
   final TextEditingController controller;
   final List<GalleryCard> cities;
   final GalleryCard activeCard;
@@ -765,7 +760,6 @@ class _LocationTopPanel extends StatelessWidget {
   const _LocationTopPanel({
     required this.title,
     required this.count,
-    required this.mappedCount,
     required this.controller,
     required this.cities,
     required this.activeCard,
@@ -776,6 +770,8 @@ class _LocationTopPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return SafeArea(
       bottom: false,
       child: Padding(
@@ -787,16 +783,18 @@ class _LocationTopPanel extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Theme.of(
-                  context,
-                ).colorScheme.surfaceContainer.withAlpha(210),
+                color: isDark
+                    ? Colors.black.withAlpha(105)
+                    : Colors.white.withAlpha(135),
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: Theme.of(context).colorScheme.outlineVariant,
+                  color: isDark
+                      ? Colors.white.withAlpha(38)
+                      : Colors.white.withAlpha(190),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withAlpha(24),
+                    color: Colors.black.withAlpha(isDark ? 70 : 28),
                     blurRadius: 24,
                     offset: const Offset(0, 10),
                   ),
@@ -811,11 +809,7 @@ class _LocationTopPanel extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: _LocationTitlePill(
-                      title: title,
-                      count: count,
-                      mappedCount: mappedCount,
-                    ),
+                    child: _LocationTitlePill(title: title, count: count),
                   ),
                 ],
               ),
@@ -936,6 +930,8 @@ class _LocationSheetState extends State<_LocationSheet> {
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final keyboardInset = mediaQuery.viewInsets.bottom;
     final visibleHeight = mediaQuery.size.height - keyboardInset;
     final collapsedFraction =
@@ -960,28 +956,32 @@ class _LocationSheetState extends State<_LocationSheet> {
         snapAnimationDuration: const Duration(milliseconds: 260),
         builder: (context, scrollController) {
           return Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
+            // Attach the sheet to the left, right, and bottom screen edges.
+            // The system safe area is applied to the content inside instead.
+            padding: const EdgeInsets.only(top: 8),
             child: ClipRRect(
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(28),
               ),
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
+                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
                   decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainer.withAlpha(160),
+                    color: isDark
+                        ? Colors.black.withAlpha(125)
+                        : Colors.white.withAlpha(145),
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(28),
                     ),
                     border: Border.all(
-                      color: Theme.of(context).colorScheme.outlineVariant,
+                      color: isDark
+                          ? Colors.white.withAlpha(42)
+                          : Colors.white.withAlpha(205),
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withAlpha(42),
+                        color: Colors.black.withAlpha(isDark ? 85 : 45),
                         blurRadius: 34,
                         offset: const Offset(0, 18),
                       ),
@@ -1007,7 +1007,7 @@ class _LocationSheetState extends State<_LocationSheet> {
                             decoration: BoxDecoration(
                               color: Theme.of(
                                 context,
-                              ).colorScheme.outlineVariant,
+                              ).colorScheme.onSurfaceVariant.withAlpha(90),
                               borderRadius: BorderRadius.circular(99),
                             ),
                           ),
@@ -1046,7 +1046,7 @@ class _LocationSheetState extends State<_LocationSheet> {
                           },
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      SizedBox(height: 10 + mediaQuery.padding.bottom),
                     ],
                   ),
                 ),
@@ -1118,10 +1118,14 @@ class _CityListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Material(
       color: selected
           ? primaryColor.withAlpha(24)
-          : Theme.of(context).colorScheme.surfaceContainer.withAlpha(135),
+          : isDark
+          ? Colors.white.withAlpha(17)
+          : Colors.white.withAlpha(90),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -1133,7 +1137,9 @@ class _CityListTile extends StatelessWidget {
             border: Border.all(
               color: selected
                   ? primaryColor.withAlpha(140)
-                  : Theme.of(context).colorScheme.outlineVariant,
+                  : isDark
+                  ? Colors.white.withAlpha(30)
+                  : Colors.white.withAlpha(155),
             ),
           ),
           child: Row(
@@ -1168,7 +1174,8 @@ class _CityListTile extends StatelessWidget {
                       _locationCountryLabel(card),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
                         fontWeight: FontWeight.w900,
                         fontSize: 14,
                       ),
@@ -1269,6 +1276,8 @@ class _CitySearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return SizedBox(
       height: 48 * tabletScale(context),
       child: TextField(
@@ -1279,16 +1288,16 @@ class _CitySearchField extends StatelessWidget {
           hintText: 'Search city or country',
           prefixIcon: Icon(CupertinoIcons.search, color: primaryColor),
           filled: true,
-          fillColor: Theme.of(context).brightness == Brightness.dark
+          fillColor: isDark
               ? Colors.white.withAlpha(18)
-              : Theme.of(
-                  context,
-                ).colorScheme.surfaceContainerHighest.withAlpha(145),
+              : Colors.white.withAlpha(95),
           contentPadding: const EdgeInsets.symmetric(horizontal: 14),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant,
+              color: isDark
+                  ? Colors.white.withAlpha(34)
+                  : Colors.white.withAlpha(170),
             ),
           ),
           focusedBorder: OutlineInputBorder(
@@ -1298,7 +1307,9 @@ class _CitySearchField extends StatelessWidget {
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant,
+              color: isDark
+                  ? Colors.white.withAlpha(34)
+                  : Colors.white.withAlpha(170),
             ),
           ),
         ),
@@ -1310,16 +1321,13 @@ class _CitySearchField extends StatelessWidget {
 class _LocationTitlePill extends StatelessWidget {
   final String title;
   final int count;
-  final int mappedCount;
 
-  const _LocationTitlePill({
-    required this.title,
-    required this.count,
-    required this.mappedCount,
-  });
+  const _LocationTitlePill({required this.title, required this.count});
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
       child: BackdropFilter(
@@ -1328,12 +1336,14 @@ class _LocationTitlePill extends StatelessWidget {
           height: 54,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
-            color: Theme.of(
-              context,
-            ).colorScheme.surfaceContainer.withAlpha(175),
+            color: isDark
+                ? Colors.white.withAlpha(18)
+                : Colors.white.withAlpha(85),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: Theme.of(context).colorScheme.outlineVariant,
+              color: isDark
+                  ? Colors.white.withAlpha(30)
+                  : Colors.white.withAlpha(160),
             ),
           ),
           child: Row(
@@ -1349,13 +1359,14 @@ class _LocationTitlePill extends StatelessWidget {
                       title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
                         fontWeight: FontWeight.w900,
                         fontSize: 15,
                       ),
                     ),
                     Text(
-                      '$mappedCount mapped | $count photos',
+                      '$count ${count == 1 ? 'photo' : 'photos'}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -1383,13 +1394,14 @@ class _RoundMapButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return ClipOval(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Material(
-          color: Theme.of(
-            context,
-          ).colorScheme.surfaceContainerHigh.withAlpha(200),
+          color: isDark
+              ? Colors.black.withAlpha(115)
+              : Colors.white.withAlpha(155),
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),
