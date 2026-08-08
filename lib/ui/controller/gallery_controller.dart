@@ -363,6 +363,8 @@ class GalleryController extends GetxController {
             locationCount: card.locationCount,
             tagCount: card.tagCount,
             faceId: card.faceId,
+            latitude: card.latitude,
+            longitude: card.longitude,
             photos: photos,
           );
         })
@@ -396,6 +398,8 @@ class GalleryController extends GetxController {
             locationCount: card.locationCount,
             tagCount: card.tagCount,
             faceId: card.faceId,
+            latitude: card.latitude,
+            longitude: card.longitude,
             photos: _previewPhotosForSwami(card.photos, swami),
           ),
         )

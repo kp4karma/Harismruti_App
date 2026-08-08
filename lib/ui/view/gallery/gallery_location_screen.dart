@@ -297,10 +297,11 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
                   locationMarkers: locationMarkers,
                   activeCard: _activeCard,
                   photos: photos,
-                  total: total,
                   locationLabel: _activeCard.title,
                   headers: _controller.imageHeaders,
                   loading: loading,
+                  hasCityCoordinate:
+                      _LocationGroupMarker.pointForCard(_activeCard) != null,
                   markerScale:
                       _markerScaleForZoom(_mapZoom) * tabletScale(context),
                   onZoomChanged: _handleMapZoomChanged,
@@ -354,10 +355,10 @@ class _PhotoCoordinateMap extends StatelessWidget {
   final List<_LocationGroupMarker> locationMarkers;
   final GalleryCard activeCard;
   final List<GalleryPhoto> photos;
-  final int total;
   final String locationLabel;
   final Map<String, String>? headers;
   final bool loading;
+  final bool hasCityCoordinate;
   final double markerScale;
   final ValueChanged<double> onZoomChanged;
   final ValueChanged<GalleryCard> onLocationTap;
@@ -369,10 +370,10 @@ class _PhotoCoordinateMap extends StatelessWidget {
     required this.locationMarkers,
     required this.activeCard,
     required this.photos,
-    required this.total,
     required this.locationLabel,
     required this.headers,
     required this.loading,
+    required this.hasCityCoordinate,
     required this.markerScale,
     required this.onZoomChanged,
     required this.onLocationTap,
@@ -380,8 +381,13 @@ class _PhotoCoordinateMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visibleLocationMarkers = _collapseCoincidentMarkers(
+    final resolvedLocationMarkers = _resolveSelectedMarker(
       locationMarkers,
+      activeCard,
+      loading ? const [] : clusters,
+    );
+    final visibleLocationMarkers = _collapseCoincidentMarkers(
+      resolvedLocationMarkers,
       activeCard,
     );
     return RepaintBoundary(
@@ -436,7 +442,7 @@ class _PhotoCoordinateMap extends StatelessWidget {
               ),
             ],
           ),
-          if (loading && photos.isEmpty)
+          if (loading)
             const Center(
               child: GalleryShimmerBox(
                 width: 180,
@@ -444,11 +450,40 @@ class _PhotoCoordinateMap extends StatelessWidget {
                 borderRadius: 28,
               ),
             )
-          else if (clusters.isEmpty)
-            Center(child: _NoCoordinateNotice(total: total)),
+          else if (clusters.isEmpty && !hasCityCoordinate)
+            Center(
+              child: _MapLocationUnavailableHint(locationLabel: locationLabel),
+            ),
         ],
       ),
     );
+  }
+
+  List<_LocationGroupMarker> _resolveSelectedMarker(
+    List<_LocationGroupMarker> markers,
+    GalleryCard selectedCard,
+    List<_PhotoCluster> selectedClusters,
+  ) {
+    if (_PhotoCluster._isValidCoordinate(
+      selectedCard.latitude,
+      selectedCard.longitude,
+    )) {
+      return markers;
+    }
+    if (selectedClusters.isEmpty) return markers;
+
+    // City-list cards contain only a few preview photos. A preview can have
+    // missing or mismatched GPS even though the selected city's full response
+    // has valid coordinates. Use the dominant loaded cluster for the selected
+    // pin so it stays aligned with the map camera and the city's real photos.
+    return [
+      for (final marker in markers)
+        if (!marker.isFor(selectedCard)) marker,
+      _LocationGroupMarker(
+        card: selectedCard,
+        point: selectedClusters.first.point,
+      ),
+    ];
   }
 
   List<_LocationGroupMarker> _collapseCoincidentMarkers(
@@ -766,6 +801,34 @@ class _LocationSheetState extends State<_LocationSheet> {
     );
   }
 
+  void _dragSheet(
+    DragUpdateDetails details,
+    double visibleHeight,
+    double collapsedFraction,
+  ) {
+    if (!_sheetController.isAttached || visibleHeight <= 0) return;
+    final nextSize =
+        (_sheetController.size - details.primaryDelta! / visibleHeight).clamp(
+          collapsedFraction,
+          _expandedFraction,
+        );
+    _sheetController.jumpTo(nextSize);
+  }
+
+  void _finishSheetDrag(DragEndDetails details, double collapsedFraction) {
+    if (!_sheetController.isAttached) return;
+    final velocity = details.primaryVelocity ?? 0;
+    final midpoint = (collapsedFraction + _expandedFraction) / 2;
+    final expand =
+        velocity < -250 ||
+        (velocity.abs() <= 250 && _sheetController.size >= midpoint);
+    _sheetController.animateTo(
+      expand ? _expandedFraction : collapsedFraction,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
@@ -805,7 +868,7 @@ class _LocationSheetState extends State<_LocationSheet> {
                   decoration: BoxDecoration(
                     color: Theme.of(
                       context,
-                    ).colorScheme.surfaceContainer.withAlpha(225),
+                    ).colorScheme.surfaceContainer.withAlpha(160),
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(28),
                     ),
@@ -825,6 +888,13 @@ class _LocationSheetState extends State<_LocationSheet> {
                       GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: () => _toggle(collapsedFraction),
+                        onVerticalDragUpdate: (details) => _dragSheet(
+                          details,
+                          visibleHeight,
+                          collapsedFraction,
+                        ),
+                        onVerticalDragEnd: (details) =>
+                            _finishSheetDrag(details, collapsedFraction),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           child: Container(
@@ -947,7 +1017,7 @@ class _CityListTile extends StatelessWidget {
     return Material(
       color: selected
           ? primaryColor.withAlpha(24)
-          : Theme.of(context).colorScheme.surfaceContainer.withAlpha(190),
+          : Theme.of(context).colorScheme.surfaceContainer.withAlpha(135),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -1109,7 +1179,7 @@ class _CitySearchField extends StatelessWidget {
               ? Colors.white.withAlpha(18)
               : Theme.of(
                   context,
-                ).colorScheme.surfaceContainerHighest.withAlpha(210),
+                ).colorScheme.surfaceContainerHighest.withAlpha(145),
           contentPadding: const EdgeInsets.symmetric(horizontal: 14),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
@@ -1236,10 +1306,10 @@ class _RoundMapButton extends StatelessWidget {
   }
 }
 
-class _NoCoordinateNotice extends StatelessWidget {
-  final int total;
+class _MapLocationUnavailableHint extends StatelessWidget {
+  final String locationLabel;
 
-  const _NoCoordinateNotice({required this.total});
+  const _MapLocationUnavailableHint({required this.locationLabel});
 
   @override
   Widget build(BuildContext context) {
@@ -1259,10 +1329,19 @@ class _NoCoordinateNotice extends StatelessWidget {
           ),
         ],
       ),
-      child: Text(
-        '$total photos found, but latitude and longitude are not available.',
-        textAlign: TextAlign.center,
-        style: const TextStyle(fontWeight: FontWeight.w800),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(CupertinoIcons.location, color: primaryColor, size: 19),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(
+              'Map preview for $locationLabel is coming soon',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1290,6 +1369,9 @@ class _LocationGroupMarker {
   }
 
   static LatLng? pointForCard(GalleryCard card) {
+    if (_PhotoCluster._isValidCoordinate(card.latitude, card.longitude)) {
+      return LatLng(card.latitude!, card.longitude!);
+    }
     for (final photo in card.photos) {
       final lat = photo.latitude;
       final lng = photo.longitude;
@@ -1348,6 +1430,10 @@ class _PhotoCluster {
         lng != null &&
         lat.isFinite &&
         lng.isFinite &&
+        // Some photo metadata uses 0,0 as a placeholder for missing GPS.
+        // Rendering it puts unrelated city pins in the Gulf of Guinea
+        // ("Null Island") and can replace a valid preview pin after loading.
+        !(lat.abs() < 0.000001 && lng.abs() < 0.000001) &&
         lat.abs() <= _webMercatorMaxLatitude &&
         lng.abs() <= 180;
   }

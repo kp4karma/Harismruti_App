@@ -67,6 +67,27 @@ List<String> _readTags(Map<String, dynamic> json) {
     }
   }
 
+  // Some endpoints (notably My Smruti) expose searchable taxonomy values as
+  // top-level photo attributes instead of repeating them in `tags`.
+  for (final key in const [
+    'country',
+    'location',
+    'city',
+    'sub_location',
+    'subLocation',
+    'album',
+    'smruti_of',
+    'smrutiOf',
+    'subject',
+    'smruti_with',
+    'smrutiWith',
+    'darshan_of',
+    'darshanOf',
+    'person',
+  ]) {
+    add(json[key]);
+  }
+
   final attributes = json['attributes'] ?? json['metadata'];
   if (attributes is Map) {
     for (final key in const [
@@ -344,6 +365,8 @@ class GalleryCard {
   final int? locationCount;
   final int? tagCount;
   final int? faceId;
+  final double? latitude;
+  final double? longitude;
   final List<GalleryPhoto> photos;
 
   const GalleryCard({
@@ -356,6 +379,8 @@ class GalleryCard {
     this.locationCount,
     this.tagCount,
     this.faceId,
+    this.latitude,
+    this.longitude,
     this.photos = const [],
   });
 
@@ -435,6 +460,8 @@ class GalleryCard {
         'representative_face_id',
         'cover_face_id',
       ]),
+      latitude: _readDouble(json, const ['latitude', 'lat']),
+      longitude: _readDouble(json, const ['longitude', 'lng', 'lon', 'long']),
       // The home API intentionally orders sample_photos with its selected
       // section cover first. Preserve that order so cover selection stays
       // server-controlled.
@@ -471,6 +498,8 @@ class GalleryCard {
       if (locationCount != null) 'location_count': locationCount,
       if (tagCount != null) 'tag_count': tagCount,
       if (faceId != null) 'face_id': faceId,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
       'photos': photos.map((photo) => photo.toJson()).toList(),
     };
   }

@@ -2186,13 +2186,6 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       ..setEntry(1, 3, (viewport.height / 2) - (position.dy * zoom));
   }
 
-  void _toggleChrome() {
-    if (_zoomModeActive) return;
-    setState(() {
-      _chromeVisible = !_chromeVisible;
-    });
-  }
-
   void _toggleZoom() {
     if (_zoomModeActive) {
       _resetZoom();
@@ -2422,7 +2415,6 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                       return ClipRect(
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
-                          onTap: _toggleChrome,
                           onDoubleTapDown: _rememberDoubleTapPosition,
                           onDoubleTap: _toggleZoom,
                           child: InteractiveViewer(
@@ -2814,8 +2806,9 @@ class _TextEntryBottomSheetState extends State<_TextEntryBottomSheet> {
                                 CupertinoIcons.search,
                                 color: primaryColor,
                               ),
-                              hintText:
-                                  'Search ${isCollection ? 'collection' : 'tag'}',
+                              hintText: isCollection
+                                  ? 'Search or Create Collection'
+                                  : 'Search or Create Tag',
                               filled: true,
                               fillColor:
                                   Theme.of(context).brightness ==
@@ -3051,11 +3044,7 @@ class _FullscreenImage extends StatelessWidget {
           placeholder: (_, __) => Stack(
             alignment: Alignment.center,
             children: [
-              const GalleryShimmerBox(
-                width: double.infinity,
-                height: double.infinity,
-                borderRadius: 0,
-              ),
+              const Positioned.fill(child: ColoredBox(color: Colors.white)),
               Positioned.fill(
                 child: CachedNetworkImage(
                   imageUrl: photo.thumbnailUrl,
@@ -3066,6 +3055,10 @@ class _FullscreenImage extends StatelessWidget {
                   fadeOutDuration: Duration.zero,
                   errorWidget: (_, __, ___) => const SizedBox.shrink(),
                 ),
+              ),
+              const CupertinoActivityIndicator(
+                radius: 14,
+                color: CupertinoColors.systemGrey,
               ),
             ],
           ),
@@ -3118,7 +3111,7 @@ class _ViewerTopBar extends StatelessWidget {
               final place = placeParts.isNotEmpty
                   ? placeParts.join(' - ')
                   : attrs?.country?.trim() ?? '';
-              final displayTitle = place.isNotEmpty ? place : 'Location';
+              final displayTitle = place.isNotEmpty ? place : 'No Location';
               final displaySubtitle = _formatTopDateTime(takenAt) ?? '';
 
               return ClipRRect(

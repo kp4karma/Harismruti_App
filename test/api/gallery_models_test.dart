@@ -34,6 +34,19 @@ void main() {
       expect(card.title, 'Mahotsav');
       expect(card.value, 'Mahotsav');
     });
+
+    test('reads managed coordinates for a location card', () {
+      final card = GalleryCard.fromJson({
+        'type': 'location',
+        'value': 'Padra',
+        'photo_count': 136,
+        'latitude': 22.2394,
+        'longitude': 73.0849,
+      });
+
+      expect(card.latitude, 22.2394);
+      expect(card.longitude, 73.0849);
+    });
   });
 
   group('GalleryPhoto.fromJson', () {
@@ -88,6 +101,18 @@ void main() {
       });
 
       expect(photo.country, 'India');
+      expect(
+        photo.tags,
+        containsAll([
+          'India',
+          'Ahmedabad',
+          'Shahibaug',
+          'Yatra',
+          'Sant Mandal',
+          'Hariprasad Swamiji',
+          'Sabha',
+        ]),
+      );
       expect(photo.location, 'Ahmedabad');
       expect(photo.subLocation, 'Shahibaug');
       expect(photo.album, 'Yatra');
