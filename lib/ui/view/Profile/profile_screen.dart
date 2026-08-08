@@ -407,8 +407,47 @@ class _ProfileAvatar extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final image = profileController.profileImage.value;
     final avatarUrl = profileController.avatarUrl;
+    final accountAvatarUrl = profileController.accountAvatarUrl;
     final scale = tabletScale(context);
     final smrutiImage = smrutiPhoto;
+    Widget accountAvatar() => accountAvatarUrl.isNotEmpty
+        ? Image.network(
+            accountAvatarUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) =>
+                _ProfileInitialAvatar(initial: profileController.avatarInitial),
+            frameBuilder: (context, child, frame, _) {
+              if (frame == null) {
+                return _ProfileInitialAvatar(
+                  initial: profileController.avatarInitial,
+                );
+              }
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                profileController.markUploadedProfileImageAvailable();
+              });
+              return child;
+            },
+          )
+        : _ProfileInitialAvatar(initial: profileController.avatarInitial);
+
+    Widget smrutiOrAccountAvatar() {
+      if (smrutiImage?.hasLocalFile == true) {
+        return Image.file(
+          File(smrutiImage!.path),
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => accountAvatar(),
+        );
+      }
+      if (smrutiImage?.hasRemoteImage == true) {
+        return Image.network(
+          smrutiImage!.remoteUrl!,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => accountAvatar(),
+        );
+      }
+      return accountAvatar();
+    }
+
     final avatar = CircleAvatar(
       radius: 23 * scale,
       backgroundColor: scheme.surfaceContainerHighest,
@@ -416,37 +455,17 @@ class _ProfileAvatar extends StatelessWidget {
         child: SizedBox(
           width: 42 * scale,
           height: 42 * scale,
-          child: smrutiImage?.hasLocalFile == true
-              ? Image.file(
-                  File(smrutiImage!.path),
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _ProfileInitialAvatar(
-                    initial: profileController.avatarInitial,
-                  ),
-                )
-              : smrutiImage?.hasRemoteImage == true
-              ? Image.network(
-                  smrutiImage!.remoteUrl!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _ProfileInitialAvatar(
-                    initial: profileController.avatarInitial,
-                  ),
-                )
-              : image != null
+          child: image != null
               ? Image.file(
                   image,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _ProfileInitialAvatar(
-                    initial: profileController.avatarInitial,
-                  ),
+                  errorBuilder: (_, __, ___) => smrutiOrAccountAvatar(),
                 )
               : avatarUrl.isNotEmpty
               ? Image.network(
                   avatarUrl,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _ProfileInitialAvatar(
-                    initial: profileController.avatarInitial,
-                  ),
+                  errorBuilder: (_, __, ___) => smrutiOrAccountAvatar(),
                   frameBuilder: (context, child, frame, _) {
                     if (frame == null) {
                       return _ProfileInitialAvatar(
@@ -459,7 +478,7 @@ class _ProfileAvatar extends StatelessWidget {
                     return child;
                   },
                 )
-              : _ProfileInitialAvatar(initial: profileController.avatarInitial),
+              : smrutiOrAccountAvatar(),
         ),
       ),
     );

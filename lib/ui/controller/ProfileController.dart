@@ -73,6 +73,10 @@ class ProfileController extends GetxController {
     if (uploadedProfileImageUrl.value.isNotEmpty) {
       return uploadedProfileImageUrl.value;
     }
+    return accountAvatarUrl;
+  }
+
+  String get accountAvatarUrl {
     final avatar = profile['avatar']?.toString().trim() ?? '';
     if (avatar.isEmpty || avatar == 'img/default-avatar.jpg') return '';
     if (avatar.startsWith('http://') || avatar.startsWith('https://')) {

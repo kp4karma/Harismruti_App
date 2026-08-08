@@ -125,6 +125,7 @@ class GalleryController extends GetxController {
   final Map<GallerySwami, List<GalleryFilterGroup>> _filterSnapshots = {};
   int _filtersRequestId = 0;
   int _mySmrutiFiltersRequestId = 0;
+  int _mySmrutiYearsRequestId = 0;
   int _allPlacesRequestId = 0;
 
   Future<void> loadAllPlaces() async {
@@ -855,6 +856,7 @@ class GalleryController extends GetxController {
     Map<String, List<String>> selected = const {},
     bool force = false,
   }) async {
+    unawaited(loadMySmrutiYearOptions(selected: selected));
     final serverSelected = _serverFilterSelection(selected);
     if (!force && serverSelected.isEmpty && filters.isNotEmpty) return;
     final requestId = ++_filtersRequestId;
@@ -888,6 +890,26 @@ class GalleryController extends GetxController {
     }
   }
 
+  Future<void> loadMySmrutiYearOptions({
+    Map<String, List<String>> selected = const {},
+  }) async {
+    if (!StorageHelper.isLogin()) {
+      mySmrutiYearOptions.clear();
+      return;
+    }
+    final requestId = ++_mySmrutiYearsRequestId;
+    try {
+      final years = await _repository.getMySmrutiYears(selected: selected);
+      if (requestId == _mySmrutiYearsRequestId) {
+        mySmrutiYearOptions.assignAll(years);
+      }
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint('My Smruti Year filters failed: $error');
+      }
+    }
+  }
+
   Future<void> resetFiltersForSheet() async {
     filters.assignAll(_filterSnapshots[selectedSwami.value] ?? const []);
     filtersError.value = '';
@@ -912,6 +934,7 @@ class GalleryController extends GetxController {
   Future<void> loadMySmrutiFilterPhotos() async {
     if (!StorageHelper.isLogin()) {
       _mySmrutiFiltersRequestId++;
+      _mySmrutiYearsRequestId++;
       mySmrutiPhotos.clear();
       areMySmrutiFiltersLoading.value = false;
       return;
@@ -920,9 +943,8 @@ class GalleryController extends GetxController {
     final requestedSwami = selectedSwami.value;
     areMySmrutiFiltersLoading.value = true;
     try {
-      final years = await _repository.getMySmrutiYears();
+      await loadMySmrutiYearOptions();
       if (requestId != _mySmrutiFiltersRequestId) return;
-      mySmrutiYearOptions.assignAll(years);
 
       const pageSize = 50;
       // Keep a generous corruption guard while allowing the complete API
@@ -961,7 +983,6 @@ class GalleryController extends GetxController {
     } catch (_) {
       if (requestId == _mySmrutiFiltersRequestId) {
         mySmrutiPhotos.clear();
-        mySmrutiYearOptions.clear();
       }
     } finally {
       if (requestId == _mySmrutiFiltersRequestId) {
@@ -1715,7 +1736,7 @@ class GalleryController extends GetxController {
   List<GalleryFilterGroup> _buildMySmrutiFilterGroups(
     Map<String, List<String>> selected,
   ) {
-    if (mySmrutiPhotos.isEmpty) return const [];
+    if (mySmrutiPhotos.isEmpty && mySmrutiYearOptions.isEmpty) return const [];
     final groups = <GalleryFilterGroup>[];
     for (final definition in const [
       (_mySmrutiYearFilterSlug, 'Year'),
@@ -1820,7 +1841,7 @@ class GalleryController extends GetxController {
   ) {
     final values = switch (slug) {
       _mySmrutiYearFilterSlug => [
-        (photo.eventDate ?? photo.takenAt)?.toLocal().year.toString(),
+        (photo.takenAt ?? photo.eventDate)?.toLocal().year.toString(),
       ],
       _mySmrutiWithFilterSlug => [photo.smrutiWith],
       _mySmrutiCountryFilterSlug => [photo.country],

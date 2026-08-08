@@ -188,12 +188,31 @@ class GalleryRepository {
     ).items;
   }
 
-  Future<List<GalleryFilterOption>> getMySmrutiYears() async {
+  Future<List<GalleryFilterOption>> getMySmrutiYears({
+    Map<String, List<String>> selected = const {},
+  }) async {
     final mobile = currentPhoneNumber();
     if (mobile.isEmpty) return const [];
+    const apiSlugs = <String, String>{
+      'my_smruti_year': 'duration',
+      'my_smruti_country': 'country',
+      'my_smruti_location': 'location',
+      'my_smruti_place': 'sub_location',
+      'my_smruti_album': 'album',
+      'my_smruti_smruti_of': 'subject',
+      'my_smruti_with': 'with',
+      'my_smruti_darshan_of': 'person',
+    };
+    final query = <String, dynamic>{'limit': 200, 'mobile': mobile};
+    for (final entry in selected.entries) {
+      final apiSlug = apiSlugs[entry.key];
+      if (apiSlug != null && entry.value.isNotEmpty) {
+        query[apiSlug] = entry.value;
+      }
+    }
     final response = await ApiClient.get(
       ApiEndpoints.filters,
-      queryParams: _latestQueryParams({'limit': 200, 'mobile': mobile}),
+      queryParams: _latestQueryParams(query),
       forceRefresh: true,
     );
     final groups = GalleryPage.fromJson(
