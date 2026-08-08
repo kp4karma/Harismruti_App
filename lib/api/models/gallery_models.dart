@@ -209,8 +209,22 @@ class GalleryPhoto {
     // Photo filtering must use the explicit event_date column only. Do not
     // fall back to photo_date/taken_at because those can represent a different
     // calendar day from the curated event date.
-    final displayDate = DateTime.tryParse(
+    final eventDate = DateTime.tryParse(
       _readString(json, const ['event_date', 'eventDate']) ?? '',
+    );
+    // My Smruti returns the API's coalesced best date as `photo_date` while
+    // preserving the curated event date separately. Keep both meanings so
+    // server-provided Year facets and their photo results stay consistent.
+    final takenAt = DateTime.tryParse(
+      _readString(json, const [
+            'photo_date',
+            'photoDate',
+            'taken_at',
+            'takenAt',
+            'inferred_date',
+            'inferredDate',
+          ]) ??
+          '',
     );
     final thumb = _readString(json, const [
       'thumbnail_url',
@@ -237,8 +251,8 @@ class GalleryPhoto {
       fullUrl: _absoluteUrl(full, id, fullSize: true),
       title: _readString(json, const ['title', 'name', 'caption']),
       subtitle: _readString(json, const ['subtitle']),
-      takenAt: displayDate,
-      eventDate: displayDate,
+      takenAt: takenAt ?? eventDate,
+      eventDate: eventDate,
       createdAt: DateTime.tryParse(
         _readString(json, const ['created_at', 'createdAt']) ?? '',
       ),

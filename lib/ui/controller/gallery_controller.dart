@@ -111,6 +111,8 @@ class GalleryController extends GetxController {
   final RxMap<int, List<String>> userTags = <int, List<String>>{}.obs;
   final RxList<String> userTagNames = <String>[].obs;
   final RxList<GalleryPhoto> mySmrutiPhotos = <GalleryPhoto>[].obs;
+  final RxList<GalleryFilterOption> mySmrutiYearOptions =
+      <GalleryFilterOption>[].obs;
   final RxList<UserPhotoCollection> userCollections =
       <UserPhotoCollection>[].obs;
 
@@ -289,6 +291,7 @@ class GalleryController extends GetxController {
       userTagNames.clear();
       userCollections.clear();
       mySmrutiPhotos.clear();
+      mySmrutiYearOptions.clear();
       return;
     }
     await loadMyLibrary();
@@ -917,8 +920,14 @@ class GalleryController extends GetxController {
     final requestedSwami = selectedSwami.value;
     areMySmrutiFiltersLoading.value = true;
     try {
+      final years = await _repository.getMySmrutiYears();
+      if (requestId != _mySmrutiFiltersRequestId) return;
+      mySmrutiYearOptions.assignAll(years);
+
       const pageSize = 50;
-      const maxPages = 50;
+      // Keep a generous corruption guard while allowing the complete API
+      // result set to support the remaining My Smruti facets.
+      const maxPages = 1000;
       final photos = <GalleryPhoto>[];
       final seenIds = <int>{};
       var offset = 0;
@@ -952,6 +961,7 @@ class GalleryController extends GetxController {
     } catch (_) {
       if (requestId == _mySmrutiFiltersRequestId) {
         mySmrutiPhotos.clear();
+        mySmrutiYearOptions.clear();
       }
     } finally {
       if (requestId == _mySmrutiFiltersRequestId) {
@@ -1668,6 +1678,7 @@ class GalleryController extends GetxController {
 
   static const String _userTagFilterSlug = 'user_tag';
   static const String _mySmrutiScopeFilterSlug = 'my_smruti_scope';
+  static const String _mySmrutiYearFilterSlug = 'my_smruti_year';
   static const String _mySmrutiWithFilterSlug = 'my_smruti_with';
   static const String _mySmrutiCountryFilterSlug = 'my_smruti_country';
   static const String _mySmrutiLocationFilterSlug = 'my_smruti_location';
@@ -1677,6 +1688,7 @@ class GalleryController extends GetxController {
   static const String _mySmrutiSmrutiOfFilterSlug = 'my_smruti_smruti_of';
   static const String _mySmrutiTagsFilterSlug = 'my_smruti_tags';
   static const Set<String> _mySmrutiFilterSlugs = {
+    _mySmrutiYearFilterSlug,
     _mySmrutiWithFilterSlug,
     _mySmrutiCountryFilterSlug,
     _mySmrutiLocationFilterSlug,
@@ -1706,6 +1718,7 @@ class GalleryController extends GetxController {
     if (mySmrutiPhotos.isEmpty) return const [];
     final groups = <GalleryFilterGroup>[];
     for (final definition in const [
+      (_mySmrutiYearFilterSlug, 'Year'),
       (_mySmrutiWithFilterSlug, 'With'),
       (_mySmrutiCountryFilterSlug, 'Country'),
       (_mySmrutiLocationFilterSlug, 'Location'),
@@ -1715,7 +1728,9 @@ class GalleryController extends GetxController {
       (_mySmrutiSmrutiOfFilterSlug, 'Smruti Of'),
       (_mySmrutiTagsFilterSlug, 'Tags'),
     ]) {
-      final options = _buildMySmrutiOptions(definition.$1, selected: selected);
+      final options = definition.$1 == _mySmrutiYearFilterSlug
+          ? mySmrutiYearOptions.toList(growable: false)
+          : _buildMySmrutiOptions(definition.$1, selected: selected);
       if (options.isNotEmpty) {
         groups.add(
           GalleryFilterGroup(
@@ -1749,7 +1764,7 @@ class GalleryController extends GetxController {
         counts[key] = (counts[key] ?? 0) + 1;
       }
     }
-    return labels.entries
+    final options = labels.entries
         .map(
           (entry) => GalleryFilterOption(
             value: entry.value,
@@ -1757,8 +1772,17 @@ class GalleryController extends GetxController {
             count: counts[entry.key] ?? 0,
           ),
         )
-        .toList()
-      ..sort(_compareGalleryFilterOptions);
+        .toList();
+    if (slug == _mySmrutiYearFilterSlug) {
+      options.sort(
+        (first, second) => (int.tryParse(second.value) ?? 0).compareTo(
+          int.tryParse(first.value) ?? 0,
+        ),
+      );
+    } else {
+      options.sort(_compareGalleryFilterOptions);
+    }
+    return options;
   }
 
   static bool _matchesMySmrutiSelections(
@@ -1795,6 +1819,9 @@ class GalleryController extends GetxController {
     String slug,
   ) {
     final values = switch (slug) {
+      _mySmrutiYearFilterSlug => [
+        (photo.eventDate ?? photo.takenAt)?.toLocal().year.toString(),
+      ],
       _mySmrutiWithFilterSlug => [photo.smrutiWith],
       _mySmrutiCountryFilterSlug => [photo.country],
       _mySmrutiLocationFilterSlug => [photo.location],

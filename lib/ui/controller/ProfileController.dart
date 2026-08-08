@@ -13,6 +13,7 @@ class ProfileController extends GetxController {
   var profileImage = Rxn<File>();
   final RxMap<String, dynamic> profile = <String, dynamic>{}.obs;
   final RxString uploadedProfileImageUrl = ''.obs;
+  final RxBool hasUploadedProfileImage = false.obs;
 
   @override
   void onInit() {
@@ -82,6 +83,7 @@ class ProfileController extends GetxController {
 
   void loadUploadedProfileImageUrl() {
     uploadedProfileImageUrl.value = '';
+    hasUploadedProfileImage.value = false;
     final token = StorageHelper.getValue<String>(key: StorageKeys.accessToken);
     if (token == null || token.isEmpty) return;
     final params = {
@@ -99,6 +101,13 @@ class ProfileController extends GetxController {
     profileImage.value = null;
     profile.clear();
     uploadedProfileImageUrl.value = '';
+    hasUploadedProfileImage.value = false;
+  }
+
+  void markUploadedProfileImageAvailable() {
+    if (!hasUploadedProfileImage.value) {
+      hasUploadedProfileImage.value = true;
+    }
   }
 
   bool get hasAccountAvatar {

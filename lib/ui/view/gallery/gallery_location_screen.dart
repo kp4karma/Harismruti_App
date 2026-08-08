@@ -14,8 +14,49 @@ import 'package:harismruti/widget/network_Image_with_loader.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 
 List<GalleryCard> _filterCities(List<GalleryCard> cities, String query) {
-  if (query.isEmpty) return cities;
-  return cities.where((card) => _cityMatchesQuery(card, query)).toList();
+  final filtered = query.isEmpty
+      ? cities.toList()
+      : cities.where((card) => _cityMatchesQuery(card, query)).toList();
+  filtered.sort(_compareLocationsByCountryThenCity);
+  return filtered;
+}
+
+String _countryForLocation(GalleryCard card) {
+  for (final photo in card.photos) {
+    final country = photo.country?.trim() ?? '';
+    if (country.isNotEmpty) return country;
+  }
+  return '';
+}
+
+bool _isCountryLocationCard(GalleryCard card, String country) =>
+    country.isNotEmpty &&
+    card.title.trim().toLowerCase() == country.toLowerCase();
+
+int _compareLocationsByCountryThenCity(GalleryCard first, GalleryCard second) {
+  final firstCountry = _countryForLocation(first);
+  final secondCountry = _countryForLocation(second);
+
+  // Cards without country metadata remain usable but appear after fully
+  // identified locations.
+  if (firstCountry.isEmpty != secondCountry.isEmpty) {
+    return firstCountry.isEmpty ? 1 : -1;
+  }
+
+  final countryComparison = firstCountry.toLowerCase().compareTo(
+    secondCountry.toLowerCase(),
+  );
+  if (countryComparison != 0) return countryComparison;
+
+  // When the API includes a country-level card, keep it before that
+  // country's individual cities.
+  final firstIsCountry = _isCountryLocationCard(first, firstCountry);
+  final secondIsCountry = _isCountryLocationCard(second, secondCountry);
+  if (firstIsCountry != secondIsCountry) return firstIsCountry ? -1 : 1;
+
+  return first.title.trim().toLowerCase().compareTo(
+    second.title.trim().toLowerCase(),
+  );
 }
 
 bool _cityMatchesQuery(GalleryCard card, String query) {
@@ -115,6 +156,7 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
   }
 
   void _handleMapZoomChanged(double zoom) {
+    if (!zoom.isFinite) return;
     final currentScale = _markerScaleForZoom(_mapZoom);
     final nextScale = _markerScaleForZoom(zoom);
     if (currentScale == nextScale) {
@@ -204,16 +246,7 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
         _mapController.move(locationMarkers.first.point, 10.5);
         return;
       }
-      _mapController.fitCamera(
-        CameraFit.bounds(
-          bounds: LatLngBounds.fromPoints(
-            locationMarkers.map((marker) => marker.point).toList(),
-          ),
-          padding: const EdgeInsets.fromLTRB(48, 110, 48, 230),
-          minZoom: _minMapZoom,
-          maxZoom: _maxFitZoom,
-        ),
-      );
+      _moveToFiniteExtent(locationMarkers.map((marker) => marker.point));
       return;
     }
     if (validClusters.isEmpty) {
@@ -224,20 +257,57 @@ class _GalleryLocationScreenState extends State<GalleryLocationScreen> {
       _mapController.move(validClusters.first.point, 13);
       return;
     }
-    _mapController.fitCamera(
-      CameraFit.bounds(
-        bounds: LatLngBounds.fromPoints(
-          validClusters.map((cluster) => cluster.point).toList(),
-        ),
-        padding: const EdgeInsets.fromLTRB(48, 110, 48, 230),
-        minZoom: _minMapZoom,
-        maxZoom: _maxFitZoom,
-      ),
-    );
+    _moveToFiniteExtent(validClusters.map((cluster) => cluster.point));
+  }
+
+  void _moveToFiniteExtent(Iterable<LatLng> sourcePoints) {
+    final points = sourcePoints
+        .where(
+          (point) =>
+              _PhotoCluster._isValidCoordinate(point.latitude, point.longitude),
+        )
+        .toList();
+    if (points.isEmpty) {
+      _mapController.move(_fallbackCenter, _minMapZoom);
+      return;
+    }
+
+    var minLat = points.first.latitude;
+    var maxLat = points.first.latitude;
+    var minLng = points.first.longitude;
+    var maxLng = points.first.longitude;
+    for (final point in points.skip(1)) {
+      minLat = point.latitude < minLat ? point.latitude : minLat;
+      maxLat = point.latitude > maxLat ? point.latitude : maxLat;
+      minLng = point.longitude < minLng ? point.longitude : minLng;
+      maxLng = point.longitude > maxLng ? point.longitude : maxLng;
+    }
+
+    final center = LatLng((minLat + maxLat) / 2, (minLng + maxLng) / 2);
+    final latitudeSpan = (maxLat - minLat).abs();
+    final longitudeSpan = (maxLng - minLng).abs();
+    final span = latitudeSpan > longitudeSpan ? latitudeSpan : longitudeSpan;
+    final zoom = switch (span) {
+      > 80 => 4.5,
+      > 40 => 5.0,
+      > 20 => 6.0,
+      > 10 => 7.0,
+      > 5 => 8.0,
+      > 2 => 9.0,
+      > 1 => 10.0,
+      > 0.3 => 11.0,
+      > 0.1 => 12.0,
+      _ => 13.0,
+    };
+    if (_PhotoCluster._isValidCoordinate(center.latitude, center.longitude)) {
+      _mapController.move(center, zoom.clamp(_minMapZoom, _maxFitZoom));
+    } else {
+      _mapController.move(_fallbackCenter, _minMapZoom);
+    }
   }
 
   List<GalleryCard> get _allCities =>
-      _controller.placeCards.toList(growable: false);
+      _filterCities(_controller.placeCards.toList(growable: false), '');
 
   @override
   Widget build(BuildContext context) {
@@ -395,52 +465,70 @@ class _PhotoCoordinateMap extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           const CustomPaint(painter: _MapFallbackPainter()),
-          FlutterMap(
-            mapController: mapController,
-            options: MapOptions(
-              initialCenter: center,
-              initialZoom: clusters.length <= 1 ? 13 : 11,
-              minZoom: _GalleryLocationScreenState._minMapZoom,
-              maxZoom: _GalleryLocationScreenState._maxMapZoom,
-              onPositionChanged: (camera, _) => onZoomChanged(camera.zoom),
-              interactionOptions: const InteractionOptions(
-                flags:
-                    InteractiveFlag.drag |
-                    InteractiveFlag.flingAnimation |
-                    InteractiveFlag.pinchMove |
-                    InteractiveFlag.pinchZoom |
-                    InteractiveFlag.doubleTapZoom,
-              ),
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                fallbackUrl: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.harismruti.app',
+          Listener(
+            onPointerDown: (_) => _repairInvalidCamera(),
+            child: FlutterMap(
+              mapController: mapController,
+              options: MapOptions(
+                initialCenter: center,
+                initialZoom: clusters.length <= 1 ? 13 : 11,
                 minZoom: _GalleryLocationScreenState._minMapZoom,
                 maxZoom: _GalleryLocationScreenState._maxMapZoom,
-                tileBuilder: (context, tileWidget, tile) => tileWidget,
+                onPositionChanged: (camera, _) {
+                  if (!_PhotoCluster._isValidCoordinate(
+                        camera.center.latitude,
+                        camera.center.longitude,
+                      ) ||
+                      !camera.zoom.isFinite) {
+                    WidgetsBinding.instance.addPostFrameCallback(
+                      (_) => _repairInvalidCamera(),
+                    );
+                    return;
+                  }
+                  onZoomChanged(camera.zoom);
+                },
+                interactionOptions: const InteractionOptions(
+                  flags:
+                      InteractiveFlag.drag |
+                      InteractiveFlag.flingAnimation |
+                      InteractiveFlag.pinchMove |
+                      InteractiveFlag.pinchZoom |
+                      InteractiveFlag.doubleTapZoom,
+                ),
               ),
-              MarkerLayer(
-                markers: [
-                  for (final marker in visibleLocationMarkers)
-                    Marker(
-                      point: marker.point,
-                      width:
-                          (marker.isFor(activeCard) ? 118 : 104) * markerScale,
-                      height:
-                          (marker.isFor(activeCard) ? 116 : 104) * markerScale,
-                      child: _LocationGroupMapMarker(
-                        marker: marker,
-                        selected: marker.isFor(activeCard),
-                        headers: headers,
-                        markerScale: markerScale,
-                        onTap: () => onLocationTap(marker.card),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  fallbackUrl:
+                      'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.harismruti.app',
+                  minZoom: _GalleryLocationScreenState._minMapZoom,
+                  maxZoom: _GalleryLocationScreenState._maxMapZoom,
+                  tileBuilder: (context, tileWidget, tile) => tileWidget,
+                ),
+                MarkerLayer(
+                  markers: [
+                    for (final marker in visibleLocationMarkers)
+                      Marker(
+                        point: marker.point,
+                        width:
+                            (marker.isFor(activeCard) ? 118 : 104) *
+                            markerScale,
+                        height:
+                            (marker.isFor(activeCard) ? 116 : 104) *
+                            markerScale,
+                        child: _LocationGroupMapMarker(
+                          marker: marker,
+                          selected: marker.isFor(activeCard),
+                          headers: headers,
+                          markerScale: markerScale,
+                          onTap: () => onLocationTap(marker.card),
+                        ),
                       ),
-                    ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
           if (loading)
             const Center(
@@ -457,6 +545,22 @@ class _PhotoCoordinateMap extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _repairInvalidCamera() {
+    try {
+      final camera = mapController.camera;
+      if (_PhotoCluster._isValidCoordinate(
+            camera.center.latitude,
+            camera.center.longitude,
+          ) &&
+          camera.zoom.isFinite) {
+        return;
+      }
+      mapController.move(center, clusters.length <= 1 ? 13 : 11);
+    } catch (_) {
+      // The controller is not attached until FlutterMap's first layout.
+    }
   }
 
   List<_LocationGroupMarker> _resolveSelectedMarker(

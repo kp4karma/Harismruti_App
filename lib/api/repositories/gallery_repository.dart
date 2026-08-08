@@ -188,6 +188,31 @@ class GalleryRepository {
     ).items;
   }
 
+  Future<List<GalleryFilterOption>> getMySmrutiYears() async {
+    final mobile = currentPhoneNumber();
+    if (mobile.isEmpty) return const [];
+    final response = await ApiClient.get(
+      ApiEndpoints.filters,
+      queryParams: _latestQueryParams({'limit': 200, 'mobile': mobile}),
+      forceRefresh: true,
+    );
+    final groups = GalleryPage.fromJson(
+      response.data,
+      GalleryFilterGroup.fromJson,
+    ).items;
+    final yearGroup = groups.where(
+      (group) => group.slug.trim().toLowerCase() == 'duration',
+    );
+    if (yearGroup.isEmpty) return const [];
+    final years = yearGroup.first.options.toList();
+    years.sort(
+      (first, second) => (int.tryParse(second.value) ?? 0).compareTo(
+        int.tryParse(first.value) ?? 0,
+      ),
+    );
+    return years;
+  }
+
   Future<GalleryPhotoAttributes> getPhotoAttributes(int photoId) async {
     final response = await ApiClient.get(ApiEndpoints.photoAttributes(photoId));
     return GalleryPhotoAttributes.fromJson(response.data);

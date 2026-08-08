@@ -12,6 +12,7 @@ import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/controller/my_diary_controller.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/responsive.dart';
+import 'package:harismruti/widget/appbar/frosted_appbar.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
 
 double _galleryPhotoAspectRatio(GalleryPhoto photo) {
@@ -166,9 +167,10 @@ class MyDiaryScreen extends StatelessWidget {
         leading: CupertinoIcons.chevron_left,
         onLeadingTap: () => Navigator.pop(context),
         actions: [
-          _GlassIconButton(
+          FrostedAppBarIconButton(
             icon: CupertinoIcons.add,
-            onTap: () => _openDate(context, DateTime.now()),
+            tooltip: 'New diary entry',
+            onPressed: () => _openDate(context, DateTime.now()),
           ),
         ],
       ),
@@ -371,9 +373,10 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
           leading: CupertinoIcons.chevron_left,
           onLeadingTap: () => Navigator.pop(context),
           actions: [
-            _GlassIconButton(
+            FrostedAppBarIconButton(
               icon: CupertinoIcons.calendar,
-              onTap: () => Navigator.push(
+              tooltip: 'Open calendar',
+              onPressed: () => Navigator.push(
                 context,
                 CupertinoPageRoute(
                   settings: const RouteSettings(name: 'My Diary'),
@@ -382,9 +385,10 @@ class _DiaryEntryDetailScreenState extends State<DiaryEntryDetailScreen> {
               ),
             ),
             if (entry != null)
-              _GlassIconButton(
+              FrostedAppBarIconButton(
                 icon: CupertinoIcons.delete,
-                onTap: () => _confirmDelete(context, entry),
+                tooltip: 'Delete entry',
+                onPressed: () => _confirmDelete(context, entry),
               ),
           ],
         ),
@@ -847,9 +851,10 @@ class _DiaryGlassAppBar extends StatelessWidget implements PreferredSizeWidget {
           elevation: 0,
           automaticallyImplyLeading: false,
           leadingWidth: 66,
-          leading: Padding(
-            padding: const EdgeInsets.only(left: 16),
-            child: _GlassIconButton(icon: leading, onTap: onLeadingTap),
+          leading: FrostedAppBarIconButton(
+            icon: leading,
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+            onPressed: onLeadingTap,
           ),
           title: Text(
             title,
@@ -867,52 +872,6 @@ class _DiaryGlassAppBar extends StatelessWidget implements PreferredSizeWidget {
           ],
         ),
       ],
-    );
-  }
-}
-
-class _GlassIconButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _GlassIconButton({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: ClipOval(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: Container(
-            width: 42,
-            height: 42,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: Theme.of(
-                context,
-              ).colorScheme.surfaceContainerHigh.withAlpha(220),
-              shape: BoxShape.circle,
-              border: Border.all(color: primaryColor.withAlpha(24)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(12),
-                  blurRadius: 12,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Icon(
-              icon,
-              color: scheme.brightness == Brightness.dark
-                  ? scheme.onSurface
-                  : primaryColor,
-              size: 21,
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

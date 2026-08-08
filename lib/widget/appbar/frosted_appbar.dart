@@ -51,11 +51,23 @@ class FrostedAppBar extends StatelessWidget implements PreferredSizeWidget {
         filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: (backgroundColor ?? scheme.surface).withAlpha(
-              scheme.brightness == Brightness.dark ? 188 : 174,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: scheme.brightness == Brightness.dark
+                  ? [
+                      (backgroundColor ?? scheme.surface).withAlpha(224),
+                      scheme.surfaceContainerHigh.withAlpha(188),
+                    ]
+                  : [
+                      Colors.white.withAlpha(226),
+                      (backgroundColor ?? scheme.surfaceContainer).withAlpha(
+                        190,
+                      ),
+                    ],
             ),
             border: Border(
-              bottom: BorderSide(color: scheme.outlineVariant.withAlpha(75)),
+              bottom: BorderSide(color: scheme.outlineVariant.withAlpha(110)),
             ),
           ),
           child: AppBar(
@@ -87,22 +99,85 @@ class FrostedBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return IconButton(
+    return FrostedAppBarIconButton(
+      icon: CupertinoIcons.chevron_left,
       tooltip: MaterialLocalizations.of(context).backButtonTooltip,
       onPressed: onPressed ?? () => Navigator.maybePop(context),
-      icon: DecoratedBox(
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHigh.withAlpha(190),
-          shape: BoxShape.circle,
-          border: Border.all(color: scheme.outlineVariant.withAlpha(110)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(7),
-          child: Icon(
-            CupertinoIcons.chevron_left,
-            color: iconColor ?? scheme.onSurface,
-            size: 18,
+      iconColor: iconColor,
+    );
+  }
+}
+
+/// A consistent frosted control for app-bar and detail-screen actions.
+class FrostedAppBarIconButton extends StatelessWidget {
+  const FrostedAppBarIconButton({
+    super.key,
+    required this.icon,
+    required this.onPressed,
+    this.tooltip,
+    this.iconColor,
+  });
+
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final String? tooltip;
+  final Color? iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.all(7),
+      child: ClipOval(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onPressed,
+              child: Tooltip(
+                message: tooltip ?? '',
+                excludeFromSemantics: tooltip == null,
+                child: Ink(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: isDark
+                          ? [
+                              scheme.onSurface.withAlpha(30),
+                              scheme.surfaceContainerHigh.withAlpha(205),
+                            ]
+                          : [
+                              Colors.white.withAlpha(242),
+                              scheme.surfaceContainerHigh.withAlpha(218),
+                            ],
+                    ),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: scheme.outlineVariant.withAlpha(isDark ? 125 : 90),
+                      width: 1.1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: scheme.shadow.withAlpha(isDark ? 55 : 32),
+                        blurRadius: 14,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    icon,
+                    color: iconColor ?? scheme.onSurface,
+                    size: 21,
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),

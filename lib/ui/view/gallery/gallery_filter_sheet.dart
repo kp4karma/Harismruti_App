@@ -10,9 +10,28 @@ import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 
-Future<void> showGalleryFilterSheet(BuildContext context) {
+class GalleryFilterResult {
+  const GalleryFilterResult({
+    required this.selected,
+    required this.filterLabels,
+    required this.selectedCount,
+    this.cleared = false,
+  });
+
+  final Map<String, List<String>> selected;
+  final List<String> filterLabels;
+  final int selectedCount;
+  final bool cleared;
+}
+
+Future<GalleryFilterResult?> showGalleryFilterSheet(
+  BuildContext context, {
+  Map<String, List<String>> initialSelected = const {},
+  List<String> initialFilterLabels = const [],
+  bool openResultScreen = true,
+}) async {
   final isDark = Theme.of(context).brightness == Brightness.dark;
-  return showModalBottomSheet<void>(
+  final result = await showModalBottomSheet<GalleryFilterResult>(
     context: context,
     isScrollControlled: true,
     useSafeArea: false,
@@ -22,14 +41,38 @@ Future<void> showGalleryFilterSheet(BuildContext context) {
       alignment: Alignment.bottomCenter,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: kSheetMaxWidth),
-        child: const GalleryFilterSheet(),
+        child: GalleryFilterSheet(
+          initialSelected: initialSelected,
+          initialFilterLabels: initialFilterLabels,
+        ),
       ),
     ),
   );
+  if (result != null &&
+      !result.cleared &&
+      openResultScreen &&
+      context.mounted) {
+    Get.to(
+      () => GalleryDetailScreen.fromFilters(
+        title: 'Filtered Smruti (${result.selectedCount})',
+        subtitle: '',
+        selected: result.selected,
+        filterLabels: result.filterLabels,
+      ),
+    );
+  }
+  return result;
 }
 
 class GalleryFilterSheet extends StatefulWidget {
-  const GalleryFilterSheet({super.key});
+  const GalleryFilterSheet({
+    super.key,
+    this.initialSelected = const {},
+    this.initialFilterLabels = const [],
+  });
+
+  final Map<String, List<String>> initialSelected;
+  final List<String> initialFilterLabels;
 
   @override
   State<GalleryFilterSheet> createState() => _GalleryFilterSheetState();
@@ -46,17 +89,43 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
   DateTime? _toDate;
   bool _dateScopedToMySmruti = false;
   bool _areDatesLoading = false;
+  late final List<String> _initialFilterLabels;
 
   @override
   void initState() {
     super.initState();
-    _controller.resetFiltersForSheet();
+    _initialFilterLabels = List<String>.of(widget.initialFilterLabels);
+    for (final entry in widget.initialSelected.entries) {
+      if (entry.key == 'my_smruti_scope') continue;
+      _selectedValues[entry.key] = entry.value.toSet();
+    }
+    final dates =
+        _selectedValues['date']
+            ?.map(DateTime.tryParse)
+            .whereType<DateTime>()
+            .toList() ??
+        const <DateTime>[];
+    if (dates.isNotEmpty) {
+      _fromDate = dates.first;
+      if (dates.length > 1) _toDate = dates.last;
+      _dateScopedToMySmruti =
+          widget.initialSelected['my_smruti_scope']?.contains('true') ?? false;
+      _updateDateSelection();
+    }
+    _prepareFilters();
     _searchController.addListener(() {
       setState(() {
         _query = _searchController.text.trim().toLowerCase();
         _selectedIndex = 0;
       });
     });
+  }
+
+  Future<void> _prepareFilters() async {
+    await _controller.resetFiltersForSheet();
+    if (_selectedValues.isNotEmpty) {
+      await _controller.loadFilters(selected: _selectedForApi, force: true);
+    }
   }
 
   @override
@@ -96,21 +165,61 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
     return slug == 'date' && count > 0 ? 1 : count;
   }
 
-  List<String> get _selectedFilterLabels => _selectedOptions.values
-      .expand((options) => options.values)
-      .map((option) => option.label)
-      .toList();
+  List<String> get _selectedFilterLabels {
+    final labels = _selectedOptions.values
+        .expand((options) => options.values)
+        .map((option) => option.label)
+        .toList();
+    return labels.isEmpty && _selectedValues.isNotEmpty
+        ? List<String>.of(_initialFilterLabels)
+        : labels;
+  }
+
+  bool _isPersonalFilterSlug(String slug) {
+    final normalized = slug.trim().toLowerCase();
+    return normalized == 'user_tag' || normalized.startsWith('my_smruti_');
+  }
+
+  void _clearOppositeFilterFamily({required bool selectingPersonal}) {
+    final slugsToRemove = _selectedValues.keys.where((slug) {
+      if (slug == 'date') {
+        return selectingPersonal
+            ? !_dateScopedToMySmruti
+            : _dateScopedToMySmruti;
+      }
+      return selectingPersonal
+          ? !_isPersonalFilterSlug(slug)
+          : _isPersonalFilterSlug(slug);
+    }).toList();
+    for (final slug in slugsToRemove) {
+      _selectedValues.remove(slug);
+      _selectedOptions.remove(slug);
+    }
+    if (slugsToRemove.contains('date')) {
+      _fromDate = null;
+      _toDate = null;
+      _dateScopedToMySmruti = false;
+    }
+  }
 
   void _toggleOption(GalleryFilterGroup group, GalleryFilterOption option) {
     setState(() {
       final values = _selectedValues.putIfAbsent(group.slug, () => <String>{});
-      if (!values.add(option.value)) {
+      if (values.contains(option.value)) {
         values.remove(option.value);
         _selectedOptions[group.slug]?.remove(option.value);
         if (_selectedOptions[group.slug]?.isEmpty ?? false) {
           _selectedOptions.remove(group.slug);
         }
       } else {
+        _clearOppositeFilterFamily(
+          selectingPersonal: _isPersonalFilterSlug(group.slug),
+        );
+        final currentValues = _selectedValues.putIfAbsent(
+          group.slug,
+          () => <String>{},
+        );
+        currentValues.add(option.value);
         _selectedOptions.putIfAbsent(
           group.slug,
           () => <String, GalleryFilterOption>{},
@@ -199,6 +308,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
     );
     if (selected == null || !mounted) return;
     setState(() {
+      _clearOppositeFilterFamily(selectingPersonal: mySmrutiOnly);
       _dateScopedToMySmruti = mySmrutiOnly;
       if (isFrom) {
         _fromDate = selected;
@@ -260,6 +370,20 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
     return availableGroups;
   }
 
+  void _hydrateSelectedOptions(List<GalleryFilterGroup> groups) {
+    for (final group in groups) {
+      final selected = _selectedValues[group.slug];
+      if (selected == null) continue;
+      for (final option in group.options) {
+        if (selected.contains(option.value)) {
+          _selectedOptions
+              .putIfAbsent(group.slug, () => <String, GalleryFilterOption>{})
+              .putIfAbsent(option.value, () => option);
+        }
+      }
+    }
+  }
+
   GalleryFilterGroup _withAvailableOptions(GalleryFilterGroup group) {
     final selected = _selectedValues[group.slug] ?? const <String>{};
     final optionsByValue = <String, GalleryFilterOption>{
@@ -301,29 +425,26 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
   }
 
   void _clearFilters() {
-    if (_selectedValues.isEmpty && _query.isEmpty) return;
-    setState(() {
-      _selectedValues.clear();
-      _selectedOptions.clear();
-      _fromDate = null;
-      _toDate = null;
-      _dateScopedToMySmruti = false;
-      _selectedIndex = 0;
-    });
-    _searchController.clear();
-    _controller.loadFilters(force: true);
+    Navigator.pop(
+      context,
+      const GalleryFilterResult(
+        selected: {},
+        filterLabels: [],
+        selectedCount: 0,
+        cleared: true,
+      ),
+    );
   }
 
   void _applyFilters() {
     final selected = _selectedForApi;
     if (selected.isEmpty) return;
-    Navigator.pop(context);
-    Get.to(
-      () => GalleryDetailScreen.fromFilters(
-        title: 'Filtered Smruti ($_selectedCount)',
-        subtitle: '',
+    Navigator.pop(
+      context,
+      GalleryFilterResult(
         selected: selected,
         filterLabels: _selectedFilterLabels,
+        selectedCount: _selectedCount,
       ),
     );
   }
@@ -426,6 +547,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                 child: Obx(() {
                   final currentGroups = _controller
                       .filtersWithUserTagsForSelection(_selectedForApi);
+                  _hydrateSelectedOptions(currentGroups);
                   if (_controller.areFiltersLoading.value &&
                       currentGroups.isEmpty) {
                     return const _FilterSheetLoading();
@@ -699,6 +821,8 @@ String _filterGroupDisplayTitle(GalleryFilterGroup group) {
       return 'Year';
     case 'my_smruti_with':
       return 'Darshan With';
+    case 'my_smruti_year':
+      return 'Year';
     case 'my_smruti_country':
       return 'Country';
     case 'my_smruti_location':
@@ -724,6 +848,7 @@ String _filterGroupDisplayTitle(GalleryFilterGroup group) {
 int _filterGroupOrder(String slug) {
   return switch (slug.trim().toLowerCase()) {
     'my_smruti' => -1,
+    'my_smruti_year' => 0,
     'my_smruti_with' => 0,
     'my_smruti_country' => 0,
     'my_smruti_location' => 1,

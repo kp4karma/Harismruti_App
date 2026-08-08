@@ -253,6 +253,7 @@ class _ProfileIdCard extends StatelessWidget {
       final hasProfilePicture =
           smrutiPhoto != null ||
           profileController.profileImage.value != null ||
+          profileController.hasUploadedProfileImage.value ||
           profileController.hasAccountAvatar;
       final rows = [
         _ProfileInfoRowData(
@@ -446,11 +447,16 @@ class _ProfileAvatar extends StatelessWidget {
                   errorBuilder: (_, __, ___) => _ProfileInitialAvatar(
                     initial: profileController.avatarInitial,
                   ),
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return _ProfileInitialAvatar(
-                      initial: profileController.avatarInitial,
-                    );
+                  frameBuilder: (context, child, frame, _) {
+                    if (frame == null) {
+                      return _ProfileInitialAvatar(
+                        initial: profileController.avatarInitial,
+                      );
+                    }
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      profileController.markUploadedProfileImageAvailable();
+                    });
+                    return child;
                   },
                 )
               : _ProfileInitialAvatar(initial: profileController.avatarInitial),

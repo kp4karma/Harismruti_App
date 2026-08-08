@@ -25,6 +25,7 @@ import 'package:harismruti/ui/view/gallery/gallery_filter_sheet.dart';
 import 'package:harismruti/ui/view/home/my_diary_smruti.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/responsive.dart';
+import 'package:harismruti/widget/appbar/frosted_appbar.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
 import 'package:latlong2/latlong.dart' hide Path;
@@ -126,6 +127,7 @@ class GalleryDetailScreen extends StatefulWidget {
   final Future<List<GalleryPhoto>> Function(int page)? loadMore;
   final bool showRecentPhotoMetadata;
   final List<String> filterLabels;
+  final Map<String, List<String>>? selectedFilters;
 
   const GalleryDetailScreen({
     super.key,
@@ -136,6 +138,7 @@ class GalleryDetailScreen extends StatefulWidget {
     this.coverUrl,
     this.showRecentPhotoMetadata = false,
     this.filterLabels = const [],
+    this.selectedFilters,
   });
 
   factory GalleryDetailScreen.fromCard(GalleryCard card) {
@@ -176,6 +179,7 @@ class GalleryDetailScreen extends StatefulWidget {
       title: title,
       subtitle: subtitle,
       filterLabels: filterLabels,
+      selectedFilters: selected,
       loader: () => controller.loadPhotosForFilters(selected: selected),
       loadMore: (page) =>
           controller.loadPhotosForFilters(selected: selected, page: page),
@@ -208,10 +212,21 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
   double _downwardTravel = 0;
   double _upwardTravel = 0;
   int _page = 1;
+  late String _title;
+  late List<String> _filterLabels;
+  Map<String, List<String>>? _selectedFilters;
 
   @override
   void initState() {
     super.initState();
+    _title = widget.title;
+    _filterLabels = List<String>.of(widget.filterLabels);
+    _selectedFilters = widget.selectedFilters == null
+        ? null
+        : {
+            for (final entry in widget.selectedFilters!.entries)
+              entry.key: List<String>.of(entry.value),
+          };
     _scrollController.addListener(_onScroll);
     _searchController.addListener(_onSearchChanged);
     _searchFocusNode.addListener(_onSearchFocusChanged);
@@ -291,6 +306,48 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
     }
   }
 
+  Future<void> _openFilters() async {
+    final result = await showGalleryFilterSheet(
+      context,
+      initialSelected: _selectedFilters ?? const {},
+      initialFilterLabels: _filterLabels,
+      openResultScreen: _selectedFilters == null,
+    );
+    if (!mounted || result == null || _selectedFilters == null) return;
+    if (result.cleared) {
+      Navigator.pop(context);
+      return;
+    }
+    setState(() {
+      _selectedFilters = result.selected;
+      _filterLabels = result.filterLabels;
+      _title = 'Filtered Smruti (${result.selectedCount})';
+      _initialLoading = true;
+      _failed = false;
+      _photos.clear();
+      _page = 1;
+      _hasMore = false;
+    });
+    try {
+      final photos = await _galleryController.loadPhotosForFilters(
+        selected: result.selected,
+      );
+      if (!mounted) return;
+      setState(() {
+        _photos.addAll(_dedupe(photos, existing: const []));
+        _initialLoading = false;
+        _hasMore = photos.isNotEmpty;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _initialLoading = false;
+          _failed = true;
+        });
+      }
+    }
+  }
+
   void _onScroll() {
     if (!_scrollController.hasClients) return;
     final position = _scrollController.position;
@@ -351,7 +408,12 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
     setState(() => _isLoadingMore = true);
     final nextPage = _page + 1;
     try {
-      final photos = await widget.loadMore!(nextPage);
+      final photos = _selectedFilters == null
+          ? await widget.loadMore!(nextPage)
+          : await _galleryController.loadPhotosForFilters(
+              selected: _selectedFilters!,
+              page: nextPage,
+            );
       debugPrint(
         'GalleryDetailScreen[${widget.title}]: page=$nextPage returned=${photos.length}',
       );
@@ -493,9 +555,9 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             slivers: [
               _MusicStyleHeader(
-                title: widget.title,
+                title: _title,
                 subtitle: widget.subtitle,
-                filterLabels: widget.filterLabels,
+                filterLabels: _filterLabels,
                 coverUrl: cover,
                 headers: _galleryController.imageHeaders,
                 allowIgnore: _allowIgnore,
@@ -523,7 +585,7 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
               else ...[
                 _MosaicPhotoSliver(
                   photos: visiblePhotos,
-                  title: widget.title,
+                  title: _title,
                   headers: _galleryController.imageHeaders,
                   showRecentPhotoMetadata: widget.showRecentPhotoMetadata,
                   selectionMode: _selectionMode,
@@ -563,7 +625,7 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
                 child: _GalleryBottomSearchBar(
                   controller: _searchController,
                   focusNode: _searchFocusNode,
-                  onFilterTap: () => showGalleryFilterSheet(context),
+                  onFilterTap: _openFilters,
                 ),
               ),
             ),
@@ -732,19 +794,23 @@ class _MusicStyleHeader extends StatelessWidget {
             )
           : null,
       surfaceTintColor: Colors.transparent,
-      leading: _GlassIconButton(
+      leading: FrostedAppBarIconButton(
         icon: selectionMode
             ? CupertinoIcons.xmark
             : CupertinoIcons.chevron_left,
-        onTap: selectionMode ? onCloseSelection : () => Navigator.pop(context),
+        tooltip: selectionMode ? 'Close selection' : 'Back',
+        onPressed: selectionMode
+            ? onCloseSelection
+            : () => Navigator.pop(context),
       ),
       actions: [
         if (allowIgnore)
-          _GlassIconButton(
+          FrostedAppBarIconButton(
             icon: selectionMode
                 ? CupertinoIcons.checkmark_alt_circle_fill
                 : CupertinoIcons.checkmark_alt_circle,
-            onTap: selectionMode ? onCloseSelection : onStartSelection,
+            tooltip: selectionMode ? 'Done' : 'Select photos',
+            onPressed: selectionMode ? onCloseSelection : onStartSelection,
           ),
         const SizedBox(width: 8),
       ],
@@ -3391,12 +3457,12 @@ class _ViewerTopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _ViewerCircleButton(
+        FrostedAppBarIconButton(
           icon: CupertinoIcons.chevron_left,
-          iconColor: Colors.white,
-          onTap: onBack,
+          tooltip: 'Back',
+          onPressed: onBack,
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 4),
         Expanded(
           child: FutureBuilder<GalleryPhotoAttributes>(
             future: attributesFuture,
@@ -3420,9 +3486,10 @@ class _ViewerTopBar extends StatelessWidget {
                   filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                   child: Container(
                     width: double.infinity,
+                    constraints: const BoxConstraints(minHeight: 48),
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 9,
+                      horizontal: 16,
+                      vertical: 7,
                     ),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -3432,8 +3499,8 @@ class _ViewerTopBar extends StatelessWidget {
                                 scheme.surface.withAlpha(108),
                               ]
                             : [
-                                Colors.white.withAlpha(174),
-                                scheme.surface.withAlpha(92),
+                                Colors.white.withAlpha(238),
+                                scheme.surfaceContainerHigh.withAlpha(214),
                               ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -3442,14 +3509,14 @@ class _ViewerTopBar extends StatelessWidget {
                       border: Border.all(
                         color: isDark
                             ? Colors.white.withAlpha(42)
-                            : Colors.white.withAlpha(210),
+                            : scheme.outlineVariant.withAlpha(115),
                         width: 1.1,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withAlpha(30),
-                          blurRadius: 22,
-                          offset: const Offset(0, 10),
+                          color: scheme.shadow.withAlpha(isDark ? 55 : 36),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
                         ),
                       ],
                     ),
@@ -3506,10 +3573,10 @@ class _ViewerTopBar extends StatelessWidget {
                     ),
                   ),
                 )
-              : _GlassIconButton(
+              : FrostedAppBarIconButton(
                   icon: CupertinoIcons.eye_slash_fill,
-                  iconColor: Colors.white,
-                  onTap: onIgnore,
+                  tooltip: 'Ignore photo',
+                  onPressed: onIgnore,
                 )
         else
           const SizedBox(width: 54),
@@ -3643,9 +3710,10 @@ class _ViewerActions extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 26),
       child: Row(
         children: [
-          _ViewerCircleButton(
+          FrostedAppBarIconButton(
             icon: CupertinoIcons.square_arrow_up,
-            onTap: onShare,
+            tooltip: 'Share',
+            onPressed: onShare,
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -3713,71 +3781,12 @@ class _ViewerActions extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          _ViewerCircleButton(
+          FrostedAppBarIconButton(
             icon: CupertinoIcons.collections,
-            onTap: onCollection,
+            tooltip: 'Add to collection',
+            onPressed: onCollection,
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ViewerCircleButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final Color? iconColor;
-
-  const _ViewerCircleButton({
-    required this.icon,
-    required this.onTap,
-    this.iconColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return GestureDetector(
-      onTap: onTap,
-      child: ClipOval(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: isDark
-                    ? [
-                        Colors.white.withAlpha(25),
-                        scheme.surface.withAlpha(105),
-                      ]
-                    : [
-                        Colors.white.withAlpha(176),
-                        scheme.surface.withAlpha(90),
-                      ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isDark
-                    ? Colors.white.withAlpha(42)
-                    : Colors.white.withAlpha(210),
-                width: 1.1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(isDark ? 45 : 18),
-                  blurRadius: 18,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Icon(icon, color: iconColor ?? scheme.onSurface, size: 22),
-          ),
-        ),
       ),
     );
   }
@@ -4431,69 +4440,6 @@ const _tagColors = [
   Color(0xFFB23A48),
   Color(0xFF4062BB),
 ];
-
-class _GlassIconButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final Color? iconColor;
-
-  const _GlassIconButton({
-    required this.icon,
-    required this.onTap,
-    this.iconColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.all(8),
-      child: ClipOval(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: onTap,
-              child: Ink(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: isDark
-                        ? [
-                            Colors.white.withAlpha(30),
-                            const Color(0xFF171211).withAlpha(190),
-                          ]
-                        : [
-                            Colors.white.withAlpha(176),
-                            scheme.surface.withAlpha(90),
-                          ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white.withAlpha(52)
-                        : Colors.white.withAlpha(210),
-                    width: 1.1,
-                  ),
-                ),
-                child: Icon(
-                  icon,
-                  color: iconColor ?? (isDark ? Colors.white : primaryColor),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _DetailShimmerMosaic extends StatelessWidget {
   const _DetailShimmerMosaic();
