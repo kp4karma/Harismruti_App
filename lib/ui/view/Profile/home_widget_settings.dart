@@ -8,7 +8,6 @@ import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/services/phone_smruti_widget_service.dart';
 import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
-import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/widget/appbar/detail_appbar.dart';
 import 'package:harismruti/widget/background/custom_background.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
@@ -97,6 +96,8 @@ class _HomeWidgetSettingsScreenState extends State<HomeWidgetSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final gallery = Get.find<GalleryController>();
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return CustomBackground(
       child: Scaffold(
         appBar: DetailAppbar(
@@ -110,13 +111,16 @@ class _HomeWidgetSettingsScreenState extends State<HomeWidgetSettingsScreen> {
           itemBuilder: (context, index) {
             final design = _designs[index];
             return Card(
-              elevation: 7,
-              shadowColor: Colors.black.withAlpha(36),
-              surfaceTintColor: Colors.white,
-              color: Colors.white,
+              elevation: isDark ? 0 : 7,
+              shadowColor: Colors.black.withAlpha(isDark ? 0 : 36),
+              surfaceTintColor: Colors.transparent,
+              color: scheme.surfaceContainer,
               margin: EdgeInsets.zero,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
+                side: BorderSide(
+                  color: scheme.outlineVariant.withAlpha(isDark ? 150 : 70),
+                ),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(11),
@@ -137,10 +141,14 @@ class _HomeWidgetSettingsScreenState extends State<HomeWidgetSettingsScreen> {
                           width: 46,
                           height: 46,
                           decoration: BoxDecoration(
-                            color: primaryColor.withAlpha(24),
+                            color: scheme.primaryContainer,
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: Icon(design.$3, color: primaryColor, size: 24),
+                          child: Icon(
+                            design.$3,
+                            color: scheme.onPrimaryContainer,
+                            size: 24,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -149,7 +157,8 @@ class _HomeWidgetSettingsScreenState extends State<HomeWidgetSettingsScreen> {
                             children: [
                               Text(
                                 design.$1,
-                                style: const TextStyle(
+                                style: TextStyle(
+                                  color: scheme.onSurface,
                                   fontSize: 16,
                                   fontWeight: FontWeight.w800,
                                 ),
@@ -158,9 +167,7 @@ class _HomeWidgetSettingsScreenState extends State<HomeWidgetSettingsScreen> {
                               Text(
                                 design.$2,
                                 style: TextStyle(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
+                                  color: scheme.onSurfaceVariant,
                                   fontSize: 12,
                                 ),
                               ),

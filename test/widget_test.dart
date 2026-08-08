@@ -79,6 +79,21 @@ void main() {
     expect(find.text('Darshan With'), findsOneWidget);
     expect(find.text('City'), findsOneWidget);
     expect(find.text('Smruti'), findsWidgets);
+
+    await tester.scrollUntilVisible(
+      find.text('Darshan Of'),
+      120,
+      scrollable: find.byType(Scrollable).last,
+    );
     expect(find.text('Darshan Of'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Date Range'),
+      120,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('Date Range'), findsOneWidget);
+    expect(find.text('From'), findsOneWidget);
+    expect(find.text('To'), findsOneWidget);
   });
 }

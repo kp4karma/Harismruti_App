@@ -12,6 +12,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:gal/gal.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/api_endpoints.dart';
+import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/api/repositories/gallery_repository.dart';
 import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:http/http.dart' as http;
@@ -20,7 +21,8 @@ import 'package:harismruti/utils/firebase_options.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/services/notification_history_service.dart';
 import 'package:harismruti/services/phone_smruti_widget_service.dart';
-import 'package:harismruti/ui/view/notification/notification_image_screen.dart';
+import 'package:harismruti/ui/controller/gallery_controller.dart';
+import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:path_provider/path_provider.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -369,7 +371,11 @@ class NotificationService {
     }
     final imageUrl = _imageUrl(message);
     if (imageUrl.isNotEmpty) {
-      _openImage(imageUrl, message.notification?.title);
+      _openImage(
+        imageUrl,
+        message.notification?.title,
+        photoId: int.tryParse('${message.data['photo_id'] ?? ''}'),
+      );
       return;
     }
     _navigateFromData(message.data);
@@ -383,7 +389,14 @@ class NotificationService {
     }
     final imageUrl = entry['image_url']?.toString().trim() ?? '';
     if (imageUrl.isNotEmpty) {
-      _openImage(imageUrl, entry['title']?.toString());
+      final notificationData = data is Map
+          ? Map<String, dynamic>.from(data)
+          : const <String, dynamic>{};
+      _openImage(
+        imageUrl,
+        entry['title']?.toString(),
+        photoId: int.tryParse('${notificationData['photo_id'] ?? ''}'),
+      );
       return;
     }
     if (data is Map) {
@@ -461,15 +474,34 @@ class NotificationService {
     }
   }
 
-  static void _openImage(String imageUrl, String? title) {
+  static void _openImage(String imageUrl, String? title, {int? photoId}) {
     if (Get.key.currentContext == null) {
       WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _openImage(imageUrl, title),
+        (_) => _openImage(imageUrl, title, photoId: photoId),
       );
       return;
     }
+    final controller = Get.find<GalleryController>();
+    final matchingPhoto = photoId == null
+        ? null
+        : controller.recentPhotos.firstWhereOrNull(
+            (photo) => photo.id == photoId,
+          );
+    final notificationPhoto = GalleryPhoto.fromJson({
+      if (matchingPhoto != null) ...matchingPhoto.toJson(),
+      'id': photoId ?? matchingPhoto?.id ?? 0,
+      'thumbnail_url': imageUrl,
+      'full_url': imageUrl,
+      if (title?.trim().isNotEmpty == true) 'title': title!.trim(),
+    });
     Get.to(
-      () => NotificationImageScreen(imageUrl: imageUrl, title: title),
+      () => GalleryFullscreenViewer(
+        photos: controller.recentPhotos.toList(growable: false),
+        leadingPhotos: [notificationPhoto],
+        initialIndex: 0,
+        title: 'Recent Smruti',
+        isRecentFeed: true,
+      ),
       transition: Transition.cupertino,
     );
   }

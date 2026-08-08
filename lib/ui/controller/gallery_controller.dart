@@ -74,11 +74,13 @@ class GalleryController extends GetxController {
     : _repository = repository ?? const GalleryRepository();
 
   static const int _recentPerPage = 60;
+  static const Duration _slowHomeLoadThreshold = Duration(seconds: 4);
 
   final GalleryRepository _repository;
 
   final RxBool isLoading = false.obs;
   final RxBool isRefreshing = false.obs;
+  final RxBool isSlowConnection = false.obs;
   final RxString errorMessage = ''.obs;
   final RxBool isRecentPageLoading = false.obs;
   final RxBool hasMoreRecentPhotos = true.obs;
@@ -1031,7 +1033,8 @@ class GalleryController extends GetxController {
     required Map<String, List<String>> selected,
     int page = 1,
   }) async {
-    if (selected.keys.any(_mySmrutiFilterSlugs.contains)) {
+    if (selected.containsKey(_mySmrutiScopeFilterSlug) ||
+        selected.keys.any(_mySmrutiFilterSlugs.contains)) {
       if (mySmrutiPhotos.isEmpty) {
         await loadMySmrutiFilterPhotos();
       }
@@ -1083,6 +1086,24 @@ class GalleryController extends GetxController {
           .toList();
     }
 
+    final selectedDates =
+        (selected['date'] ?? const <String>[])
+            .map(DateTime.tryParse)
+            .whereType<DateTime>()
+            .toList()
+          ..sort();
+    if (selectedDates.isNotEmpty) {
+      final from = selectedDates.first;
+      final to = selectedDates.length > 1 ? selectedDates.last : from;
+      matches = matches.where((photo) {
+        final rawDate = photo.eventDate;
+        if (rawDate == null) return false;
+        final localDate = rawDate.toLocal();
+        final date = DateTime(localDate.year, localDate.month, localDate.day);
+        return !date.isBefore(from) && !date.isAfter(to);
+      }).toList();
+    }
+
     final selectedUserTags = selected[_userTagFilterSlug] ?? const <String>[];
     if (selectedUserTags.isNotEmpty) {
       final wantedUserTags = selectedUserTags
@@ -1099,7 +1120,9 @@ class GalleryController extends GetxController {
     }
 
     final serverSelected = Map<String, List<String>>.from(selected)
-      ..remove(_userTagFilterSlug);
+      ..remove(_userTagFilterSlug)
+      ..remove(_mySmrutiScopeFilterSlug)
+      ..remove('date');
     for (final slug in _mySmrutiFilterSlugs) {
       serverSelected.remove(slug);
     }
@@ -1309,6 +1332,10 @@ class GalleryController extends GetxController {
     required bool force,
     required GallerySwami requestedSwami,
   }) async {
+    final loadTimer = Stopwatch()..start();
+    final slowConnectionTimer = Timer(_slowHomeLoadThreshold, () {
+      if (!isClosed) isSlowConnection.value = true;
+    });
     if (!hasAnyData) {
       isLoading.value = true;
     }
@@ -1353,6 +1380,11 @@ class GalleryController extends GetxController {
       if (selectedSwami.value != requestedSwami) return;
       errorMessage.value = error.toString().replaceFirst('Exception: ', '');
     } finally {
+      slowConnectionTimer.cancel();
+      loadTimer.stop();
+      if (loadTimer.elapsed < _slowHomeLoadThreshold) {
+        isSlowConnection.value = false;
+      }
       isLoading.value = false;
     }
   }
@@ -1635,6 +1667,7 @@ class GalleryController extends GetxController {
   }
 
   static const String _userTagFilterSlug = 'user_tag';
+  static const String _mySmrutiScopeFilterSlug = 'my_smruti_scope';
   static const String _mySmrutiWithFilterSlug = 'my_smruti_with';
   static const String _mySmrutiCountryFilterSlug = 'my_smruti_country';
   static const String _mySmrutiLocationFilterSlug = 'my_smruti_location';
@@ -1661,6 +1694,7 @@ class GalleryController extends GetxController {
       selected.entries.where(
         (entry) =>
             entry.key != _userTagFilterSlug &&
+            entry.key != _mySmrutiScopeFilterSlug &&
             !_mySmrutiFilterSlugs.contains(entry.key),
       ),
     );

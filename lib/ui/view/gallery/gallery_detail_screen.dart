@@ -21,6 +21,7 @@ import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/controller/my_photos_controller.dart';
 import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
 import 'package:harismruti/ui/view/gallery/gallery_location_screen.dart';
+import 'package:harismruti/ui/view/gallery/gallery_filter_sheet.dart';
 import 'package:harismruti/ui/view/home/my_diary_smruti.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/responsive.dart';
@@ -31,8 +32,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pro_image_editor/pro_image_editor.dart';
 import 'package:share_plus/share_plus.dart';
 
-const double _homeAppbarBlurSigma = 24;
-const int _homeAppbarGlassAlpha = 125;
+const double _homeAppbarBlurSigma = 28;
 const MethodChannel _wallpaperChannel = MethodChannel(
   'org.hp.harismruti/wallpaper',
 );
@@ -96,17 +96,19 @@ Widget _transparentPhotoHeroFlight(
 Widget _themedPhotoActionSheet(BuildContext context, Widget child) {
   final materialTheme = Theme.of(context);
   final scheme = materialTheme.colorScheme;
+  final isDark = materialTheme.brightness == Brightness.dark;
+  final foregroundColor = isDark ? Colors.white : primaryColor;
   return CupertinoTheme(
     data: CupertinoThemeData(
       brightness: materialTheme.brightness,
-      primaryColor: primaryColor,
+      primaryColor: foregroundColor,
       scaffoldBackgroundColor: scheme.surface,
       barBackgroundColor: scheme.surfaceContainerHigh,
       textTheme: CupertinoTextThemeData(
-        primaryColor: primaryColor,
-        textStyle: TextStyle(color: scheme.onSurface),
+        primaryColor: foregroundColor,
+        textStyle: TextStyle(color: isDark ? Colors.white : scheme.onSurface),
         actionTextStyle: TextStyle(
-          color: primaryColor,
+          color: foregroundColor,
           fontSize: 20,
           fontWeight: FontWeight.w500,
         ),
@@ -191,6 +193,8 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
   final GalleryRepository _repository = const GalleryRepository();
   final Set<int> _ignoredPhotoIds = {};
   final Set<int> _selectedPhotoIds = {};
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
 
   bool _initialLoading = true;
   bool _allowIgnore = false;
@@ -199,12 +203,18 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
   bool _isLoadingMore = false;
   bool _hasMore = false;
   bool _failed = false;
+  bool _showBottomBar = true;
+  double _lastScrollOffset = 0;
+  double _downwardTravel = 0;
+  double _upwardTravel = 0;
   int _page = 1;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _searchController.addListener(_onSearchChanged);
+    _searchFocusNode.addListener(_onSearchFocusChanged);
     _loadInitial();
   }
 
@@ -212,7 +222,23 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    _searchFocusNode.removeListener(_onSearchFocusChanged);
+    _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged() => setState(() {});
+
+  void _onSearchFocusChanged() {
+    if (!mounted) return;
+    if (_searchFocusNode.hasFocus) {
+      _showBottomBar = true;
+      _downwardTravel = 0;
+      _upwardTravel = 0;
+    }
+    setState(() {});
   }
 
   Future<void> _loadInitial() async {
@@ -267,8 +293,57 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    final currentOffset = position.pixels.clamp(0.0, position.maxScrollExtent);
+    final delta = currentOffset - _lastScrollOffset;
+    _lastScrollOffset = currentOffset;
+
+    if (!_searchFocusNode.hasFocus) {
+      if (currentOffset <= 32) {
+        _downwardTravel = 0;
+        _upwardTravel = 0;
+        if (!_showBottomBar) setState(() => _showBottomBar = true);
+      } else if (delta > 0) {
+        _downwardTravel += delta;
+        _upwardTravel = 0;
+        if (_showBottomBar && _downwardTravel >= 28) {
+          _downwardTravel = 0;
+          setState(() => _showBottomBar = false);
+        }
+      } else if (delta < 0) {
+        _upwardTravel -= delta;
+        _downwardTravel = 0;
+        if (!_showBottomBar && _upwardTravel >= 20) {
+          _upwardTravel = 0;
+          setState(() => _showBottomBar = true);
+        }
+      }
+    }
     if (_scrollController.position.extentAfter > 600) return;
     _loadMore();
+  }
+
+  List<GalleryPhoto> get _visiblePhotos {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) return _photos;
+    return _photos
+        .where((photo) {
+          final searchable = [
+            photo.title,
+            photo.subtitle,
+            photo.fileName,
+            photo.country,
+            photo.location,
+            photo.subLocation,
+            photo.album,
+            photo.smrutiWith,
+            photo.darshanOf,
+            photo.smrutiOf,
+            ...photo.tags,
+          ].whereType<String>().join(' ').toLowerCase();
+          return searchable.contains(query);
+        })
+        .toList(growable: false);
   }
 
   Future<void> _loadMore() async {
@@ -383,6 +458,7 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final visiblePhotos = _visiblePhotos;
     final cover = widget.coverUrl?.isNotEmpty == true
         ? widget.coverUrl!
         : _photos.isNotEmpty
@@ -409,60 +485,199 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
               label: Text('Ignore ${_selectedPhotoIds.length}'),
             )
           : null,
-      body: CustomScrollView(
-        controller: _scrollController,
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          _MusicStyleHeader(
-            title: widget.title,
-            subtitle: widget.subtitle,
-            filterLabels: widget.filterLabels,
-            coverUrl: cover,
-            headers: _galleryController.imageHeaders,
-            allowIgnore: _allowIgnore,
-            selectionMode: _selectionMode,
-            selectedCount: _selectedPhotoIds.length,
-            onStartSelection: () => setState(() => _selectionMode = true),
-            onCloseSelection: _closeSelection,
-          ),
-          if (_initialLoading)
-            const SliverPadding(
-              padding: EdgeInsets.all(16),
-              sliver: _DetailShimmerMosaic(),
-            )
-          else if (_photos.isEmpty)
-            SliverToBoxAdapter(
-              child: GalleryEmptyState(
-                height: 260,
-                message: _failed ? 'Unable to load photos' : 'No photos found',
+      body: Stack(
+        children: [
+          CustomScrollView(
+            controller: _scrollController,
+            physics: const BouncingScrollPhysics(),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            slivers: [
+              _MusicStyleHeader(
+                title: widget.title,
+                subtitle: widget.subtitle,
+                filterLabels: widget.filterLabels,
+                coverUrl: cover,
+                headers: _galleryController.imageHeaders,
+                allowIgnore: _allowIgnore,
+                selectionMode: _selectionMode,
+                selectedCount: _selectedPhotoIds.length,
+                onStartSelection: () => setState(() => _selectionMode = true),
+                onCloseSelection: _closeSelection,
               ),
-            )
-          else ...[
-            _MosaicPhotoSliver(
-              photos: _photos,
-              title: widget.title,
-              headers: _galleryController.imageHeaders,
-              showRecentPhotoMetadata: widget.showRecentPhotoMetadata,
-              selectionMode: _selectionMode,
-              selectedPhotoIds: _selectedPhotoIds,
-              onToggleSelection: _toggleSelection,
+              if (_initialLoading)
+                const SliverPadding(
+                  padding: EdgeInsets.all(16),
+                  sliver: _DetailShimmerMosaic(),
+                )
+              else if (visiblePhotos.isEmpty)
+                SliverToBoxAdapter(
+                  child: GalleryEmptyState(
+                    height: 260,
+                    message: _failed
+                        ? 'Unable to load photos'
+                        : _searchController.text.trim().isNotEmpty
+                        ? 'No matching photos found'
+                        : 'No photos found',
+                  ),
+                )
+              else ...[
+                _MosaicPhotoSliver(
+                  photos: visiblePhotos,
+                  title: widget.title,
+                  headers: _galleryController.imageHeaders,
+                  showRecentPhotoMetadata: widget.showRecentPhotoMetadata,
+                  selectionMode: _selectionMode,
+                  selectedPhotoIds: _selectedPhotoIds,
+                  onToggleSelection: _toggleSelection,
+                ),
+                if (_isLoadingMore)
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Center(
+                        child: SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2.4),
+                        ),
+                      ),
+                    ),
+                  ),
+                const SliverToBoxAdapter(child: SizedBox(height: 112)),
+              ],
+            ],
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: AnimatedSlide(
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+              offset: _showBottomBar || _searchFocusNode.hasFocus
+                  ? Offset.zero
+                  : const Offset(0, 1.15),
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 180),
+                opacity: _showBottomBar || _searchFocusNode.hasFocus ? 1 : 0,
+                child: _GalleryBottomSearchBar(
+                  controller: _searchController,
+                  focusNode: _searchFocusNode,
+                  onFilterTap: () => showGalleryFilterSheet(context),
+                ),
+              ),
             ),
-            if (_isLoadingMore)
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Center(
-                    child: SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2.4),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GalleryBottomSearchBar extends StatelessWidget {
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final VoidCallback onFilterTap;
+
+  const _GalleryBottomSearchBar({
+    required this.controller,
+    required this.focusNode,
+    required this.onFilterTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            28,
+            16,
+            MediaQuery.of(context).padding.bottom + 8,
+          ),
+          decoration: BoxDecoration(
+            backgroundBlendMode: BlendMode.dstOut,
+            gradient: LinearGradient(
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+              stops: const [0.5, 0.7, 0.9, 1],
+              colors: [
+                Colors.transparent,
+                scheme.surface.withAlpha(60),
+                scheme.surface,
+                scheme.surface,
+              ],
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  onTapOutside: (_) => focusNode.unfocus(),
+                  textInputAction: TextInputAction.search,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: InputDecoration(
+                    hintText: 'Search smruti',
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 11),
+                    prefixIcon: Icon(
+                      CupertinoIcons.search,
+                      color: primaryColor,
+                      size: 19,
+                    ),
+                    suffixIcon: controller.text.isEmpty
+                        ? null
+                        : IconButton(
+                            onPressed: controller.clear,
+                            icon: const Icon(
+                              CupertinoIcons.xmark_circle_fill,
+                              size: 18,
+                            ),
+                          ),
+                    filled: true,
+                    fillColor: scheme.surfaceContainerHigh,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(
+                        color: scheme.outlineVariant.withAlpha(80),
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: primaryColor),
                     ),
                   ),
                 ),
               ),
-            const SliverToBoxAdapter(child: SizedBox(height: 28)),
-          ],
-        ],
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: onFilterTap,
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: primaryColor,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.tune_rounded,
+                    color: Colors.white,
+                    size: 21,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -496,12 +711,17 @@ class _MusicStyleHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const expandedHeight = 430.0;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return SliverAppBar(
       pinned: true,
       stretch: true,
       centerTitle: true,
       expandedHeight: expandedHeight,
       backgroundColor: Colors.transparent,
+      systemOverlayStyle: isDark
+          ? SystemUiOverlayStyle.light
+          : SystemUiOverlayStyle.dark,
       title: selectionMode
           ? Text(
               '$selectedCount selected',
@@ -643,9 +863,18 @@ class _HeaderGlassLayer extends StatelessWidget {
           sigmaY: _homeAppbarBlurSigma,
         ),
         child: Container(
-          color: Theme.of(
-            context,
-          ).colorScheme.surface.withAlpha(_homeAppbarGlassAlpha),
+          decoration: BoxDecoration(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF171211).withAlpha(220)
+                : const Color(0xFFFFFBF8).withAlpha(218),
+            border: Border(
+              bottom: BorderSide(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white.withAlpha(22)
+                    : Colors.black.withAlpha(16),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -918,6 +1147,7 @@ class _MosaicTile extends StatelessWidget {
 
 class GalleryFullscreenViewer extends StatefulWidget {
   final List<GalleryPhoto> photos;
+  final List<GalleryPhoto> leadingPhotos;
   final int initialIndex;
   final String title;
   final bool showRecentPhotoMetadata;
@@ -927,6 +1157,7 @@ class GalleryFullscreenViewer extends StatefulWidget {
   const GalleryFullscreenViewer({
     super.key,
     required this.photos,
+    this.leadingPhotos = const [],
     required this.initialIndex,
     required this.title,
     this.showRecentPhotoMetadata = false,
@@ -983,7 +1214,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     super.initState();
     _localPhotos = List<GalleryPhoto>.of(widget.photos);
     _index = widget.initialIndex;
-    _allowIgnore = false;
+    _allowIgnore = _isMySmruti;
     _loadIgnoreFeature();
     _pageController = PageController(initialPage: widget.initialIndex);
     _thumbnailScrollController = ScrollController();
@@ -1047,8 +1278,24 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     super.dispose();
   }
 
-  List<GalleryPhoto> get _photosList =>
-      widget.isRecentFeed ? _controller.recentPhotos : _localPhotos;
+  List<GalleryPhoto> get _photosList {
+    final photos = widget.isRecentFeed
+        ? _controller.recentPhotos
+        : _localPhotos;
+    if (widget.leadingPhotos.isEmpty) return photos;
+    final leadingUrls = widget.leadingPhotos
+        .expand((photo) => [photo.fullUrl, photo.thumbnailUrl])
+        .where((url) => url.isNotEmpty)
+        .toSet();
+    return <GalleryPhoto>[
+      ...widget.leadingPhotos,
+      ...photos.where(
+        (photo) =>
+            !leadingUrls.contains(photo.fullUrl) &&
+            !leadingUrls.contains(photo.thumbnailUrl),
+      ),
+    ];
+  }
 
   GalleryPhoto get _photo => _photosList[_index];
 
@@ -1857,9 +2104,13 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
         forMySmruti: _isMySmruti,
       );
       if (!mounted) return;
-      setState(() => _allowIgnore = features['allow_ignore'] == true);
+      setState(
+        () => _allowIgnore = _isMySmruti || features['allow_ignore'] == true,
+      );
     } catch (_) {
-      // Ignore button simply stays hidden if the feature flag can't load.
+      // My Smruti ignore is a standard self-service action. Other sections
+      // remain hidden when their admin-controlled feature flag cannot load.
+      if (mounted && _isMySmruti) setState(() => _allowIgnore = true);
     }
   }
 
@@ -1891,7 +2142,9 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     setState(() => _isIgnoring = true);
     try {
       final photoId = _photo.id;
-      final ignored = await _repository.ignorePhotos({photoId});
+      final ignored = await _repository.ignorePhotos({
+        photoId,
+      }, forMySmruti: _isMySmruti);
       if (!mounted) return;
       if (ignored.isEmpty) {
         TopNotification.error('Unable to ignore this photo');
@@ -2581,6 +2834,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                                   attributesFuture: _attributesFor(_photo.id),
                                   imageSizeFuture: _imageSizeFor(_photo),
                                   storageSizeFuture: _storageSizeFor(_photo),
+                                  onDismiss: _toggleInfoPanel,
                                 ),
                               )
                             : const SizedBox(width: double.infinity),
@@ -3095,7 +3349,11 @@ class _ViewerTopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _ViewerCircleButton(icon: CupertinoIcons.chevron_left, onTap: onBack),
+        _ViewerCircleButton(
+          icon: CupertinoIcons.chevron_left,
+          iconColor: Colors.white,
+          onTap: onBack,
+        ),
         const SizedBox(width: 10),
         Expanded(
           child: FutureBuilder<GalleryPhotoAttributes>(
@@ -3200,7 +3458,7 @@ class _ViewerTopBar extends StatelessWidget {
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2.2,
-                          color: primaryColor,
+                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -3208,6 +3466,7 @@ class _ViewerTopBar extends StatelessWidget {
                 )
               : _GlassIconButton(
                   icon: CupertinoIcons.eye_slash_fill,
+                  iconColor: Colors.white,
                   onTap: onIgnore,
                 )
         else
@@ -3425,8 +3684,13 @@ class _ViewerActions extends StatelessWidget {
 class _ViewerCircleButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
+  final Color? iconColor;
 
-  const _ViewerCircleButton({required this.icon, required this.onTap});
+  const _ViewerCircleButton({
+    required this.icon,
+    required this.onTap,
+    this.iconColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -3469,7 +3733,7 @@ class _ViewerCircleButton extends StatelessWidget {
                 ),
               ],
             ),
-            child: Icon(icon, color: scheme.onSurface, size: 22),
+            child: Icon(icon, color: iconColor ?? scheme.onSurface, size: 22),
           ),
         ),
       ),
@@ -3572,149 +3836,187 @@ String? _formatBytes(int? bytes) {
   return '${value.toStringAsFixed(decimals)} ${units[unitIndex]}';
 }
 
-class _InlineInfoPanel extends StatelessWidget {
+class _InlineInfoPanel extends StatefulWidget {
   final GalleryPhoto photo;
   final Future<GalleryPhotoAttributes> attributesFuture;
   final Future<String> imageSizeFuture;
   final Future<String> storageSizeFuture;
+  final VoidCallback onDismiss;
+
   const _InlineInfoPanel({
     required this.photo,
     required this.attributesFuture,
     required this.imageSizeFuture,
     required this.storageSizeFuture,
+    required this.onDismiss,
   });
 
   @override
+  State<_InlineInfoPanel> createState() => _InlineInfoPanelState();
+}
+
+class _InlineInfoPanelState extends State<_InlineInfoPanel> {
+  double _downwardDrag = 0;
+
+  void _handleDragUpdate(DragUpdateDetails details) {
+    _downwardDrag = (_downwardDrag + details.delta.dy).clamp(0.0, 120.0);
+  }
+
+  void _handleDragEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    final shouldDismiss = _downwardDrag > 45 || velocity > 350;
+    _downwardDrag = 0;
+    if (shouldDismiss) widget.onDismiss();
+  }
+
+  void _handleDragCancel() => _downwardDrag = 0;
+
+  @override
   Widget build(BuildContext context) {
+    final photo = widget.photo;
+    final attributesFuture = widget.attributesFuture;
+    final imageSizeFuture = widget.imageSizeFuture;
+    final storageSizeFuture = widget.storageSizeFuture;
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     const borderRadius = BorderRadius.vertical(top: Radius.circular(20));
-    return ClipRRect(
-      borderRadius: borderRadius,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-        child: Container(
-          width: double.infinity,
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.42,
-          ),
-          padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
-          decoration: BoxDecoration(
-            color: isDark
-                ? scheme.surfaceContainerHigh.withAlpha(190)
-                : scheme.surfaceContainerHigh,
-            borderRadius: borderRadius,
-            border: isDark
-                ? Border(top: BorderSide(color: Colors.white.withAlpha(28)))
-                : null,
-          ),
-          child: FutureBuilder<GalleryPhotoAttributes>(
-            future: attributesFuture,
-            builder: (context, snapshot) {
-              final attrs = snapshot.data;
-              final entries = attrs?.entries ?? const [];
-              return SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Photo Details',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      _formatDateTime(photo.eventDate) ?? 'Not available',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    FutureBuilder<List<String>>(
-                      future: Future.wait([imageSizeFuture, storageSizeFuture]),
-                      builder: (context, snapshot) {
-                        final data = snapshot.data;
-                        final parts = [
-                          if (data != null && data[0] != 'Not available')
-                            data[0],
-                          if (data != null && data[1] != 'Not available')
-                            data[1],
-                        ];
-                        return Text(
-                          parts.isEmpty ? 'Loading...' : parts.join(' • '),
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    if (kDebugMode) ...[
-                      _TagInfoCard(
-                        label: 'Image Name',
-                        value: _debugImageFileName(photo),
-                        color: const Color(0xFF5965D8),
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-                    const Text(
-                      'Image Tags',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    if (snapshot.connectionState != ConnectionState.done)
-                      const GalleryShimmerBox(height: 86, borderRadius: 18)
-                    else if (entries.isEmpty)
-                      Text(
-                        'No tags added',
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onVerticalDragUpdate: _handleDragUpdate,
+      onVerticalDragEnd: _handleDragEnd,
+      onVerticalDragCancel: _handleDragCancel,
+      child: ClipRRect(
+        borderRadius: borderRadius,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+          child: Container(
+            width: double.infinity,
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.42,
+            ),
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? scheme.surfaceContainerHigh.withAlpha(190)
+                  : scheme.surfaceContainerHigh,
+              borderRadius: borderRadius,
+              border: isDark
+                  ? Border(top: BorderSide(color: Colors.white.withAlpha(28)))
+                  : null,
+            ),
+            child: FutureBuilder<GalleryPhotoAttributes>(
+              future: attributesFuture,
+              builder: (context, snapshot) {
+                final attrs = snapshot.data;
+                final entries = attrs?.entries ?? const [];
+                return SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Photo Details',
                         style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        _formatDateTime(photo.eventDate) ?? 'Not available',
+                        style: const TextStyle(
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
-                      )
-                    else
-                      Column(
-                        children: [
-                          for (var i = 0; i < entries.length; i++)
-                            Padding(
-                              padding: EdgeInsets.only(
-                                bottom: i == entries.length - 1 ? 0 : 10,
-                              ),
-                              child: _TagInfoCard(
-                                label: entries[i].key,
-                                value: entries[i].value,
-                                color: _tagColors[i % _tagColors.length],
-                              ),
-                            ),
-                        ],
                       ),
-                    if ((attrs?.placeLabel ?? '').isNotEmpty) ...[
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 3),
+                      FutureBuilder<List<String>>(
+                        future: Future.wait([
+                          imageSizeFuture,
+                          storageSizeFuture,
+                        ]),
+                        builder: (context, snapshot) {
+                          final data = snapshot.data;
+                          final parts = [
+                            if (data != null && data[0] != 'Not available')
+                              data[0],
+                            if (data != null && data[1] != 'Not available')
+                              data[1],
+                          ];
+                          return Text(
+                            parts.isEmpty ? 'Loading...' : parts.join(' • '),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      if (kDebugMode) ...[
+                        _TagInfoCard(
+                          label: 'Image Name',
+                          value: _debugImageFileName(photo),
+                          color: const Color(0xFF5965D8),
+                        ),
+                        const SizedBox(height: 14),
+                      ],
                       const Text(
-                        'Location',
+                        'Image Tags',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
                       const SizedBox(height: 10),
-                      _InfoMapCard(attrs: attrs!, photo: photo),
+                      if (snapshot.connectionState != ConnectionState.done)
+                        const GalleryShimmerBox(height: 86, borderRadius: 18)
+                      else if (entries.isEmpty)
+                        Text(
+                          'No tags added',
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        )
+                      else
+                        Column(
+                          children: [
+                            for (var i = 0; i < entries.length; i++)
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  bottom: i == entries.length - 1 ? 0 : 10,
+                                ),
+                                child: _TagInfoCard(
+                                  label: entries[i].key,
+                                  value: entries[i].value,
+                                  color: _tagColors[i % _tagColors.length],
+                                ),
+                              ),
+                          ],
+                        ),
+                      if ((attrs?.placeLabel ?? '').isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Location',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        _InfoMapCard(attrs: attrs!, photo: photo),
+                      ],
                     ],
-                  ],
-                ),
-              );
-            },
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -4091,8 +4393,13 @@ const _tagColors = [
 class _GlassIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
+  final Color? iconColor;
 
-  const _GlassIconButton({required this.icon, required this.onTap});
+  const _GlassIconButton({
+    required this.icon,
+    required this.onTap,
+    this.iconColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -4115,8 +4422,8 @@ class _GlassIconButton extends StatelessWidget {
                   gradient: LinearGradient(
                     colors: isDark
                         ? [
-                            Colors.white.withAlpha(25),
-                            scheme.surface.withAlpha(105),
+                            Colors.white.withAlpha(30),
+                            const Color(0xFF171211).withAlpha(190),
                           ]
                         : [
                             Colors.white.withAlpha(176),
@@ -4128,12 +4435,15 @@ class _GlassIconButton extends StatelessWidget {
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: isDark
-                        ? Colors.white.withAlpha(42)
+                        ? Colors.white.withAlpha(52)
                         : Colors.white.withAlpha(210),
                     width: 1.1,
                   ),
                 ),
-                child: Icon(icon, color: primaryColor),
+                child: Icon(
+                  icon,
+                  color: iconColor ?? (isDark ? Colors.white : primaryColor),
+                ),
               ),
             ),
           ),

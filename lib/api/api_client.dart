@@ -251,6 +251,10 @@ DATA: $responseData
     }
   }
 
+  /// Refreshes authentication for requests that do not pass through Dio's
+  /// interceptor, such as Flutter's network image/cache pipeline.
+  static Future<String?> refreshAccessToken() => _refreshToken();
+
   static Future<String?> _performTokenRefresh() async {
     String? refreshToken = StorageHelper.getValue(
       key: StorageKeys.refreshToken,

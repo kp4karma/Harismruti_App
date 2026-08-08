@@ -12,10 +12,9 @@
         android:id="@+id/story_image"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:adjustViewBounds="true"
         android:contentDescription="@string/smruti_widget_open_story"
         android:background="#FFF0E5DC"
-        android:scaleType="centerInside" />
+        android:scaleType="centerCrop" />
 
     <TextView
         android:id="@+id/story_title"

@@ -233,6 +233,42 @@ void main() {
       expect(photos.map((photo) => photo.id), [1]);
     });
 
+    test('date range scoped to My Smruti never searches all photos', () async {
+      final repository = _FakeGalleryRepository();
+      var serverWasCalled = false;
+      repository.onGetFilteredPhotos =
+          ({
+            required Map<String, List<String>> selected,
+            int page = 1,
+            int perPage = 60,
+          }) async {
+            serverWasCalled = true;
+            return [_photo(99)];
+          };
+      final controller = GalleryController(repository: repository);
+      controller.mySmrutiPhotos.assignAll([
+        _photo(1),
+        _photo(10),
+        _photo(20),
+        GalleryPhoto(
+          id: 11,
+          thumbnailUrl: 'thumb/11',
+          fullUrl: 'full/11',
+          takenAt: DateTime.utc(2026, 7, 11),
+        ),
+      ]);
+
+      final photos = await controller.loadPhotosForFilters(
+        selected: const {
+          'my_smruti_scope': ['true'],
+          'date': ['2026-07-05', '2026-07-15'],
+        },
+      );
+
+      expect(serverWasCalled, isFalse);
+      expect(photos.map((photo) => photo.id), [10]);
+    });
+
     test('filters locally by My Tags', () async {
       final controller = GalleryController(
         repository: _FakeGalleryRepository(),

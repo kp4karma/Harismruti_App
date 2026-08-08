@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/services/deep_link_service.dart';
 import 'package:harismruti/utils/storage_helper.dart';
@@ -111,7 +113,11 @@ class PhoneSmrutiWidgetService {
     required String providerName,
   }) async {
     final candidates = _uniquePhotos(photos)
-        .where((photo) => photo.id > 0 && photo.thumbnailUrl.isNotEmpty)
+        .where(
+          (photo) =>
+              photo.id > 0 &&
+              (photo.fullUrl.isNotEmpty || photo.thumbnailUrl.isNotEmpty),
+        )
         .take(storyCount)
         .toList(growable: false);
     if (candidates.isEmpty) {
@@ -122,14 +128,11 @@ class PhoneSmrutiWidgetService {
     for (var index = 0; index < candidates.length; index++) {
       final photo = candidates[index];
       try {
-        final response = await http.get(
-          Uri.parse(photo.thumbnailUrl),
-          headers: imageHeaders,
-        );
-        if (response.statusCode < 200 || response.statusCode >= 300) continue;
+        final imageBytes = await _widgetImageBytes(photo, imageHeaders);
+        if (imageBytes == null) continue;
         final path = await HomeWidget.saveFile(
           '${providerName}_smruti_story_$index',
-          response.bodyBytes,
+          imageBytes,
           extension: 'jpg',
         );
         stories.add({
@@ -208,5 +211,31 @@ class PhoneSmrutiWidgetService {
       if (value != null && value.trim().isNotEmpty) return value.trim();
     }
     return 'Smruti';
+  }
+
+  static Future<Uint8List?> _widgetImageBytes(
+    GalleryPhoto photo,
+    Map<String, String> imageHeaders,
+  ) async {
+    final urls = <String>{
+      if (photo.fullUrl.isNotEmpty) photo.fullUrl,
+      if (photo.thumbnailUrl.isNotEmpty) photo.thumbnailUrl,
+    };
+    for (final url in urls) {
+      try {
+        final response = await http.get(Uri.parse(url), headers: imageHeaders);
+        if (response.statusCode < 200 || response.statusCode >= 300) continue;
+        return FlutterImageCompress.compressWithList(
+          response.bodyBytes,
+          minWidth: 900,
+          minHeight: 900,
+          quality: 86,
+          format: CompressFormat.jpeg,
+        );
+      } catch (_) {
+        // Fall back to the next available rendition.
+      }
+    }
+    return null;
   }
 }

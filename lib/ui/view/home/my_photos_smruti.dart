@@ -11,13 +11,13 @@ import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/bootstrap.dart';
 import 'package:harismruti/helper/auth_redirect_helper.dart';
-import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:harismruti/ui/controller/my_photos_controller.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/utils/storage_helper.dart';
+import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
 
 double _galleryPhotoAspectRatio(GalleryPhoto photo) {
@@ -303,7 +303,15 @@ class _MyPhoneGuideScreenState extends State<MyPhoneGuideScreen> {
         if (!controller.isFlowInitialized.value &&
             controller.photos.isEmpty &&
             controller.matchedPhotos.isEmpty) {
-          return Center(child: CircularProgressIndicator(color: primaryColor));
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              MediaQuery.of(context).padding.top + kToolbarHeight + 10,
+              16,
+              16,
+            ),
+            child: const _MatchedPhotosShimmer(),
+          );
         }
 
         return CustomScrollView(
@@ -1055,11 +1063,11 @@ class _MatchedPhotosSection extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!controller.smrutiLookupFinished ||
         !controller.isFlowInitialized.value) {
-      return const SizedBox.shrink();
+      return const _MatchedPhotosShimmer();
     }
     final photos = controller.matchedPhotos;
     if (controller.isFetchingMatches.value && photos.isEmpty) {
-      return const _ServerFetchPanel();
+      return const _MatchedPhotosShimmer();
     }
     if (photos.isEmpty) {
       if (controller.overallReviewStatus != MyPhotoReviewStatus.verified) {
@@ -1067,178 +1075,41 @@ class _MatchedPhotosSection extends StatelessWidget {
       }
       return const _SmrutiNotFoundPanel();
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Found photos',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-                  ),
-                  if (controller.allowIgnorePhotos.value)
-                    Text(
-                      'Tick any photo that is not you.',
-                      style: TextStyle(
-                        color: Colors.black.withAlpha(130),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            _StatusPill(
-              label: 'Verified',
-              color: const Color(0xFF167A3C),
-              background: const Color(0xFF167A3C).withAlpha(18),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        MasonryGridView.count(
-          shrinkWrap: true,
-          primary: false,
-          padding: EdgeInsets.zero,
-          itemCount: photos.length,
-          crossAxisCount: responsiveImageColumnCount(context),
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          itemBuilder: (context, index) {
-            final item = photos[index];
-            final isSelected = controller.selectedIrrelevantPhotoIds.contains(
-              item.id,
-            );
-            return GestureDetector(
-              onTap: controller.allowIgnorePhotos.value
-                  ? () {
-                      HapticFeedback.selectionClick();
-                      controller.toggleIrrelevantPhoto(item.id);
-                    }
-                  : null,
-              child: AspectRatio(
-                aspectRatio: _galleryPhotoAspectRatio(item),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    _MatchedPhotoTile(photo: item),
-                    if (controller.allowIgnorePhotos.value)
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: _IrrelevantPhotoTick(isSelected: isSelected),
-                      ),
-                    if (isSelected)
-                      IgnorePointer(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: Colors.black.withAlpha(45),
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(color: primaryColor, width: 3),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-        if (controller.selectedIrrelevantPhotoIds.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: controller.isIgnoringPhotos.value
-                  ? null
-                  : () => _confirmAndIgnore(context),
-              icon: controller.isIgnoringPhotos.value
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(CupertinoIcons.eye_slash_fill),
-              label: Text(
-                'Not relevant to me (${controller.selectedIrrelevantPhotoIds.length})',
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Future<void> _confirmAndIgnore(BuildContext context) async {
-    final count = controller.selectedIrrelevantPhotoIds.length;
-    final confirmed = await showCupertinoDialog<bool>(
-      context: context,
-      builder: (dialogContext) => CupertinoAlertDialog(
-        title: const Text('Not relevant to you?'),
-        content: Text(
-          '$count selected ${count == 1 ? 'photo' : 'photos'} will be hidden from your Smruti.',
-        ),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Hide'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    try {
-      final ignoredCount = await controller.ignoreSelectedPhotos();
-      if (ignoredCount > 0) {
-        TopNotification.success(
-          '$ignoredCount ${ignoredCount == 1 ? 'photo' : 'photos'} hidden',
+    return MasonryGridView.count(
+      shrinkWrap: true,
+      primary: false,
+      padding: EdgeInsets.zero,
+      itemCount: photos.length,
+      crossAxisCount: responsiveImageColumnCount(context),
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      itemBuilder: (context, index) {
+        final item = photos[index];
+        return AspectRatio(
+          aspectRatio: _galleryPhotoAspectRatio(item),
+          child: _MatchedPhotoTile(photo: item),
         );
-      }
-    } catch (error) {
-      TopNotification.error(error.toString().replaceFirst('Exception: ', ''));
-    }
+      },
+    );
   }
 }
 
-class _IrrelevantPhotoTick extends StatelessWidget {
-  final bool isSelected;
-
-  const _IrrelevantPhotoTick({required this.isSelected});
+class _MatchedPhotosShimmer extends StatelessWidget {
+  const _MatchedPhotosShimmer();
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
-      height: 30,
-      width: 30,
-      decoration: BoxDecoration(
-        color: isSelected ? primaryColor : Colors.black.withAlpha(105),
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
-      ),
-      child: Icon(
-        isSelected ? CupertinoIcons.checkmark : CupertinoIcons.circle,
-        color: Colors.white,
-        size: 18,
+    return MasonryGridView.count(
+      shrinkWrap: true,
+      primary: false,
+      padding: EdgeInsets.zero,
+      itemCount: 8,
+      crossAxisCount: responsiveImageColumnCount(context),
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      itemBuilder: (context, index) => AspectRatio(
+        aspectRatio: index.isEven ? 1.15 : 0.86,
+        child: const GalleryShimmerBox(borderRadius: 18),
       ),
     );
   }
@@ -1388,34 +1259,6 @@ class _SmrutiNotFoundPanel extends StatelessWidget {
               color: Colors.black.withAlpha(135),
               fontSize: 12,
               fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ServerFetchPanel extends StatelessWidget {
-  const _ServerFetchPanel();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          CircularProgressIndicator(color: primaryColor, strokeWidth: 2),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Text(
-              'Fetching your smruti photos from server',
-              style: TextStyle(fontWeight: FontWeight.w900),
             ),
           ),
         ],

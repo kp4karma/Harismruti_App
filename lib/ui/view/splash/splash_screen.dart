@@ -403,7 +403,7 @@ class _SplashLogoCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Image.asset(
-            AppImages.appLogo,
+            isDark ? AppImages.darkThemeLogo : AppImages.lightThemeLogo,
             width: 120,
             height: 120,
             fit: BoxFit.contain,

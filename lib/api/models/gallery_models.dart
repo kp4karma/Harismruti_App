@@ -206,16 +206,11 @@ class GalleryPhoto {
   factory GalleryPhoto.fromJson(dynamic raw) {
     final json = asJsonMap(raw);
     final id = _readInt(json, const ['id', 'photo_id', 'photoId']) ?? 0;
-    // Most gallery endpoints expose `event_date`, while `/me/smruti` exposes
-    // the already-resolved best date as `photo_date`.
+    // Photo filtering must use the explicit event_date column only. Do not
+    // fall back to photo_date/taken_at because those can represent a different
+    // calendar day from the curated event date.
     final displayDate = DateTime.tryParse(
-      _readString(json, const [
-            'event_date',
-            'eventDate',
-            'photo_date',
-            'photoDate',
-          ]) ??
-          '',
+      _readString(json, const ['event_date', 'eventDate']) ?? '',
     );
     final thumb = _readString(json, const [
       'thumbnail_url',

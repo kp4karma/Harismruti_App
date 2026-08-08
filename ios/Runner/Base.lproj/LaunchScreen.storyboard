@@ -16,13 +16,13 @@
                     <view key="view" contentMode="scaleToFill" id="Ze5-6b-2t3">
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="HariPrabodham Smruti" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="W7D-vK-a5L">
-                                <rect key="frame" x="92" y="314" width="191" height="29"/>
-                                <fontDescription key="fontDescription" type="system" weight="semibold" pointSize="22"/>
-                                <color key="textColor" red="0.5764705882" green="0.2078431373" blue="0.1450980392" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="HariPrabodham Smruti" textAlignment="center" lineBreakMode="tailTruncation" adjustsFontForContentSizeCategory="YES" translatesAutoresizingMaskIntoConstraints="NO" id="W7D-vK-a5L">
+                                <rect key="frame" x="68" y="314" width="239" height="35"/>
+                                <fontDescription key="fontDescription" type="system" weight="bold" pointSize="24"/>
+                                <color key="textColor" systemColor="labelColor"/>
                             </label>
                         </subviews>
-                        <color key="backgroundColor" red="0.9607843137" green="0.9607843137" blue="0.9607843137" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                         <constraints>
                             <constraint firstItem="W7D-vK-a5L" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="FQy-Uf-6v8"/>
                             <constraint firstItem="W7D-vK-a5L" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="RPR-T6-vcV"/>
@@ -34,4 +34,12 @@
             <point key="canvasLocation" x="53" y="375"/>
         </scene>
     </scenes>
+    <resources>
+        <systemColor name="labelColor">
+            <color white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
+        <systemColor name="systemBackgroundColor">
+            <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
+    </resources>
 </document>

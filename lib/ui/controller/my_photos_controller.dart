@@ -520,6 +520,7 @@ class MyPhotosController extends GetxController with WidgetsBindingObserver {
     try {
       final ignored = await _repository.ignorePhotos(
         selectedIrrelevantPhotoIds,
+        forMySmruti: true,
       );
       matchedPhotos.removeWhere((photo) => ignored.contains(photo.id));
       selectedIrrelevantPhotoIds.clear();

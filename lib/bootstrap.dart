@@ -13,12 +13,13 @@ import 'package:harismruti/utils/storage_helper.dart';
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Photo-heavy screens can otherwise retain hundreds of decoded,
-  // full-resolution images. Keep a modest cache; disk caching still handles
-  // repeat visits without another download.
+  // Keep enough decoded thumbnails in memory that scrolling back through a
+  // gallery does not repeatedly decode/read them. This is especially useful
+  // on slow connections because the disk cache is only needed after this
+  // warm in-memory layer is exhausted.
   PaintingBinding.instance.imageCache
-    ..maximumSize = 120
-    ..maximumSizeBytes = 48 * 1024 * 1024;
+    ..maximumSize = 240
+    ..maximumSizeBytes = 96 * 1024 * 1024;
   _configureLoadingUI();
   // MediaKit.ensureInitialized();
 

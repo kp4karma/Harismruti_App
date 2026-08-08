@@ -13,6 +13,7 @@ import 'package:harismruti/ui/controller/global_binding.dart';
 import 'package:harismruti/ui/controller/theme_controller.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/app_routes.dart';
+import 'package:harismruti/utils/app_images.dart';
 import 'package:harismruti/utils/size_config.dart';
 import 'package:harismruti/widget/internet_status_widget.dart';
 
@@ -36,13 +37,18 @@ class _StartupGate extends StatelessWidget {
           return const MyApp();
         }
 
+        final isDark =
+            WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+            Brightness.dark;
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           home: Scaffold(
-            backgroundColor: const Color(0xFFF5F5F5),
+            backgroundColor: isDark
+                ? const Color(0xFF120F0E)
+                : const Color(0xFFF5F5F5),
             body: Center(
               child: Image.asset(
-                'assets/app_logo.png',
+                isDark ? AppImages.darkThemeLogo : AppImages.lightThemeLogo,
                 width: 120,
                 height: 120,
                 fit: BoxFit.contain,

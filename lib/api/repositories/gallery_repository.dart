@@ -257,14 +257,21 @@ class GalleryRepository {
     return asJsonMap(response.data);
   }
 
-  Future<Set<int>> ignorePhotos(Iterable<int> photoIds) async {
+  Future<Set<int>> ignorePhotos(
+    Iterable<int> photoIds, {
+    bool forMySmruti = false,
+  }) async {
     final mobile = currentPhoneNumber();
     if (mobile.isEmpty) {
       throw Exception('Mobile number is missing from profile.');
     }
     final response = await ApiClient.post(
       ApiEndpoints.ignoredPhotos,
-      data: {'mobile': mobile, 'photo_ids': photoIds.toSet().toList()},
+      data: {
+        'mobile': mobile,
+        'photo_ids': photoIds.toSet().toList(),
+        if (forMySmruti) 'context': 'my_smruti',
+      },
     );
     final data = asJsonMap(response.data);
     return (data['ignored_photo_ids'] is List

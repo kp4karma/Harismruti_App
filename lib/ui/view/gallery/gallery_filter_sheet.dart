@@ -44,6 +44,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
   String _query = '';
   DateTime? _fromDate;
   DateTime? _toDate;
+  bool _dateScopedToMySmruti = false;
   bool _areDatesLoading = false;
 
   @override
@@ -69,6 +70,10 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
     _selectedValues.forEach((slug, values) {
       if (values.isNotEmpty) selected[slug] = values.toList();
     });
+    if (_dateScopedToMySmruti &&
+        (_selectedValues['date']?.isNotEmpty ?? false)) {
+      selected['my_smruti_scope'] = const ['true'];
+    }
     return selected;
   }
 
@@ -135,14 +140,28 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
     _selectedOptions['date'] = options;
   }
 
-  Future<void> _selectDate({required bool isFrom}) async {
+  Future<void> _selectDate({
+    required bool isFrom,
+    bool mySmrutiOnly = false,
+  }) async {
     if (_areDatesLoading) return;
     setState(() => _areDatesLoading = true);
     Set<String> availableDates;
     try {
-      availableDates = await _controller.loadAvailableFilterDates(
-        selected: _selectedForApi,
-      );
+      if (mySmrutiOnly) {
+        if (_controller.mySmrutiPhotos.isEmpty) {
+          await _controller.loadMySmrutiFilterPhotos();
+        }
+        availableDates = _controller.mySmrutiPhotos
+            .map((photo) => photo.eventDate)
+            .whereType<DateTime>()
+            .map((date) => _apiDate(date.toLocal()))
+            .toSet();
+      } else {
+        availableDates = await _controller.loadAvailableFilterDates(
+          selected: _selectedForApi,
+        );
+      }
     } catch (_) {
       return;
     } finally {
@@ -180,6 +199,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
     );
     if (selected == null || !mounted) return;
     setState(() {
+      _dateScopedToMySmruti = mySmrutiOnly;
       if (isFrom) {
         _fromDate = selected;
         if (_toDate != null && _toDate!.isBefore(selected)) _toDate = null;
@@ -287,6 +307,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
       _selectedOptions.clear();
       _fromDate = null;
       _toDate = null;
+      _dateScopedToMySmruti = false;
       _selectedIndex = 0;
     });
     _searchController.clear();
@@ -484,29 +505,10 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                                       : () => _selectDate(isFrom: false),
                                   onClearFrom: _fromDate == null
                                       ? null
-                                      : () {
-                                          setState(() {
-                                            _fromDate = null;
-                                            _toDate = null;
-                                            _updateDateSelection();
-                                          });
-                                          _controller.loadFilters(
-                                            selected: _selectedForApi,
-                                            force: true,
-                                          );
-                                        },
+                                      : _clearFromDate,
                                   onClearTo: _toDate == null
                                       ? null
-                                      : () {
-                                          setState(() {
-                                            _toDate = null;
-                                            _updateDateSelection();
-                                          });
-                                          _controller.loadFilters(
-                                            selected: _selectedForApi,
-                                            force: true,
-                                          );
-                                        },
+                                      : _clearToDate,
                                 )
                               : selected.slug == 'my_smruti'
                               ? _MySmrutiOptionsList(
@@ -521,6 +523,25 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                                   loading: _controller
                                       .areMySmrutiFiltersLoading
                                       .value,
+                                  fromDate: _fromDate,
+                                  toDate: _toDate,
+                                  datesLoading: _areDatesLoading,
+                                  onSelectFrom: () => _selectDate(
+                                    isFrom: true,
+                                    mySmrutiOnly: true,
+                                  ),
+                                  onSelectTo: _fromDate == null
+                                      ? null
+                                      : () => _selectDate(
+                                          isFrom: false,
+                                          mySmrutiOnly: true,
+                                        ),
+                                  onClearFrom: _fromDate == null
+                                      ? null
+                                      : _clearFromDate,
+                                  onClearTo: _toDate == null
+                                      ? null
+                                      : _clearToDate,
                                   selectedValues: _selectedValues,
                                   onChanged: _toggleOption,
                                 )
@@ -551,6 +572,24 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
         ),
       ),
     );
+  }
+
+  void _clearFromDate() {
+    setState(() {
+      _fromDate = null;
+      _toDate = null;
+      _dateScopedToMySmruti = false;
+      _updateDateSelection();
+    });
+    _controller.loadFilters(selected: _selectedForApi, force: true);
+  }
+
+  void _clearToDate() {
+    setState(() {
+      _toDate = null;
+      _updateDateSelection();
+    });
+    _controller.loadFilters(selected: _selectedForApi, force: true);
   }
 }
 
@@ -716,6 +755,13 @@ class _MySmrutiOptionsList extends StatelessWidget {
     required this.groups,
     required this.query,
     required this.loading,
+    required this.fromDate,
+    required this.toDate,
+    required this.datesLoading,
+    required this.onSelectFrom,
+    required this.onSelectTo,
+    required this.onClearFrom,
+    required this.onClearTo,
     required this.selectedValues,
     required this.onChanged,
   });
@@ -723,6 +769,13 @@ class _MySmrutiOptionsList extends StatelessWidget {
   final List<GalleryFilterGroup> groups;
   final String query;
   final bool loading;
+  final DateTime? fromDate;
+  final DateTime? toDate;
+  final bool datesLoading;
+  final VoidCallback onSelectFrom;
+  final VoidCallback? onSelectTo;
+  final VoidCallback? onClearFrom;
+  final VoidCallback? onClearTo;
   final Map<String, Set<String>> selectedValues;
   final void Function(GalleryFilterGroup group, GalleryFilterOption option)
   onChanged;
@@ -764,8 +817,19 @@ class _MySmrutiOptionsList extends StatelessWidget {
     return ListView.builder(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(10, 0, 12, 14),
-      itemCount: visibleGroups.length,
+      itemCount: visibleGroups.length + 1,
       itemBuilder: (context, groupIndex) {
+        if (groupIndex == visibleGroups.length) {
+          return _MySmrutiDateRange(
+            fromDate: fromDate,
+            toDate: toDate,
+            loading: datesLoading,
+            onSelectFrom: onSelectFrom,
+            onSelectTo: onSelectTo,
+            onClearFrom: onClearFrom,
+            onClearTo: onClearTo,
+          );
+        }
         final group = visibleGroups[groupIndex];
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -795,6 +859,72 @@ class _MySmrutiOptionsList extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _MySmrutiDateRange extends StatelessWidget {
+  const _MySmrutiDateRange({
+    required this.fromDate,
+    required this.toDate,
+    required this.loading,
+    required this.onSelectFrom,
+    required this.onSelectTo,
+    required this.onClearFrom,
+    required this.onClearTo,
+  });
+
+  final DateTime? fromDate;
+  final DateTime? toDate;
+  final bool loading;
+  final VoidCallback onSelectFrom;
+  final VoidCallback? onSelectTo;
+  final VoidCallback? onClearFrom;
+  final VoidCallback? onClearTo;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFFFB59F)
+        : primaryColor;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 6, 0, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Date Range',
+            style: TextStyle(
+              color: accent,
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          if (loading) ...[
+            const SizedBox(height: 7),
+            LinearProgressIndicator(
+              minHeight: 2,
+              color: accent,
+              backgroundColor: accent.withAlpha(18),
+            ),
+          ],
+          const SizedBox(height: 8),
+          _DatePickerField(
+            label: 'From',
+            value: fromDate == null ? null : _displayDate(fromDate!),
+            onTap: onSelectFrom,
+            onClear: onClearFrom,
+          ),
+          const SizedBox(height: 8),
+          _DatePickerField(
+            label: 'To',
+            value: toDate == null ? null : _displayDate(toDate!),
+            onTap: onSelectTo,
+            onClear: onClearTo,
+            enabled: onSelectTo != null,
+          ),
+        ],
+      ),
     );
   }
 }

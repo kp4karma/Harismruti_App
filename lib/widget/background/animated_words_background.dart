@@ -256,13 +256,17 @@ class _AnimatedWordLabel extends StatelessWidget {
     final displayColor = isDark
         ? Color.lerp(color, Colors.white, 0.28)!
         : color;
+    // Keep the decorative tint on the chip, but use a neutral foreground in
+    // dark mode. Applying the particle opacity to an already-muted tint made
+    // Gujarati glyphs especially difficult to read on the splash background.
+    final textColor = isDark ? const Color(0xFFF8F4F1) : displayColor;
     if (!chipBackground) {
       return Text(
         label,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          color: displayColor,
+          color: textColor,
           fontSize: 14,
           fontWeight: FontWeight.w700,
           shadows: [
@@ -303,9 +307,18 @@ class _AnimatedWordLabel extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: displayColor,
+              color: textColor,
               fontSize: 14,
               fontWeight: FontWeight.w800,
+              shadows: isDark
+                  ? const [
+                      Shadow(
+                        color: Color(0xE6000000),
+                        blurRadius: 3,
+                        offset: Offset(0, 1),
+                      ),
+                    ]
+                  : null,
             ),
           ),
         ),
