@@ -41,6 +41,7 @@ class StorageKeys {
   static const String aiSearchHistory = 'aiSearchHistoryV1';
   static const String aiSearchChatHistory = 'aiSearchChatHistoryV2';
   static const String onThisDayViewedStories = 'onThisDayViewedStoriesV1';
+  static const String downloadedPhotos = 'downloadedPhotosV1';
 }
 
 class StorageHelper {

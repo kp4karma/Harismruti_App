@@ -100,8 +100,8 @@ class _OTPScreenState extends State<OTPScreen> {
                                           .isNotEmpty;
                                   return Text(
                                     isEmail
-                                        ? "We have sent a one time verification\ncode to your email."
-                                        : "We have sent a one time verification\ncode to your number.",
+                                        ? "A one-time verification code has been\nsent to your email."
+                                        : "A one-time verification code has been\nsent to your WhatsApp number.",
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(fontSize: 16),
                                   );

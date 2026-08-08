@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/ui/controller/auth_controller.dart';
 import 'package:harismruti/ui/view/auth/otp_screen.dart';
@@ -104,6 +105,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             children: [
                               TextField(
                                 controller: _nameController,
+                                autofillHints: const <String>[],
                                 decoration: const InputDecoration(
                                   labelText: 'Full Name',
                                 ),
@@ -112,7 +114,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               TextField(
                                 controller: _emailController,
                                 keyboardType: TextInputType.emailAddress,
-                                autofillHints: const [AutofillHints.email],
+                                autofillHints: const <String>[],
                                 decoration: const InputDecoration(
                                   labelText: 'Email',
                                 ),
@@ -120,6 +122,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               const SizedBox(height: 12),
                               TextField(
                                 controller: _cityController,
+                                autofillHints: const <String>[],
                                 decoration: const InputDecoration(
                                   labelText: 'Location (Optional)',
                                 ),
@@ -137,8 +140,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     child: TextField(
                                       controller: _mobileController,
                                       keyboardType: TextInputType.phone,
+                                      autofillHints: const <String>[],
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                      ],
                                       decoration: const InputDecoration(
-                                        hintText: '98540 02451',
+                                        labelText: 'Mobile Number',
                                       ),
                                     ),
                                   ),

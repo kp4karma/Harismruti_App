@@ -212,7 +212,9 @@ class GalleryRepository {
     }
     final response = await ApiClient.get(
       ApiEndpoints.filters,
-      queryParams: _latestQueryParams(query),
+      // My Smruti is a personal library spanning both Swamiji sections.
+      // Deliberately omit the global `swami` scope for these facet options.
+      queryParams: {...query, 'sort': _latestSort, 'order': _descendingOrder},
       forceRefresh: true,
     );
     final groups = GalleryPage.fromJson(
@@ -245,7 +247,9 @@ class GalleryRepository {
   Future<Map<String, dynamic>> getMyLibrary() async {
     final response = await ApiClient.get(
       ApiEndpoints.myLibrary,
-      queryParams: _scopedQueryParams(),
+      // Favorites, collections, and My Tags belong to the user across both
+      // Swamiji sections, so this endpoint must return their merged library.
+      queryParams: const {},
     );
     return asJsonMap(response.data);
   }
@@ -345,6 +349,17 @@ class GalleryRepository {
     await ApiClient.delete(ApiEndpoints.myTag(photoId, tag));
   }
 
+  Future<void> renameTag({required String tag, required String newName}) async {
+    await ApiClient.patch(
+      ApiEndpoints.myTagEverywhere(tag),
+      data: {'new_name': newName},
+    );
+  }
+
+  Future<void> removeTagEverywhere(String tag) async {
+    await ApiClient.delete(ApiEndpoints.myTagEverywhere(tag));
+  }
+
   Future<Map<String, dynamic>> createPhotoEnhancement({
     required int photoId,
     required String quality,
@@ -399,6 +414,16 @@ class GalleryRepository {
 
   Future<void> removeCollection(String name) async {
     await ApiClient.delete(ApiEndpoints.myCollection(name));
+  }
+
+  Future<void> renameCollection({
+    required String name,
+    required String newName,
+  }) async {
+    await ApiClient.patch(
+      ApiEndpoints.myCollection(name),
+      data: {'new_name': newName},
+    );
   }
 
   Future<Map<String, dynamic>> uploadMyImage({

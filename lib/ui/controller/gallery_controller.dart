@@ -495,7 +495,6 @@ class GalleryController extends GetxController {
   }
 
   Future<void> loadMyLibrary() async {
-    final requestedSwami = selectedSwami.value;
     final favoriteVersionAtRequest = _favoriteMutationVersion;
     if (!StorageHelper.isLogin()) {
       favoritePhotoIds.clear();
@@ -507,7 +506,6 @@ class GalleryController extends GetxController {
     isMyLibraryLoading.value = true;
     try {
       final data = await _repository.getMyLibrary();
-      if (selectedSwami.value != requestedSwami) return;
       final favoriteIds =
           (data['favorite_photo_ids'] is List
                   ? data['favorite_photo_ids'] as List
@@ -559,7 +557,6 @@ class GalleryController extends GetxController {
       userCollections.assignAll(collections);
       savedPhotos.refresh();
     } catch (_) {
-      if (selectedSwami.value != requestedSwami) return;
       favoritePhotoIds.clear();
       userTags.clear();
       userTagNames.clear();
@@ -621,6 +618,36 @@ class GalleryController extends GetxController {
     await loadMyLibrary();
   }
 
+  int photoCountForTag(String tag) {
+    final wanted = tag.trim().toLowerCase();
+    return userTags.values
+        .where((tags) => tags.any((value) => value.toLowerCase() == wanted))
+        .length;
+  }
+
+  Future<bool> renameTagEverywhere(String tag, String newName) async {
+    final cleanName = newName.trim();
+    if (!StorageHelper.isLogin() || cleanName.isEmpty) return false;
+    try {
+      await _repository.renameTag(tag: tag, newName: cleanName);
+      await loadMyLibrary();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> removeTagEverywhere(String tag) async {
+    if (!StorageHelper.isLogin()) return false;
+    try {
+      await _repository.removeTagEverywhere(tag);
+      await loadMyLibrary();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<bool> addPhotoToCollection(
     GalleryPhoto photo,
     String collectionName,
@@ -673,14 +700,33 @@ class GalleryController extends GetxController {
     }
   }
 
-  void removeCollection(String collectionName) {
+  Future<bool> renameCollection(String collectionName, String newName) async {
+    final cleanName = newName.trim();
+    if (!StorageHelper.isLogin() || cleanName.isEmpty) return false;
+    try {
+      await _repository.renameCollection(
+        name: collectionName,
+        newName: cleanName,
+      );
+      await loadMyLibrary();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> removeCollection(String collectionName) async {
     if (!StorageHelper.isLogin()) return;
     userCollections.removeWhere(
       (collection) =>
           collection.name.toLowerCase() == collectionName.toLowerCase(),
     );
     userCollections.refresh();
-    _repository.removeCollection(collectionName);
+    try {
+      await _repository.removeCollection(collectionName);
+    } catch (_) {
+      await loadMyLibrary();
+    }
   }
 
   Map<int, List<String>> _parseUserTags(dynamic raw) {
@@ -940,7 +986,6 @@ class GalleryController extends GetxController {
       return;
     }
     final requestId = ++_mySmrutiFiltersRequestId;
-    final requestedSwami = selectedSwami.value;
     areMySmrutiFiltersLoading.value = true;
     try {
       await loadMySmrutiYearOptions();
@@ -975,11 +1020,10 @@ class GalleryController extends GetxController {
         if (pagePhotos.isEmpty || photos.length == beforeCount) break;
       } while (photos.length < total && pagesFetched < maxPages);
 
-      if (requestId != _mySmrutiFiltersRequestId ||
-          selectedSwami.value != requestedSwami) {
-        return;
-      }
-      mySmrutiPhotos.assignAll(_photosForSwami(photos, requestedSwami));
+      if (requestId != _mySmrutiFiltersRequestId) return;
+      // My Smruti is shared across both Swamiji sections. Keep the complete
+      // personal result set instead of applying the active home-tab scope.
+      mySmrutiPhotos.assignAll(photos);
     } catch (_) {
       if (requestId == _mySmrutiFiltersRequestId) {
         mySmrutiPhotos.clear();
@@ -1218,41 +1262,28 @@ class GalleryController extends GetxController {
         .toSet();
     if (matchingIds.isEmpty) return const [];
 
-    final serverSelected = Map<String, List<String>>.from(selected)
-      ..remove(_userTagFilterSlug);
-    List<GalleryPhoto> matches;
-    if (serverSelected.isEmpty) {
-      matches = matchingIds
-          .map((id) => savedPhotos[id])
-          .whereType<GalleryPhoto>()
-          .where(isPhotoInSelectedSwami)
-          .toList();
-    } else {
-      final matchesById = <int, GalleryPhoto>{};
-      final seenServerPhotoIds = <int>{};
-      var serverPage = 1;
-      const serverPageSize = 200;
-      const maxServerPages = 100;
-      while (serverPage <= maxServerPages) {
-        final photos = await _repository.getFilteredPhotos(
-          selected: serverSelected,
-          page: serverPage,
-          perPage: serverPageSize,
-        );
-        var hasNewServerPhotos = false;
-        for (final photo in photos) {
-          if (seenServerPhotoIds.add(photo.id)) hasNewServerPhotos = true;
-          if (matchingIds.contains(photo.id)) {
-            matchesById[photo.id] = photo;
-          }
-        }
-        if (photos.length < serverPageSize) break;
-        if (!hasNewServerPhotos) break;
-        serverPage++;
-      }
-      matches = matchesById.values.toList();
+    var matches = matchingIds
+        .map((id) => savedPhotos[id])
+        .whereType<GalleryPhoto>()
+        .toList();
+
+    final selectedDates =
+        (selected['date'] ?? const <String>[])
+            .map(DateTime.tryParse)
+            .whereType<DateTime>()
+            .toList()
+          ..sort();
+    if (selectedDates.isNotEmpty) {
+      final from = selectedDates.first;
+      final to = selectedDates.length > 1 ? selectedDates.last : from;
+      matches = matches.where((photo) {
+        final rawDate = photo.eventDate ?? photo.takenAt;
+        if (rawDate == null) return false;
+        final localDate = rawDate.toLocal();
+        final date = DateTime(localDate.year, localDate.month, localDate.day);
+        return !date.isBefore(from) && !date.isAfter(to);
+      }).toList();
     }
-    matches = _photosForSwami(matches, selectedSwami.value);
     matches.sort((a, b) {
       final first = a.eventDate ?? a.takenAt;
       final second = b.eventDate ?? b.takenAt;
@@ -1749,9 +1780,7 @@ class GalleryController extends GetxController {
       (_mySmrutiSmrutiOfFilterSlug, 'Smruti Of'),
       (_mySmrutiTagsFilterSlug, 'Tags'),
     ]) {
-      final options = definition.$1 == _mySmrutiYearFilterSlug
-          ? mySmrutiYearOptions.toList(growable: false)
-          : _buildMySmrutiOptions(definition.$1, selected: selected);
+      final options = _buildMySmrutiOptions(definition.$1, selected: selected);
       if (options.isNotEmpty) {
         groups.add(
           GalleryFilterGroup(
@@ -1811,12 +1840,8 @@ class GalleryController extends GetxController {
     Map<String, List<String>> selected, {
     String? excludingSlug,
   }) {
-    // "Tags" is an independent facet: attribute selections do not reduce its
-    // options, and tag selections do not reduce the attribute facet options.
-    if (excludingSlug == _mySmrutiTagsFilterSlug) return true;
     for (final entry in selected.entries) {
       if (entry.key == excludingSlug ||
-          entry.key == _mySmrutiTagsFilterSlug ||
           !_mySmrutiFilterSlugs.contains(entry.key) ||
           entry.value.isEmpty) {
         continue;
@@ -1839,18 +1864,21 @@ class GalleryController extends GetxController {
     GalleryPhoto photo,
     String slug,
   ) {
-    final values = switch (slug) {
+    final Iterable<String?> values = switch (slug) {
       _mySmrutiYearFilterSlug => [
         (photo.takenAt ?? photo.eventDate)?.toLocal().year.toString(),
       ],
       _mySmrutiWithFilterSlug => [photo.smrutiWith],
       _mySmrutiCountryFilterSlug => [photo.country],
       _mySmrutiLocationFilterSlug => [photo.location],
-      _mySmrutiPlaceFilterSlug => [photo.subLocation],
+      _mySmrutiPlaceFilterSlug => [
+        photo.subLocation,
+        ...photo.tags.where(_looksLikeMySmrutiPlaceTag),
+      ],
       _mySmrutiAlbumFilterSlug => [photo.album],
       _mySmrutiDarshanOfFilterSlug => [photo.darshanOf],
       _mySmrutiSmrutiOfFilterSlug => [photo.smrutiOf],
-      _mySmrutiTagsFilterSlug => photo.tags,
+      _mySmrutiTagsFilterSlug => _mySmrutiTagValuesForPhoto(photo),
       _ => const <String?>[],
     };
     return values
@@ -1859,6 +1887,36 @@ class GalleryController extends GetxController {
         .map((value) => value.trim())
         .where((value) => value.isNotEmpty);
   }
+
+  static Iterable<String> _mySmrutiTagValuesForPhoto(GalleryPhoto photo) {
+    // GalleryPhoto.tags also contains the API's typed taxonomy attributes so
+    // they remain searchable elsewhere. In the My Smruti filter those values
+    // already have dedicated sections and must not be repeated under Tags.
+    final typedValues = <String>{
+      for (final value in <String?>[
+        photo.country,
+        photo.location,
+        photo.subLocation,
+        photo.album,
+        photo.smrutiWith,
+        photo.darshanOf,
+        photo.smrutiOf,
+      ])
+        if (value != null)
+          ...value
+              .split(RegExp(r'[,;|]'))
+              .map(_normalizeFilterValue)
+              .where((value) => value.isNotEmpty),
+    };
+    return photo.tags.where(
+      (tag) =>
+          !_looksLikeMySmrutiPlaceTag(tag) &&
+          !typedValues.contains(_normalizeFilterValue(tag)),
+    );
+  }
+
+  static bool _looksLikeMySmrutiPlaceTag(String value) =>
+      value.trimLeft().toLowerCase().startsWith('at ');
 
   static String _normalizeFilterValue(String value) =>
       value.trim().toLowerCase();

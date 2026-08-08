@@ -56,6 +56,7 @@ GalleryPhoto _photo(
   int id, {
   String? country,
   String? location,
+  String? subLocation,
   String? smrutiWith,
   String? darshanOf,
   String? smrutiOf,
@@ -68,6 +69,7 @@ GalleryPhoto _photo(
     eventDate: DateTime.utc(2026, 7, id.clamp(1, 28)),
     country: country,
     location: location,
+    subLocation: subLocation,
     smrutiWith: smrutiWith,
     darshanOf: darshanOf,
     smrutiOf: smrutiOf,
@@ -192,6 +194,61 @@ void main() {
       expect(location.options.every((option) => option.count == 1), isTrue);
     });
 
+    test('separates typed and At-prefixed values from My Smruti Tags', () {
+      final controller = GalleryController(
+        repository: _FakeGalleryRepository(),
+      );
+      controller.mySmrutiPhotos.assignAll([
+        _photo(
+          1,
+          location: 'Ahmedabad',
+          subLocation: 'At Airport',
+          smrutiOf: 'Aarti Darshan',
+          tags: const ['Ahmedabad', 'At Airport', 'Aarti Darshan', 'Blessing'],
+        ),
+        _photo(2, tags: const ['At Ambrish Hall', 'Celebration']),
+      ]);
+
+      final groups = controller.filtersWithUserTagsForSelection(const {});
+      final places = groups
+          .singleWhere((group) => group.slug == 'my_smruti_place')
+          .options
+          .map((option) => option.value);
+      final tags = groups
+          .singleWhere((group) => group.slug == 'my_smruti_tags')
+          .options
+          .map((option) => option.value);
+
+      expect(places, unorderedEquals(['At Airport', 'At Ambrish Hall']));
+      expect(tags, unorderedEquals(['Blessing', 'Celebration']));
+    });
+
+    test('My Smruti Tags and other facets narrow each other', () {
+      final controller = GalleryController(
+        repository: _FakeGalleryRepository(),
+      );
+      controller.mySmrutiPhotos.assignAll([
+        _photo(1, location: 'Ahmedabad', tags: const ['Blessing']),
+        _photo(2, location: 'Rajkot', tags: const ['Celebration']),
+      ]);
+
+      final tagGroups = controller.filtersWithUserTagsForSelection(const {
+        'my_smruti_location': ['Ahmedabad'],
+      });
+      final tags = tagGroups
+          .singleWhere((group) => group.slug == 'my_smruti_tags')
+          .options;
+      expect(tags.map((option) => option.value), ['Blessing']);
+
+      final locationGroups = controller.filtersWithUserTagsForSelection(const {
+        'my_smruti_tags': ['Celebration'],
+      });
+      final locations = locationGroups
+          .singleWhere((group) => group.slug == 'my_smruti_location')
+          .options;
+      expect(locations.map((option) => option.value), ['Rajkot']);
+    });
+
     test('exposes My Tags with photo counts', () {
       final controller = GalleryController(
         repository: _FakeGalleryRepository(),
@@ -288,6 +345,40 @@ void main() {
       );
 
       expect(photos.map((photo) => photo.id), [1]);
+    });
+
+    test('My Tags merges photos from both Swamiji date sections', () async {
+      final controller = GalleryController(
+        repository: _FakeGalleryRepository(),
+      );
+      final hariprasadPhoto = GalleryPhoto(
+        id: 10,
+        thumbnailUrl: 'thumb/10',
+        fullUrl: 'full/10',
+        eventDate: DateTime.utc(2020, 1, 1),
+      );
+      final prabodhPhoto = GalleryPhoto(
+        id: 20,
+        thumbnailUrl: 'thumb/20',
+        fullUrl: 'full/20',
+        eventDate: DateTime.utc(2026, 1, 1),
+      );
+      controller.savedPhotos.assignAll({
+        hariprasadPhoto.id: hariprasadPhoto,
+        prabodhPhoto.id: prabodhPhoto,
+      });
+      controller.userTags.assignAll({
+        hariprasadPhoto.id: ['Shared'],
+        prabodhPhoto.id: ['Shared'],
+      });
+
+      final photos = await controller.loadPhotosForFilters(
+        selected: const {
+          'user_tag': ['Shared'],
+        },
+      );
+
+      expect(photos.map((photo) => photo.id), [20, 10]);
     });
 
     test('intersects custom My Smruti and normal server filters', () async {

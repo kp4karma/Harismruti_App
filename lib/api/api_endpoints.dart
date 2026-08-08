@@ -82,6 +82,8 @@ class ApiEndpoints {
   static String myFavorite(int photoId) => "/me/favorites/$photoId";
   static String myTag(int photoId, String tag) =>
       "/me/tags/$photoId/${Uri.encodeComponent(tag)}";
+  static String myTagEverywhere(String tag) =>
+      "/me/tags/${Uri.encodeComponent(tag)}";
   static String myCollection(String name) =>
       "/me/collections/${Uri.encodeComponent(name)}";
   static String myDiaryEntry(String entryId) =>

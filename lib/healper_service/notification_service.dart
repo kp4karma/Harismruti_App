@@ -20,6 +20,7 @@ import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/firebase_options.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/services/notification_history_service.dart';
+import 'package:harismruti/services/download_library_service.dart';
 import 'package:harismruti/services/phone_smruti_widget_service.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/view/gallery/gallery_detail_screen.dart';
@@ -30,11 +31,12 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 @pragma('vm:entry-point')
 class NotificationService {
   static const String developerTopic = 'developer_only';
-  static const int _topicSubscriptionVersion = 1;
+  static const int _topicSubscriptionVersion = 2;
   static final Set<int> _savingEnhancementJobs = <int>{};
   static final Set<String> _savingNotificationImages = <String>{};
 
   static const List<String> topics = [
+    'on_this_day',
     'recent',
     'smruti_with',
     'darshan_of',
@@ -333,6 +335,7 @@ class NotificationService {
     }
     const supportedHomeSections = {
       'home',
+      'on_this_day',
       'recent',
       'smruti_with',
       'darshan_of',
@@ -448,6 +451,7 @@ class NotificationService {
         filePath,
         album: Platform.isIOS ? null : 'HariPrabodham Smruti',
       );
+      DownloadLibraryService.notifyChanged();
       TopNotification.success(
         'Enhanced smruti saved to Photos',
         title: '$quality download ready',

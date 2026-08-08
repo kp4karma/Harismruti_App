@@ -52,6 +52,11 @@ class MyCollectionSmruti extends StatelessWidget {
               collection: collection,
               photos: galleryController.photosForCollection(collection),
               headers: galleryController.imageHeaders,
+              onEdit: () => _renameCollection(
+                context,
+                galleryController,
+                collection.name,
+              ),
               onDelete: () => _confirmRemoveCollection(
                 context,
                 galleryController,
@@ -78,7 +83,48 @@ class MyCollectionSmruti extends StatelessWidget {
       ),
     );
     if (remove == true) {
-      controller.removeCollection(collectionName);
+      await controller.removeCollection(collectionName);
+    }
+  }
+
+  Future<void> _renameCollection(
+    BuildContext context,
+    GalleryController controller,
+    String currentName,
+  ) async {
+    final textController = TextEditingController(text: currentName);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Rename Collection'),
+        content: TextField(
+          controller: textController,
+          autofocus: true,
+          maxLength: 128,
+          decoration: const InputDecoration(labelText: 'Collection name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final value = textController.text.trim();
+              if (value.isNotEmpty) Navigator.pop(dialogContext, value);
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+    textController.dispose();
+    if (newName == null || newName == currentName) return;
+    final updated = await controller.renameCollection(currentName, newName);
+    if (!updated && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not rename the collection.')),
+      );
     }
   }
 }
@@ -178,12 +224,14 @@ class _CollectionCard extends StatelessWidget {
   final UserPhotoCollection collection;
   final List<GalleryPhoto> photos;
   final Map<String, String>? headers;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _CollectionCard({
     required this.collection,
     required this.photos,
     required this.headers,
+    required this.onEdit,
     required this.onDelete,
   });
 
@@ -248,6 +296,27 @@ class _CollectionCard extends StatelessWidget {
                     Colors.black.withAlpha(135),
                   ],
                   stops: const [0.42, 0.7, 1],
+                ),
+              ),
+            ),
+            Positioned(
+              right: 50,
+              top: 10,
+              child: Material(
+                color: Colors.white.withAlpha(230),
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: onEdit,
+                  child: SizedBox(
+                    width: 34 * tabletScale(context),
+                    height: 34 * tabletScale(context),
+                    child: Icon(
+                      Icons.edit_outlined,
+                      color: primaryColor,
+                      size: 19 * tabletScale(context),
+                    ),
+                  ),
                 ),
               ),
             ),

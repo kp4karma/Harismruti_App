@@ -75,7 +75,12 @@ class ApiClient {
             if (options.data != null && options.data is! FormData) {
               if (options.data is Map || options.data is List) {
                 options.extra['_originalData'] = options.data;
-                if (['POST', 'PUT', 'DELETE'].contains(options.method)) {
+                if ([
+                  'POST',
+                  'PUT',
+                  'PATCH',
+                  'DELETE',
+                ].contains(options.method)) {
                   options.data = jsonEncode(options.data);
                 }
               }
@@ -589,6 +594,25 @@ DATA: $responseData
         options: Options(headers: customHeaders),
       );
       return response;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  static Future<Response<dynamic>> patch(
+    String path, {
+    Map<String, dynamic>? data,
+    Map<String, dynamic>? queryParams,
+    Map<String, dynamic>? customHeaders,
+  }) async {
+    try {
+      clearGetCache();
+      return await _client!.patch(
+        path,
+        data: addExtraParameters(data ?? {}),
+        queryParameters: queryParams,
+        options: Options(headers: customHeaders),
+      );
     } on DioException catch (e) {
       throw _handleError(e);
     }

@@ -1080,9 +1080,25 @@ class _MatchedPhotosSection extends StatelessWidget {
       mainAxisSpacing: 10,
       itemBuilder: (context, index) {
         final item = photos[index];
-        return AspectRatio(
-          aspectRatio: _galleryPhotoAspectRatio(item),
-          child: _MatchedPhotoTile(photo: item),
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              CupertinoPageRoute(
+                settings: const RouteSettings(name: 'My Photo Viewer'),
+                builder: (_) => GalleryFullscreenViewer(
+                  photos: photos,
+                  initialIndex: index,
+                  title: 'My Smruti',
+                  isMySmruti: true,
+                ),
+              ),
+            );
+          },
+          child: AspectRatio(
+            aspectRatio: _galleryPhotoAspectRatio(item),
+            child: _MatchedPhotoTile(photo: item),
+          ),
         );
       },
     );

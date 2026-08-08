@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -17,6 +18,7 @@ import 'package:harismruti/api/repositories/gallery_repository.dart';
 import 'package:harismruti/helper/auth_redirect_helper.dart';
 import 'package:harismruti/helper/top_notification_helper.dart';
 import 'package:harismruti/services/deep_link_service.dart';
+import 'package:harismruti/services/download_library_service.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
 import 'package:harismruti/ui/controller/my_photos_controller.dart';
 import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
@@ -49,6 +51,23 @@ double _galleryPhotoAspectRatio(GalleryPhoto photo) {
   return width / height;
 }
 
+int _memorySafeDecodeWidth(
+  BuildContext context,
+  GalleryPhoto photo, {
+  required double widthMultiplier,
+  required int maxPixels,
+}) {
+  final requestedWidth =
+      MediaQuery.sizeOf(context).width *
+      MediaQuery.devicePixelRatioOf(context) *
+      widthMultiplier;
+  final sourceAspect = _galleryPhotoAspectRatio(photo);
+  // Decoded images use about four bytes per pixel. Bound total pixels as well
+  // as width so very tall panoramas cannot bypass the memory guard.
+  final pixelBudgetWidth = math.sqrt(maxPixels * sourceAspect);
+  return requestedWidth.clamp(1, pixelBudgetWidth).round();
+}
+
 Widget _transparentPhotoHeroFlight(
   BuildContext flightContext,
   Animation<double> animation,
@@ -58,6 +77,15 @@ Widget _transparentPhotoHeroFlight(
   required GalleryPhoto photo,
   required Map<String, String>? headers,
 }) {
+  // A hero flight is short-lived and never needs the original camera
+  // resolution. Without this cap it can decode a second full-size bitmap on
+  // top of the viewer image, which is enough to exhaust RAM on many phones.
+  final decodeWidth = _memorySafeDecodeWidth(
+    flightContext,
+    photo,
+    widthMultiplier: 2,
+    maxPixels: 3000000,
+  );
   final image = Material(
     type: MaterialType.transparency,
     child: CachedNetworkImage(
@@ -67,6 +95,7 @@ Widget _transparentPhotoHeroFlight(
       alignment: Alignment.center,
       fadeInDuration: Duration.zero,
       fadeOutDuration: Duration.zero,
+      memCacheWidth: decodeWidth,
       placeholder: (_, __) => CachedNetworkImage(
         imageUrl: photo.thumbnailUrl,
         httpHeaders: headers,
@@ -74,6 +103,7 @@ Widget _transparentPhotoHeroFlight(
         alignment: Alignment.center,
         fadeInDuration: Duration.zero,
         fadeOutDuration: Duration.zero,
+        memCacheWidth: decodeWidth,
         errorWidget: (_, __, ___) => const SizedBox.shrink(),
       ),
       errorWidget: (_, __, ___) => const SizedBox.shrink(),
@@ -201,7 +231,7 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
   final FocusNode _searchFocusNode = FocusNode();
 
   bool _initialLoading = true;
-  bool _allowIgnore = false;
+  bool _mobileFeatureAllowsIgnore = false;
   bool _selectionMode = false;
   bool _isIgnoring = false;
   bool _isLoadingMore = false;
@@ -215,6 +245,14 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
   late String _title;
   late List<String> _filterLabels;
   Map<String, List<String>>? _selectedFilters;
+
+  bool get _isMySmrutiFilter =>
+      _selectedFilters?.keys.any(
+        (slug) => slug == 'my_smruti_scope' || slug.startsWith('my_smruti_'),
+      ) ??
+      false;
+
+  bool get _allowIgnore => _isMySmrutiFilter || _mobileFeatureAllowsIgnore;
 
   @override
   void initState() {
@@ -261,8 +299,10 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
       // Ignoring is an optional enhancement. A missing/older features endpoint
       // must never prevent the gallery itself from opening.
       try {
-        final features = await _repository.getMobileFeatures();
-        _allowIgnore = features['allow_ignore'] == true;
+        final features = await _repository.getMobileFeatures(
+          forMySmruti: _isMySmrutiFilter,
+        );
+        _mobileFeatureAllowsIgnore = features['allow_ignore'] == true;
         _ignoredPhotoIds.addAll(
           (features['ignored_photo_ids'] is List
                   ? features['ignored_photo_ids'] as List
@@ -465,7 +505,9 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
       builder: (context) => CupertinoAlertDialog(
         title: const Text('Ignore selected photos?'),
         content: Text(
-          '${_selectedPhotoIds.length} selected photos will be hidden from your gallery.',
+          _isMySmrutiFilter
+              ? '${_selectedPhotoIds.length} selected photos will be hidden only from your My Smruti section.'
+              : '${_selectedPhotoIds.length} selected photos will be hidden from your gallery.',
         ),
         actions: [
           CupertinoDialogAction(
@@ -483,8 +525,16 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
     if (confirmed != true || !mounted) return;
     setState(() => _isIgnoring = true);
     try {
-      final ignored = await _repository.ignorePhotos(_selectedPhotoIds);
+      final ignored = await _repository.ignorePhotos(
+        _selectedPhotoIds,
+        forMySmruti: _isMySmrutiFilter,
+      );
       if (!mounted) return;
+      if (_isMySmrutiFilter) {
+        _galleryController.mySmrutiPhotos.removeWhere(
+          (photo) => ignored.contains(photo.id),
+        );
+      }
       setState(() {
         _ignoredPhotoIds.addAll(ignored);
         _photos.removeWhere((photo) => ignored.contains(photo.id));
@@ -588,6 +638,7 @@ class _GalleryDetailScreenState extends State<GalleryDetailScreen> {
                   title: _title,
                   headers: _galleryController.imageHeaders,
                   showRecentPhotoMetadata: widget.showRecentPhotoMetadata,
+                  isMySmruti: _isMySmrutiFilter,
                   selectionMode: _selectionMode,
                   selectedPhotoIds: _selectedPhotoIds,
                   onToggleSelection: _toggleSelection,
@@ -1074,6 +1125,7 @@ class _MosaicPhotoSliver extends StatelessWidget {
   final String title;
   final Map<String, String>? headers;
   final bool showRecentPhotoMetadata;
+  final bool isMySmruti;
   final bool selectionMode;
   final Set<int> selectedPhotoIds;
   final ValueChanged<GalleryPhoto> onToggleSelection;
@@ -1083,6 +1135,7 @@ class _MosaicPhotoSliver extends StatelessWidget {
     required this.title,
     required this.headers,
     required this.showRecentPhotoMetadata,
+    required this.isMySmruti,
     required this.selectionMode,
     required this.selectedPhotoIds,
     required this.onToggleSelection,
@@ -1106,6 +1159,7 @@ class _MosaicPhotoSliver extends StatelessWidget {
             title: title,
             headers: headers,
             showRecentPhotoMetadata: showRecentPhotoMetadata,
+            isMySmruti: isMySmruti,
             selectionMode: selectionMode,
             selected: selectedPhotoIds.contains(photos[index].id),
             onToggleSelection: onToggleSelection,
@@ -1123,6 +1177,7 @@ class _MosaicTile extends StatelessWidget {
   final String title;
   final Map<String, String>? headers;
   final bool showRecentPhotoMetadata;
+  final bool isMySmruti;
   final bool selectionMode;
   final bool selected;
   final ValueChanged<GalleryPhoto> onToggleSelection;
@@ -1134,6 +1189,7 @@ class _MosaicTile extends StatelessWidget {
     required this.title,
     required this.headers,
     required this.showRecentPhotoMetadata,
+    required this.isMySmruti,
     required this.selectionMode,
     required this.selected,
     required this.onToggleSelection,
@@ -1156,6 +1212,7 @@ class _MosaicTile extends StatelessWidget {
               initialIndex: index,
               title: title,
               showRecentPhotoMetadata: showRecentPhotoMetadata,
+              isMySmruti: isMySmruti,
             ),
           ),
         );
@@ -1435,12 +1492,9 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       final metadataSize = _formatPhotoDimensions(photo.width, photo.height);
       if (metadataSize != null) return metadataSize;
 
-      final fullImageSize = await _imageDimensionsFromProvider(photo.fullUrl);
-      if (fullImageSize != null) return fullImageSize;
-
-      final downloadedFullSize = await _imageDimensionsFromBytes(photo.fullUrl);
-      if (downloadedFullSize != null) return downloadedFullSize;
-
+      // Never decode the original merely to discover its dimensions. A large
+      // photo can require hundreds of MB once expanded to RGBA. The API should
+      // normally provide width/height; the thumbnail is a safe fallback.
       final thumbnailSize = await _imageDimensionsFromProvider(
         photo.thumbnailUrl,
       );
@@ -1536,10 +1590,19 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     for (final index in [centerIndex - 1, centerIndex, centerIndex + 1]) {
       if (index < 0 || index >= _photosList.length) continue;
       final photo = _photosList[index];
+      final decodeWidth = _memorySafeDecodeWidth(
+        context,
+        photo,
+        widthMultiplier: 2,
+        maxPixels: 3000000,
+      );
       precacheImage(
-        CachedNetworkImageProvider(
-          photo.fullUrl,
-          headers: _controller.imageHeaders,
+        ResizeImage(
+          CachedNetworkImageProvider(
+            photo.fullUrl,
+            headers: _controller.imageHeaders,
+          ),
+          width: decodeWidth,
         ),
         context,
       );
@@ -1746,6 +1809,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
         throw Exception('Gallery permission is required to save the photo');
       }
       await Gal.putImage(filePath, album: albumName);
+      DownloadLibraryService.recordOriginal(_photo);
       if (!mounted) return;
       TopNotification.success('Photo saved to the "$albumName" album');
     } catch (error) {
@@ -2263,6 +2327,11 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
           (photo) => ignored.contains(photo.id),
         );
       }
+      if (_isMySmruti) {
+        _controller.mySmrutiPhotos.removeWhere(
+          (photo) => ignored.contains(photo.id),
+        );
+      }
       TopNotification.success(
         _isMySmruti ? 'Photo hidden from your My Smruti' : 'Photo ignored',
       );
@@ -2596,6 +2665,9 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   }
 
   void _showMoreOptions() {
+    final showAddNoteInDiary =
+        !Get.isRegistered<SmrutiSectionController>() ||
+        Get.find<SmrutiSectionController>().isSectionVisible('my_diary');
     showCupertinoModalPopup<void>(
       context: context,
       builder: (context) => _themedPhotoActionSheet(
@@ -2655,23 +2727,24 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
               },
               child: const Text('Add Tag'),
             ),
-            CupertinoActionSheetAction(
-              onPressed: () {
-                Navigator.pop(context);
-                if (!AuthRedirectHelper.ensureLoggedIn()) return;
-                Navigator.push(
-                  context,
-                  CupertinoPageRoute(
-                    settings: const RouteSettings(name: 'Diary Entry Detail'),
-                    builder: (_) => DiaryEntryDetailScreen(
-                      date: DateTime.now(),
-                      initialImages: [_photo.fullUrl],
+            if (showAddNoteInDiary)
+              CupertinoActionSheetAction(
+                onPressed: () {
+                  Navigator.pop(context);
+                  if (!AuthRedirectHelper.ensureLoggedIn()) return;
+                  Navigator.push(
+                    context,
+                    CupertinoPageRoute(
+                      settings: const RouteSettings(name: 'Diary Entry Detail'),
+                      builder: (_) => DiaryEntryDetailScreen(
+                        date: DateTime.now(),
+                        initialImages: [_photo.fullUrl],
+                      ),
                     ),
-                  ),
-                );
-              },
-              child: const Text('Add Note in Diary'),
-            ),
+                  );
+                },
+                child: const Text('Add Note in Diary'),
+              ),
           ],
           cancelButton: CupertinoActionSheetAction(
             onPressed: () => Navigator.pop(context),
@@ -3375,11 +3448,14 @@ class _FullscreenImage extends StatelessWidget {
     // Cap decode resolution so pinch-zoom recompositing a giant source photo
     // doesn't have to raster/scale a huge texture every frame. Sized with
     // headroom above the max pinch scale (5x) so zoomed-in detail still
-    // looks sharp; only width is capped so aspect ratio is preserved.
-    final cacheWidth =
-        (screenSize.width * MediaQuery.devicePixelRatioOf(context) * 3)
-            .clamp(600, 3000)
-            .round();
+    // looks sharp. The width is derived from a total-pixel budget so portrait
+    // and panorama images receive the same memory protection.
+    final cacheWidth = _memorySafeDecodeWidth(
+      context,
+      photo,
+      widthMultiplier: 3,
+      maxPixels: 6000000,
+    );
     return AnimatedPadding(
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOutCubic,

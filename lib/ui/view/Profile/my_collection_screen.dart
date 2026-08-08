@@ -73,10 +73,32 @@ class MyCollectionScreen extends StatelessWidget {
                       collection: collection,
                       photos: controller.photosForCollection(collection),
                       headers: controller.imageHeaders,
+                      onEdit: () => _renameCollection(context, collection.name),
                       onDelete: () =>
                           _confirmRemoveCollection(context, collection.name),
                     ),
                     const SizedBox(height: 12),
+                  ],
+                const SizedBox(height: 22),
+                _SectionHeader(
+                  icon: CupertinoIcons.tag_fill,
+                  title: 'My Tags',
+                  count: controller.allUserTags.length,
+                ),
+                const SizedBox(height: 12),
+                if (controller.allUserTags.isEmpty)
+                  const _EmptyPanel(
+                    message: 'Tags added to photos will show here',
+                  )
+                else
+                  for (final tag in controller.allUserTags) ...[
+                    _TagCard(
+                      tag: tag,
+                      photoCount: controller.photoCountForTag(tag),
+                      onEdit: () => _renameTag(context, tag),
+                      onDelete: () => _confirmRemoveTag(context, tag),
+                    ),
+                    const SizedBox(height: 8),
                   ],
               ],
             ),
@@ -99,8 +121,107 @@ class MyCollectionScreen extends StatelessWidget {
       ),
     );
     if (remove == true) {
-      controller.removeCollection(collectionName);
+      await controller.removeCollection(collectionName);
     }
+  }
+
+  Future<void> _renameCollection(BuildContext context, String name) async {
+    final newName = await _showRenameDialog(
+      context,
+      title: 'Rename Collection',
+      currentName: name,
+    );
+    if (newName == null || newName == name) return;
+    final updated = await controller.renameCollection(name, newName);
+    if (!updated && context.mounted) {
+      _showError(context, 'Could not rename the collection.');
+    }
+  }
+
+  Future<void> _renameTag(BuildContext context, String tag) async {
+    final newName = await _showRenameDialog(
+      context,
+      title: 'Rename Tag Everywhere',
+      currentName: tag,
+    );
+    if (newName == null || newName == tag) return;
+    final updated = await controller.renameTagEverywhere(tag, newName);
+    if (!updated && context.mounted) {
+      _showError(context, 'Could not rename the tag.');
+    }
+  }
+
+  Future<void> _confirmRemoveTag(BuildContext context, String tag) async {
+    final remove = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remove Tag Everywhere?'),
+        content: Text(
+          'Remove "$tag" from all ${controller.photoCountForTag(tag)} photos?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (remove != true) return;
+    final removed = await controller.removeTagEverywhere(tag);
+    if (!removed && context.mounted) {
+      _showError(context, 'Could not remove the tag.');
+    }
+  }
+
+  Future<String?> _showRenameDialog(
+    BuildContext context, {
+    required String title,
+    required String currentName,
+  }) async {
+    final textController = TextEditingController(text: currentName);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: textController,
+          autofocus: true,
+          maxLength: 128,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(labelText: 'Name'),
+          onSubmitted: (value) {
+            final clean = value.trim();
+            if (clean.isNotEmpty) Navigator.pop(dialogContext, clean);
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final clean = textController.text.trim();
+              if (clean.isNotEmpty) Navigator.pop(dialogContext, clean);
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+    textController.dispose();
+    return result;
+  }
+
+  void _showError(BuildContext context, String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -283,12 +404,14 @@ class _CollectionCard extends StatelessWidget {
   final UserPhotoCollection collection;
   final List<GalleryPhoto> photos;
   final Map<String, String> headers;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _CollectionCard({
     required this.collection,
     required this.photos,
     required this.headers,
+    required this.onEdit,
     required this.onDelete,
   });
 
@@ -368,7 +491,13 @@ class _CollectionCard extends StatelessWidget {
                     ),
                   ),
                   IconButton(
+                    onPressed: onEdit,
+                    tooltip: 'Rename collection',
+                    icon: Icon(Icons.edit_outlined, color: primaryColor),
+                  ),
+                  IconButton(
                     onPressed: onDelete,
+                    tooltip: 'Remove collection',
                     icon: Icon(
                       Icons.delete_outline_rounded,
                       color: primaryColor,
@@ -378,6 +507,50 @@ class _CollectionCard extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TagCard extends StatelessWidget {
+  const _TagCard({
+    required this.tag,
+    required this.photoCount,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final String tag;
+  final int photoCount;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainer.withAlpha(190),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: ListTile(
+        leading: Icon(CupertinoIcons.tag, color: primaryColor),
+        title: Text(tag, style: const TextStyle(fontWeight: FontWeight.w800)),
+        subtitle: Text('$photoCount ${photoCount == 1 ? 'photo' : 'photos'}'),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              onPressed: onEdit,
+              tooltip: 'Rename tag everywhere',
+              icon: Icon(Icons.edit_outlined, color: primaryColor),
+            ),
+            IconButton(
+              onPressed: onDelete,
+              tooltip: 'Remove tag everywhere',
+              icon: Icon(Icons.delete_outline_rounded, color: primaryColor),
+            ),
+          ],
         ),
       ),
     );

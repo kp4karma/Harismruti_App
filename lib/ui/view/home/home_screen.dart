@@ -11,6 +11,7 @@ import 'package:harismruti/api/repositories/gallery_repository.dart';
 import 'package:harismruti/api/repositories/live_stream_repository.dart';
 import 'package:harismruti/helper/auth_redirect_helper.dart';
 import 'package:harismruti/helper/top_notification_helper.dart';
+import 'package:harismruti/services/download_library_service.dart';
 import 'package:harismruti/ui/controller/SmrutiSectionController.dart';
 import 'package:harismruti/ui/controller/auth_controller.dart';
 import 'package:harismruti/ui/controller/gallery_controller.dart';
@@ -28,6 +29,7 @@ import 'package:harismruti/widget/appbar/sub_header.dart';
 import 'package:harismruti/widget/background/custom_background.dart';
 import 'package:harismruti/widget/bottom_bar/bottom_bar.dart';
 import 'package:harismruti/widget/internet_status_widget.dart';
+import 'package:harismruti/widget/network_Image_with_loader.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -276,7 +278,9 @@ class _HomeScreenState extends State<HomeScreen>
     final key = switch (title) {
       SmrutiSectionKeys.aiSearch => 'ai_search',
       SmrutiSectionKeys.liveDarshan => 'live_darshan',
-      SmrutiSectionKeys.downloads => 'ai_enhancement',
+      // Downloads also contains originals saved by the user, so it must not
+      // disappear when AI enhancement is disabled.
+      SmrutiSectionKeys.downloads => null,
       SmrutiSectionKeys.myPhotos => 'my_smruti',
       SmrutiSectionKeys.myDiary => 'my_diary',
       _ => null,
@@ -491,32 +495,63 @@ class _EnhancedDownloadsSection extends StatefulWidget {
       _EnhancedDownloadsSectionState();
 }
 
-class _EnhancedDownloadsSectionState extends State<_EnhancedDownloadsSection> {
+class _EnhancedDownloadsSectionState extends State<_EnhancedDownloadsSection>
+    with WidgetsBindingObserver {
   final GalleryRepository _repository = const GalleryRepository();
-  List<Map<String, dynamic>> _items = const [];
+  List<GalleryPhoto> _photos = const [];
+  int _loadRequest = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    DownloadLibraryService.revision.addListener(_handleLibraryChanged);
     unawaited(_load());
   }
 
+  @override
+  void dispose() {
+    DownloadLibraryService.revision.removeListener(_handleLibraryChanged);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(_load());
+  }
+
+  void _handleLibraryChanged() => unawaited(_load());
+
   Future<void> _load() async {
+    final request = ++_loadRequest;
+    final originals = DownloadLibraryService.savedOriginals;
+    if (mounted) setState(() => _photos = originals);
     try {
       final items = await _repository.getReadyPhotoEnhancements();
-      if (mounted) setState(() => _items = items);
+      if (!mounted || request != _loadRequest) return;
+      final enhancements = items
+          .map(_enhancedPhotoFor)
+          .whereType<GalleryPhoto>();
+      final byUrl = <String, GalleryPhoto>{};
+      for (final photo in [...enhancements, ...originals]) {
+        byUrl.putIfAbsent(photo.fullUrl, () => photo);
+      }
+      setState(() => _photos = byUrl.values.toList(growable: false));
     } catch (_) {
-      // A failed/unauthenticated request should not leave an empty home card.
+      // Saved originals remain available if the enhancement API is offline.
     }
   }
 
-  GalleryPhoto _photoFor(Map<String, dynamic> item) {
-    final jobId = int.parse('${item['id']}');
-    final photoId = int.parse('${item['photo_id']}');
+  GalleryPhoto? _enhancedPhotoFor(Map<String, dynamic> item) {
+    final jobId = int.tryParse('${item['id']}');
+    final photoId = int.tryParse('${item['photo_id']}');
+    if (jobId == null || photoId == null) return null;
+    final enhancedUrl = ApiEndpoints.photoEnhancementDownload(jobId);
     return GalleryPhoto(
       id: photoId,
-      thumbnailUrl: ApiEndpoints.photoThumbnail(photoId),
-      fullUrl: ApiEndpoints.photoEnhancementDownload(jobId),
+      thumbnailUrl: enhancedUrl,
+      fullUrl: enhancedUrl,
     );
   }
 
@@ -526,7 +561,7 @@ class _EnhancedDownloadsSectionState extends State<_EnhancedDownloadsSection> {
       CupertinoPageRoute(
         settings: const RouteSettings(name: 'Photo Viewer'),
         builder: (_) => GalleryFullscreenViewer(
-          photos: _items.map(_photoFor).toList(growable: false),
+          photos: _photos,
           initialIndex: index,
           title: 'Downloads',
         ),
@@ -536,7 +571,7 @@ class _EnhancedDownloadsSectionState extends State<_EnhancedDownloadsSection> {
 
   @override
   Widget build(BuildContext context) {
-    if (_items.isEmpty) return const SizedBox.shrink();
+    if (_photos.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -546,23 +581,21 @@ class _EnhancedDownloadsSectionState extends State<_EnhancedDownloadsSection> {
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             scrollDirection: Axis.horizontal,
-            itemCount: _items.length,
+            itemCount: _photos.length,
             separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
-              final photoId = int.parse('${_items[index]['photo_id']}');
               return GestureDetector(
                 onTap: () => _openPhoto(index),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    ApiEndpoints.photoThumbnail(photoId),
-                    headers: _repository.imageHeaders,
-                    width: 82,
-                    height: 126,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const SizedBox(
-                      width: 82,
-                      child: Icon(Icons.auto_awesome, size: 34),
+                child: SizedBox(
+                  width: 82,
+                  height: 126,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: NetworkImageWithLoader(
+                      imageUrl: _photos[index].thumbnailUrl,
+                      title: 'Download',
+                      headers: _repository.imageHeaders,
+                      fit: BoxFit.cover,
                     ),
                   ),
                 ),

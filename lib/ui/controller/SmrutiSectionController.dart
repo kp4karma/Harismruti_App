@@ -31,6 +31,16 @@ class SmrutiSectionController extends GetxController {
   }.obs;
   final RxMap<String, bool> appFeatures = <String, bool>{}.obs;
   bool isFeatureEnabled(String key) => appFeatures[key] ?? true;
+
+  bool isSectionVisible(String sectionKey) {
+    for (final section in sections) {
+      if (_sectionKeyForTitle(section['title'].toString()) == sectionKey) {
+        return section['is_show'] == true;
+      }
+    }
+    return true;
+  }
+
   final Set<String> _pendingCacheRefresh = {};
   final RxInt visibleCount = 3.obs;
   final RxBool showBottomBar = true.obs;
