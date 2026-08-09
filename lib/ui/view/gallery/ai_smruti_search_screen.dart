@@ -26,6 +26,7 @@ class _AiChatTurn {
        error = null,
        clarificationQuestion = null,
        clarificationOptions = const [],
+       hasMore = false,
        isSearching = true;
 
   final int id;
@@ -37,6 +38,7 @@ class _AiChatTurn {
   String? error;
   String? clarificationQuestion;
   List<NaturalSearchClarificationOption> clarificationOptions;
+  bool hasMore;
   bool isSearching;
 }
 
@@ -244,6 +246,7 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
       if (!mounted) return;
       setState(() {
         turn.photos = result.photos;
+        turn.hasMore = result.hasMore;
         turn.clarificationQuestion = result.clarificationQuestion;
         turn.clarificationOptions = result.clarificationOptions;
       });
@@ -371,6 +374,7 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
       );
       turn
         ..photos = photos
+        ..hasMore = data['has_more'] == true
         ..isSearching = false;
       restored.add(turn);
     }
@@ -400,6 +404,7 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
               'prompt': turn.prompt,
               'search_query': turn.searchQuery,
               'result_offset': turn.resultOffset,
+              'has_more': turn.hasMore,
               'created_at': turn.createdAt.toIso8601String(),
               'photos': turn.photos
                   .map(
@@ -649,7 +654,7 @@ class _AiSmrutiSearchScreenState extends State<AiSmrutiSearchScreen>
         ? 'Guru Hari'
         : 'Hariprasad Swamiji';
     final suggestions = <_FollowUpSuggestion>[
-      if (turn.photos.isNotEmpty)
+      if (turn.photos.isNotEmpty && turn.hasMore)
         const _FollowUpSuggestion('More like this', 'more'),
       if (!lower.contains('recent') &&
           !lower.contains('latest') &&

@@ -23,11 +23,13 @@ class NaturalSearchClarificationOption {
 class NaturalSearchResult {
   const NaturalSearchResult({
     required this.photos,
+    required this.hasMore,
     this.clarificationQuestion,
     this.clarificationOptions = const [],
   });
 
   final List<GalleryPhoto> photos;
+  final bool hasMore;
   final String? clarificationQuestion;
   final List<NaturalSearchClarificationOption> clarificationOptions;
 
@@ -178,6 +180,7 @@ class GalleryRepository {
         .toList(growable: false);
     return NaturalSearchResult(
       photos: photos,
+      hasMore: data['has_more'] == true,
       clarificationQuestion: clarificationMap['question']?.toString(),
       clarificationOptions: options,
     );
