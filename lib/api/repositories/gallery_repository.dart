@@ -34,6 +34,24 @@ class NaturalSearchResult {
   bool get needsClarification => clarificationOptions.isNotEmpty;
 }
 
+class SlideshowTrack {
+  const SlideshowTrack({
+    required this.name,
+    required this.folder,
+    required this.url,
+  });
+
+  final String name;
+  final String folder;
+  final String url;
+
+  factory SlideshowTrack.fromJson(Map<String, dynamic> json) => SlideshowTrack(
+    name: json['name']?.toString() ?? 'Untitled track',
+    folder: json['folder']?.toString() ?? 'Smruti',
+    url: json['url']?.toString() ?? '',
+  );
+}
+
 extension GallerySwamiApiValue on GallerySwami {
   String get apiValue => switch (this) {
     GallerySwami.prabodh => 'prabodh',
@@ -58,6 +76,23 @@ class GalleryRepository {
       headers['Authorization'] = 'Bearer $token';
     }
     return headers;
+  }
+
+  Future<List<SlideshowTrack>> getSlideshowMusic() async {
+    final response = await ApiClient.get(
+      ApiEndpoints.slideshowMusic,
+      cacheDuration: const Duration(minutes: 10),
+    );
+    final data = response.data;
+    final rawTracks = data is Map ? data['tracks'] : null;
+    if (rawTracks is! List) return const [];
+    return rawTracks
+        .whereType<Map>()
+        .map(
+          (track) => SlideshowTrack.fromJson(Map<String, dynamic>.from(track)),
+        )
+        .where((track) => track.url.isNotEmpty)
+        .toList(growable: false);
   }
 
   Future<GalleryHomeBundle> getHomeBundle({

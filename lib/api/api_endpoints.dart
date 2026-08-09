@@ -67,6 +67,7 @@ class ApiEndpoints {
   static String get myDiary => "/me/diary";
   static String get liveStream => "/live-now";
   static String get naturalSearch => "/search/natural";
+  static String get slideshowMusic => "/slideshow/music";
 
   static String collectionMonths(int year) => "/collections/$year/months";
   static String collectionDays(int year, int month) =>

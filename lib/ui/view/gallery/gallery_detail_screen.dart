@@ -31,6 +31,7 @@ import 'package:harismruti/widget/appbar/frosted_appbar.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
 import 'package:latlong2/latlong.dart' hide Path;
+import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pro_image_editor/pro_image_editor.dart';
 import 'package:share_plus/share_plus.dart';
@@ -1320,6 +1321,12 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   bool _isDownloading = false;
   bool _isSlideshowPlaying = false;
   Timer? _slideshowTimer;
+  late final AudioPlayer _musicPlayer;
+  List<SlideshowTrack> _musicTracks = const [];
+  int _musicIndex = 0;
+  bool _musicLoading = false;
+  String? _musicError;
+  StreamSubscription<int?>? _musicIndexSubscription;
   Offset _lastDoubleTapPosition = Offset.zero;
   int _gesturePointerCount = 1;
   double _dismissDragOffset = 0;
@@ -1336,6 +1343,11 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   void initState() {
     super.initState();
     _localPhotos = List<GalleryPhoto>.of(widget.photos);
+    _musicPlayer = AudioPlayer();
+    _musicIndexSubscription = _musicPlayer.currentIndexStream.listen((index) {
+      if (!mounted || index == null) return;
+      setState(() => _musicIndex = index);
+    });
     _index = widget.initialIndex;
     _allowIgnore = _isMySmruti;
     _loadIgnoreFeature();
@@ -1385,6 +1397,8 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   @override
   void dispose() {
     _slideshowTimer?.cancel();
+    _musicIndexSubscription?.cancel();
+    _musicPlayer.dispose();
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -1422,7 +1436,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
 
   GalleryPhoto get _photo => _photosList[_index];
 
-  void _toggleSlideshow() {
+  Future<void> _toggleSlideshow() async {
     if (_photosList.length < 2) return;
 
     if (_isSlideshowPlaying) {
@@ -1441,6 +1455,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
         _isSlideshowPlaying = false;
         _chromeVisible = true;
       });
+      await _musicPlayer.pause();
       return;
     }
 
@@ -1449,6 +1464,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       _infoPanelOpen = false;
       _chromeVisible = true;
     });
+    await _startSlideshowMusic();
 
     _slideshowTimer?.cancel();
     _slideshowTimer = Timer.periodic(const Duration(seconds: 3), (_) {
@@ -1466,6 +1482,64 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
         curve: Curves.easeInOutCubic,
       );
     });
+  }
+
+  Future<void> _startSlideshowMusic() async {
+    if (_musicTracks.isNotEmpty) {
+      unawaited(_musicPlayer.play());
+      return;
+    }
+    if (_musicLoading) return;
+    setState(() {
+      _musicLoading = true;
+      _musicError = null;
+    });
+    try {
+      final tracks = await _repository.getSlideshowMusic();
+      if (!mounted) return;
+      if (tracks.isEmpty) {
+        setState(() => _musicError = 'No music found');
+        return;
+      }
+      final initialIndex = math.Random().nextInt(tracks.length);
+      await _musicPlayer.setAudioSources(
+        tracks.map((track) => AudioSource.uri(Uri.parse(track.url))).toList(),
+        initialIndex: initialIndex,
+      );
+      await _musicPlayer.setLoopMode(LoopMode.all);
+      if (!mounted) return;
+      setState(() {
+        _musicTracks = tracks;
+        _musicIndex = initialIndex;
+      });
+      if (_isSlideshowPlaying) unawaited(_musicPlayer.play());
+    } catch (error) {
+      if (mounted) setState(() => _musicError = 'Music is unavailable');
+      debugPrint('Unable to load slideshow music: $error');
+    } finally {
+      if (mounted) setState(() => _musicLoading = false);
+    }
+  }
+
+  Future<void> _selectMusicTrack(int index) async {
+    if (index < 0 || index >= _musicTracks.length) return;
+    await _musicPlayer.seek(Duration.zero, index: index);
+    unawaited(_musicPlayer.play());
+  }
+
+  Future<void> _showMusicPicker() async {
+    if (_musicTracks.isEmpty) {
+      await _startSlideshowMusic();
+      if (_musicTracks.isEmpty || !mounted) return;
+    }
+    final selected = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) =>
+          _MusicPickerSheet(tracks: _musicTracks, selectedIndex: _musicIndex),
+    );
+    if (selected != null) await _selectMusicTrack(selected);
   }
 
   void _maybeLoadMoreRecent(int viewedIndex) {
@@ -2664,6 +2738,45 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     );
   }
 
+  Future<void> _openRemoveTagSheet() async {
+    if (!AuthRedirectHelper.ensureLoggedIn()) return;
+    final appliedTags = _controller.tagsForPhoto(_photo.id);
+    if (appliedTags.isEmpty) return;
+
+    final tag = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (context) => _themedPhotoActionSheet(
+        context,
+        CupertinoActionSheet(
+          title: const Text('Remove Tag'),
+          message: const Text('Choose a tag to remove from this image.'),
+          actions: [
+            for (final tag in appliedTags)
+              CupertinoActionSheetAction(
+                isDestructiveAction: true,
+                onPressed: () => Navigator.pop(context, tag),
+                child: Text(tag),
+              ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ),
+      ),
+    );
+    if (tag == null) return;
+
+    final removed = await _controller.removeTagFromPhoto(_photo.id, tag);
+    if (!mounted) return;
+    TopNotification.show(
+      message: removed
+          ? 'Tag "$tag" removed from this image'
+          : 'Could not remove tag "$tag"',
+      type: removed ? AppNotificationType.success : AppNotificationType.error,
+    );
+  }
+
   void _showMoreOptions() {
     final showAddNoteInDiary =
         !Get.isRegistered<SmrutiSectionController>() ||
@@ -2727,6 +2840,15 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
               },
               child: const Text('Add Tag'),
             ),
+            if (_controller.tagsForPhoto(_photo.id).isNotEmpty)
+              CupertinoActionSheetAction(
+                isDestructiveAction: true,
+                onPressed: () {
+                  Navigator.pop(context);
+                  _openRemoveTagSheet();
+                },
+                child: const Text('Remove Tag'),
+              ),
             if (showAddNoteInDiary)
               CupertinoActionSheetAction(
                 onPressed: () {
@@ -2969,6 +3091,25 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (_isSlideshowPlaying)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+                          child: _SlideshowMusicBar(
+                            player: _musicPlayer,
+                            track: _musicTracks.isEmpty
+                                ? null
+                                : _musicTracks[_musicIndex.clamp(
+                                    0,
+                                    _musicTracks.length - 1,
+                                  )],
+                            isLoading: _musicLoading,
+                            error: _musicError,
+                            onChooseTrack: _showMusicPicker,
+                            onPrevious: () => _musicPlayer.seekToPrevious(),
+                            onNext: () => _musicPlayer.seekToNext(),
+                            onRetry: _startSlideshowMusic,
+                          ),
+                        ),
                       AnimatedSize(
                         duration: const Duration(milliseconds: 280),
                         curve: Curves.easeOutCubic,
@@ -3754,6 +3895,341 @@ class _ViewerThumbStrip extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _SlideshowMusicBar extends StatelessWidget {
+  const _SlideshowMusicBar({
+    required this.player,
+    required this.track,
+    required this.isLoading,
+    required this.error,
+    required this.onChooseTrack,
+    required this.onPrevious,
+    required this.onNext,
+    required this.onRetry,
+  });
+
+  final AudioPlayer player;
+  final SlideshowTrack? track;
+  final bool isLoading;
+  final String? error;
+  final VoidCallback onChooseTrack;
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
+  final VoidCallback onRetry;
+
+  String _time(Duration value) {
+    final minutes = value.inMinutes;
+    final seconds = value.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 520),
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 9),
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.black.withAlpha(150)
+                : Colors.white.withAlpha(225),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: Colors.white.withAlpha(isDark ? 45 : 210),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(32),
+                blurRadius: 22,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: isLoading
+              ? const SizedBox(
+                  height: 54,
+                  child: Center(child: CupertinoActivityIndicator()),
+                )
+              : error != null
+              ? Row(
+                  children: [
+                    Icon(
+                      CupertinoIcons.music_note_2,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        error!,
+                        style: TextStyle(
+                          color: scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    TextButton(onPressed: onRetry, child: const Text('Retry')),
+                  ],
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            CupertinoIcons.music_note_2,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: onChooseTrack,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  track?.name ?? 'Choose music',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: scheme.onSurface,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                Text(
+                                  track?.folder ?? 'Smruti music',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: scheme.onSurfaceVariant,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: onPrevious,
+                          icon: const Icon(CupertinoIcons.backward_end_fill),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        StreamBuilder<PlayerState>(
+                          stream: player.playerStateStream,
+                          builder: (context, snapshot) {
+                            final playing = snapshot.data?.playing ?? false;
+                            return IconButton(
+                              onPressed: () =>
+                                  playing ? player.pause() : player.play(),
+                              icon: Icon(
+                                playing
+                                    ? CupertinoIcons.pause_circle_fill
+                                    : CupertinoIcons.play_circle_fill,
+                                size: 34,
+                                color: const Color(0xFF8B5CF6),
+                              ),
+                              visualDensity: VisualDensity.compact,
+                            );
+                          },
+                        ),
+                        IconButton(
+                          onPressed: onNext,
+                          icon: const Icon(CupertinoIcons.forward_end_fill),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        IconButton(
+                          onPressed: onChooseTrack,
+                          tooltip: 'Choose music',
+                          icon: const Icon(CupertinoIcons.music_note_list),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ],
+                    ),
+                    StreamBuilder<Duration?>(
+                      stream: player.durationStream,
+                      builder: (context, durationSnapshot) =>
+                          StreamBuilder<Duration>(
+                            stream: player.positionStream,
+                            builder: (context, positionSnapshot) {
+                              final duration =
+                                  durationSnapshot.data ?? Duration.zero;
+                              final position =
+                                  positionSnapshot.data ?? Duration.zero;
+                              final max = math
+                                  .max(1, duration.inMilliseconds)
+                                  .toDouble();
+                              final value = position.inMilliseconds
+                                  .clamp(0, max.toInt())
+                                  .toDouble();
+                              return Row(
+                                children: [
+                                  Text(
+                                    _time(position),
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Slider(
+                                      value: value,
+                                      max: max,
+                                      min: 0,
+                                      onChanged: duration == Duration.zero
+                                          ? null
+                                          : (next) => player.seek(
+                                              Duration(
+                                                milliseconds: next.round(),
+                                              ),
+                                            ),
+                                    ),
+                                  ),
+                                  Text(
+                                    _time(duration),
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MusicPickerSheet extends StatelessWidget {
+  const _MusicPickerSheet({required this.tracks, required this.selectedIndex});
+
+  final List<SlideshowTrack> tracks;
+  final int selectedIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SafeArea(
+      child: Container(
+        height: MediaQuery.sizeOf(context).height * .68,
+        decoration: BoxDecoration(
+          color: scheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 10),
+              width: 42,
+              height: 4,
+              decoration: BoxDecoration(
+                color: scheme.outlineVariant,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 12, 10),
+              child: Row(
+                children: [
+                  const Icon(
+                    CupertinoIcons.music_note_list,
+                    color: Color(0xFF8B5CF6),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Slideshow music',
+                      style: TextStyle(
+                        color: scheme.onSurface,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(CupertinoIcons.xmark_circle_fill),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 18),
+                itemCount: tracks.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 3),
+                itemBuilder: (context, index) {
+                  final track = tracks[index];
+                  final selected = index == selectedIndex;
+                  return ListTile(
+                    selected: selected,
+                    selectedTileColor: const Color(0xFF8B5CF6).withAlpha(24),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    leading: CircleAvatar(
+                      backgroundColor: selected
+                          ? const Color(0xFF8B5CF6)
+                          : scheme.surfaceContainerHighest,
+                      child: Icon(
+                        selected
+                            ? CupertinoIcons.speaker_2_fill
+                            : CupertinoIcons.music_note,
+                        color: selected
+                            ? Colors.white
+                            : scheme.onSurfaceVariant,
+                        size: 18,
+                      ),
+                    ),
+                    title: Text(
+                      track.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    subtitle: Text(
+                      track.folder,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: selected
+                        ? const Icon(
+                            CupertinoIcons.check_mark_circled_solid,
+                            color: Color(0xFF8B5CF6),
+                          )
+                        : null,
+                    onTap: () => Navigator.pop(context, index),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
