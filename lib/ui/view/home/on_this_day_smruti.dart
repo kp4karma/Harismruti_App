@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/api/repositories/gallery_repository.dart';
@@ -13,6 +16,12 @@ import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+
+const MethodChannel _instagramStoryChannel = MethodChannel(
+  'org.hp.harismruti/instagram_story',
+);
 
 class OnThisDaySmruti extends StatefulWidget {
   const OnThisDaySmruti({super.key});
@@ -113,16 +122,17 @@ class _OnThisDaySmrutiState extends State<OnThisDaySmruti> {
       final mySmrutiPhotos = Get.isRegistered<MyPhotosController>()
           ? Get.find<MyPhotosController>().matchedPhotos.where(_isOnThisDay)
           : const Iterable<GalleryPhoto>.empty();
-      final groups =
-          _buildStoryGroups(
-            publicPhotos: publicPhotos,
-            mySmrutiPhotos: mySmrutiPhotos,
-          )..sort((first, second) {
-            final firstViewed = _viewedGroupKeys.contains(first.key);
-            final secondViewed = _viewedGroupKeys.contains(second.key);
-            return firstViewed == secondViewed ? 0 : (firstViewed ? 1 : -1);
-          });
-      if (groups.isEmpty) return const SizedBox.shrink();
+      var groups = _buildStoryGroups(
+        publicPhotos: publicPhotos,
+        mySmrutiPhotos: mySmrutiPhotos,
+        cycleKey: _activeStorageKey ?? '',
+      );
+      groups.sort((first, second) {
+        final firstViewed = _viewedGroupKeys.contains(first.key);
+        final secondViewed = _viewedGroupKeys.contains(second.key);
+        return firstViewed == secondViewed ? 0 : (firstViewed ? 1 : -1);
+      });
+      if (groups.isEmpty) return const _OnThisDayEmptyState();
 
       if (_openFromNotification && !_notificationOpenScheduled) {
         _notificationOpenScheduled = true;
@@ -147,12 +157,15 @@ class _OnThisDaySmrutiState extends State<OnThisDaySmruti> {
           physics: const BouncingScrollPhysics(),
           itemCount: groups.length,
           separatorBuilder: (_, _) => SizedBox(width: 16 * scale),
-          itemBuilder: (context, index) => _StoryCircle(
-            group: groups[index],
-            isViewed: _viewedGroupKeys.contains(groups[index].key),
-            headers: galleryController.imageHeaders,
-            onTap: () => _openStory(context, groups[index], galleryController),
-          ),
+          itemBuilder: (context, index) {
+            final group = groups[index];
+            return _StoryCircle(
+              group: group,
+              isViewed: _viewedGroupKeys.contains(group.key),
+              headers: galleryController.imageHeaders,
+              onTap: () => _openStory(context, group, galleryController),
+            );
+          },
         ),
       );
     });
@@ -180,6 +193,80 @@ class _OnThisDaySmrutiState extends State<OnThisDaySmruti> {
         builder: (_) => _OnThisDayStoryViewer(
           group: group,
           headers: controller.imageHeaders,
+        ),
+      ),
+    );
+  }
+}
+
+int _feedCycleSeed(String cycleKey) {
+  return cycleKey.codeUnits.fold<int>(
+    17,
+    (value, unit) => ((value * 31) + unit) & 0x7fffffff,
+  );
+}
+
+class _OnThisDayEmptyState extends StatelessWidget {
+  const _OnThisDayEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final scale = tabletScale(context);
+    return SizedBox(
+      height: 132 * scale,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHighest.withAlpha(115),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: scheme.outlineVariant.withAlpha(115)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 54 * scale,
+                height: 54 * scale,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: primaryColor.withAlpha(18),
+                  border: Border.all(
+                    color: primaryColor.withAlpha(75),
+                    width: 2,
+                  ),
+                ),
+                child: Icon(CupertinoIcons.clock, color: primaryColor),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'No memories for this time',
+                      style: TextStyle(
+                        color: scheme.onSurface,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'New stories will appear automatically at the next refresh.',
+                      style: TextStyle(
+                        color: scheme.onSurfaceVariant,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -306,6 +393,7 @@ class _OnThisDayStoryViewerState extends State<_OnThisDayStoryViewer> {
   int _index = 0;
   bool _didPrecache = false;
   bool _isChangingPage = false;
+  bool _isSharingToInstagram = false;
 
   GalleryPhoto get _photo => widget.group.photos[_index];
 
@@ -387,6 +475,60 @@ class _OnThisDayStoryViewerState extends State<_OnThisDayStoryViewer> {
           context,
         ),
       );
+    }
+  }
+
+  Future<void> _shareCurrentToInstagramStory() async {
+    if (_isSharingToInstagram || _photo.fullUrl.isEmpty) return;
+    _timer?.cancel();
+    setState(() => _isSharingToInstagram = true);
+    try {
+      final response = await Dio().get<List<int>>(
+        _photo.fullUrl,
+        options: Options(
+          headers: widget.headers,
+          responseType: ResponseType.bytes,
+        ),
+      );
+      final bytes = response.data;
+      if (bytes == null || bytes.isEmpty) throw Exception('Empty image');
+      final directory = await getTemporaryDirectory();
+      final path =
+          '${directory.path}${Platform.pathSeparator}'
+          'on-this-day-${_photo.id}-${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final file = File(path);
+      await file.writeAsBytes(bytes, flush: true);
+
+      var opened = false;
+      try {
+        opened =
+            await _instagramStoryChannel.invokeMethod<bool>('shareImage', {
+              'path': path,
+            }) ??
+            false;
+      } on PlatformException {
+        opened = false;
+      }
+      if (!opened) {
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(path)],
+            text:
+                'On This Day · ${_formatEventDate(_photo.eventDate ?? _photo.takenAt ?? DateTime.now())}',
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to prepare this story.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSharingToInstagram = false);
+        _scheduleNext();
+      }
     }
   }
 
@@ -492,6 +634,33 @@ class _OnThisDayStoryViewerState extends State<_OnThisDayStoryViewer> {
                         shape: const CircleBorder(),
                         child: InkWell(
                           customBorder: const CircleBorder(),
+                          onTap: _isSharingToInstagram
+                              ? null
+                              : _shareCurrentToInstagramStory,
+                          child: SizedBox.square(
+                            dimension: 42,
+                            child: _isSharingToInstagram
+                                ? const Padding(
+                                    padding: EdgeInsets.all(11),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(
+                                    CupertinoIcons.camera_circle_fill,
+                                    color: Colors.white,
+                                    size: 23,
+                                  ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Material(
+                        color: Colors.white.withAlpha(35),
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
                           onTap: () => Navigator.pop(context),
                           child: const SizedBox.square(
                             dimension: 42,
@@ -589,7 +758,7 @@ class _OnThisDayStoryViewerState extends State<_OnThisDayStoryViewer> {
   }
 }
 
-enum _StoryType { mySmruti, location, darshan, withSmruti, smrutiOf }
+enum _StoryType { mySmruti, year, location, event, daily }
 
 class _StoryGroup {
   const _StoryGroup({
@@ -597,14 +766,18 @@ class _StoryGroup {
     required this.label,
     required this.icon,
     required this.photos,
+    this.year,
+    this.id,
   });
 
   final _StoryType type;
   final String label;
   final IconData icon;
   final List<GalleryPhoto> photos;
+  final int? year;
+  final String? id;
 
-  String get key => type.name;
+  String get key => id ?? (year == null ? type.name : '${type.name}:$year');
 }
 
 String _feedCycle(DateTime now, List<String> refreshTimes) {
@@ -637,6 +810,7 @@ List<DateTime> _dailyRefreshSlots(DateTime day, List<String> refreshTimes) {
 List<_StoryGroup> _buildStoryGroups({
   required Iterable<GalleryPhoto> publicPhotos,
   required Iterable<GalleryPhoto> mySmrutiPhotos,
+  required String cycleKey,
 }) {
   const storyLimit = 5;
   final usedPhotoKeys = <String>{};
@@ -657,82 +831,151 @@ List<_StoryGroup> _buildStoryGroups({
     );
   }
 
-  void buildDistinctPublicGroup({
-    required _StoryType type,
-    required String label,
-    required IconData icon,
-    required String? Function(GalleryPhoto) valueFor,
-    bool requireDistinctValues = true,
-  }) {
-    final seenValues = <String>{};
-    final selected = <GalleryPhoto>[];
-    for (final photo in publicPhotos) {
-      final value = valueFor(photo)?.trim() ?? '';
-      if (value.isEmpty) continue;
-      final valueKey = value.toLowerCase();
-      final photoKey = _photoKey(photo);
-      if ((requireDistinctValues && seenValues.contains(valueKey)) ||
-          usedPhotoKeys.contains(photoKey)) {
-        continue;
-      }
-      seenValues.add(valueKey);
-      usedPhotoKeys.add(photoKey);
-      selected.add(photo);
-      if (selected.length == storyLimit) break;
-    }
-    if (selected.isEmpty) return;
-    groupsByType[type] = _StoryGroup(
-      type: type,
-      label: label,
-      icon: icon,
-      photos: selected,
-    );
+  final uniquePublicPhotos = <GalleryPhoto>[];
+  for (final photo in publicPhotos) {
+    if (usedPhotoKeys.add(_photoKey(photo))) uniquePublicPhotos.add(photo);
   }
 
-  // Specific metadata gets first choice. Location is the broad fallback,
-  // preventing it from consuming every image before the other stories.
-  buildDistinctPublicGroup(
-    type: _StoryType.darshan,
-    label: 'Darshan',
-    icon: CupertinoIcons.person_2_fill,
-    valueFor: (photo) => photo.darshanOf,
-    requireDistinctValues: false,
-  );
-  buildDistinctPublicGroup(
-    type: _StoryType.withSmruti,
-    label: 'With',
-    icon: CupertinoIcons.person_3_fill,
-    valueFor: (photo) => photo.smrutiWith,
-  );
-  buildDistinctPublicGroup(
-    type: _StoryType.smrutiOf,
-    label: 'Smruti Of',
-    icon: CupertinoIcons.sparkles,
-    valueFor: (photo) => photo.smrutiOf,
-  );
-  buildDistinctPublicGroup(
-    type: _StoryType.location,
-    label: 'Location',
-    icon: CupertinoIcons.location_solid,
-    valueFor: (photo) =>
-        _hasValue(photo.subLocation) ? photo.subLocation : photo.location,
-  );
-
-  const displayOrder = [
-    _StoryType.mySmruti,
-    _StoryType.location,
-    _StoryType.darshan,
-    _StoryType.withSmruti,
-    _StoryType.smrutiOf,
+  final photosByYear = <int, List<GalleryPhoto>>{};
+  for (final photo in uniquePublicPhotos) {
+    final date = photo.eventDate ?? photo.takenAt;
+    if (date != null) {
+      photosByYear.putIfAbsent(date.year, () => <GalleryPhoto>[]).add(photo);
+    }
+  }
+  final years = photosByYear.keys.toList()..sort((a, b) => b.compareTo(a));
+  final yearGroups = <_StoryGroup>[
+    for (final year in years)
+      _StoryGroup(
+        type: _StoryType.year,
+        year: year,
+        label: year.toString(),
+        icon: CupertinoIcons.calendar,
+        photos: photosByYear[year]!,
+      ),
   ];
-  return displayOrder
-      .map((type) => groupsByType[type])
-      .whereType<_StoryGroup>()
-      .toList(growable: false);
+
+  List<_StoryGroup> groupsByTextValue({
+    required _StoryType type,
+    required IconData icon,
+    required String? Function(GalleryPhoto) valueFor,
+  }) {
+    final grouped = <String, List<GalleryPhoto>>{};
+    final labels = <String, String>{};
+    for (final photo in uniquePublicPhotos) {
+      final value = valueFor(photo)?.trim() ?? '';
+      if (value.isEmpty) continue;
+      final key = value.toLowerCase();
+      labels.putIfAbsent(key, () => value);
+      grouped.putIfAbsent(key, () => <GalleryPhoto>[]).add(photo);
+    }
+    final keys = grouped.keys.toList()
+      ..sort((a, b) {
+        final count = grouped[b]!.length.compareTo(grouped[a]!.length);
+        return count != 0 ? count : a.compareTo(b);
+      });
+    return [
+      for (final key in keys)
+        _StoryGroup(
+          type: type,
+          id: '${type.name}:$key',
+          label: labels[key]!,
+          icon: icon,
+          photos: grouped[key]!,
+        ),
+    ];
+  }
+
+  final locationGroups = groupsByTextValue(
+    type: _StoryType.location,
+    icon: CupertinoIcons.location_solid,
+    valueFor: (photo) => photo.subLocation?.trim().isNotEmpty == true
+        ? photo.subLocation
+        : photo.location,
+  );
+  final eventGroups = groupsByTextValue(
+    type: _StoryType.event,
+    icon: CupertinoIcons.photo_on_rectangle,
+    valueFor: (photo) => photo.album,
+  );
+  final dailyGroup = uniquePublicPhotos.isEmpty
+      ? null
+      : _StoryGroup(
+          type: _StoryType.daily,
+          id: 'daily',
+          label: 'Today in History',
+          icon: CupertinoIcons.play_circle_fill,
+          photos: [...uniquePublicPhotos]
+            ..sort((a, b) {
+              final first = a.eventDate ?? a.takenAt;
+              final second = b.eventDate ?? b.takenAt;
+              return (first ?? DateTime(0)).compareTo(second ?? DateTime(0));
+            }),
+        );
+
+  final seed = _feedCycleSeed(cycleKey);
+  final result = <_StoryGroup>[];
+  final assignedPhotoKeys = <String>{};
+
+  void addFrom(List<_StoryGroup> candidates, int offset) {
+    if (candidates.isEmpty || result.length >= 4) return;
+    for (var attempt = 0; attempt < candidates.length; attempt++) {
+      final candidate =
+          candidates[(seed + offset + attempt) % candidates.length];
+      final available = candidate.photos
+          .where((photo) => !assignedPhotoKeys.contains(_photoKey(photo)))
+          .take(8)
+          .toList(growable: false);
+      if (available.isEmpty) continue;
+      result.add(
+        _StoryGroup(
+          type: candidate.type,
+          id: candidate.id,
+          year: candidate.year,
+          label: candidate.label,
+          icon: candidate.icon,
+          photos: available,
+        ),
+      );
+      assignedPhotoKeys.addAll(available.map(_photoKey));
+      return;
+    }
+  }
+
+  final mySmruti = groupsByType[_StoryType.mySmruti];
+  if (mySmruti != null) {
+    result.add(mySmruti);
+    assignedPhotoKeys.addAll(mySmruti.photos.map(_photoKey));
+  }
+  addFrom(yearGroups, 0);
+  addFrom(locationGroups, 7);
+  addFrom(eventGroups, 13);
+  if (result.length < 4 && dailyGroup != null) addFrom([dailyGroup], 19);
+  if (result.length < 4) addFrom(yearGroups, 23);
+  if (result.length < 4) addFrom(locationGroups, 29);
+  return result;
 }
 
-String _photoKey(GalleryPhoto photo) =>
-    photo.id > 0 ? 'id:${photo.id}' : photo.thumbnailUrl;
+String _photoKey(GalleryPhoto photo) {
+  // Imported galleries can contain multiple database rows for the same
+  // physical image. Prefer the source filename so those rows cannot become
+  // covers/items in several On This Day categories at once.
+  final fileName = photo.fileName?.trim();
+  if (fileName != null && fileName.isNotEmpty) {
+    final leaf = fileName.replaceAll('\\', '/').split('/').last.toLowerCase();
+    final canonical = leaf.replaceFirst(
+      RegExp(r'^phoca_thumb_[a-z]_+', caseSensitive: false),
+      '',
+    );
+    return 'file:$canonical';
+  }
+
+  final fullUrl = photo.fullUrl.trim();
+  if (fullUrl.isNotEmpty && !RegExp(r'/photos/\d+/full').hasMatch(fullUrl)) {
+    return 'url:${Uri.decodeComponent(fullUrl).toLowerCase()}';
+  }
+  return photo.id > 0 ? 'id:${photo.id}' : photo.thumbnailUrl.toLowerCase();
+}
 
 bool _isOnThisDay(GalleryPhoto photo) {
   final date = photo.eventDate ?? photo.takenAt;
@@ -743,21 +986,30 @@ bool _isOnThisDay(GalleryPhoto photo) {
       date.day == now.day;
 }
 
-bool _hasValue(String? value) => value?.trim().isNotEmpty == true;
-
 String _contextLabel(_StoryType type, GalleryPhoto photo) {
   return switch (type) {
     _StoryType.mySmruti => 'Your Smruti from this day',
+    _StoryType.year => _yearsAgoLabel(photo.eventDate ?? photo.takenAt),
     _StoryType.location =>
       photo.subLocation?.trim().isNotEmpty == true
           ? photo.subLocation!.trim()
           : photo.location?.trim().isNotEmpty == true
           ? photo.location!.trim()
-          : 'Location',
-    _StoryType.darshan => 'Darshan of ${photo.darshanOf ?? ''}',
-    _StoryType.withSmruti => 'Smruti with ${photo.smrutiWith ?? ''}',
-    _StoryType.smrutiOf => 'Smruti of ${photo.smrutiOf ?? ''}',
+          : 'A Smruti from this place',
+    _StoryType.event =>
+      photo.album?.trim().isNotEmpty == true
+          ? photo.album!.trim()
+          : 'A Smruti from this event',
+    _StoryType.daily => _yearsAgoLabel(photo.eventDate ?? photo.takenAt),
   };
+}
+
+String _yearsAgoLabel(DateTime? date) {
+  if (date == null) return 'A Smruti from this day';
+  final years = DateTime.now().year - date.year;
+  return years == 1
+      ? 'A Smruti from 1 year ago'
+      : 'A Smruti from $years years ago';
 }
 
 String _formatEventDate(DateTime date) {

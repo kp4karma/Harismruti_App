@@ -14,6 +14,9 @@ class DiaryEntry {
     required this.images,
     required this.createdAt,
     required this.updatedAt,
+    this.rating = 0,
+    this.audioAttachments = const [],
+    this.fileAttachments = const [],
     this.locationName,
     this.latitude,
     this.longitude,
@@ -31,6 +34,9 @@ class DiaryEntry {
   final double? longitude;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final int rating;
+  final List<Map<String, dynamic>> audioAttachments;
+  final List<Map<String, dynamic>> fileAttachments;
 
   String get dateKey => MyDiaryController.dateKeyFor(date);
   bool get hasLocation => latitude != null && longitude != null;
@@ -48,6 +54,9 @@ class DiaryEntry {
     'longitude': longitude,
     'created_at': createdAt.toIso8601String(),
     'updated_at': updatedAt.toIso8601String(),
+    'rating': rating,
+    'audio_attachments': audioAttachments,
+    'file_attachments': fileAttachments,
   };
 
   factory DiaryEntry.fromJson(Map<String, dynamic> json) {
@@ -87,10 +96,14 @@ class DiaryEntry {
       createdAt: createdAt,
       updatedAt:
           DateTime.tryParse(json['updated_at']?.toString() ?? '') ?? createdAt,
+      rating: (json['rating'] as num?)?.toInt().clamp(0, 5) ?? 0,
+      audioAttachments: _readAttachments(json['audio_attachments']),
+      fileAttachments: _readAttachments(json['file_attachments']),
     );
   }
 
   DiaryEntry copyWith({
+    DateTime? date,
     String? title,
     String? note,
     List<String>? tags,
@@ -100,11 +113,14 @@ class DiaryEntry {
     double? latitude,
     double? longitude,
     DateTime? updatedAt,
+    int? rating,
+    List<Map<String, dynamic>>? audioAttachments,
+    List<Map<String, dynamic>>? fileAttachments,
     bool clearLocation = false,
   }) {
     return DiaryEntry(
       id: id,
-      date: date,
+      date: date ?? this.date,
       title: title ?? this.title,
       note: note ?? this.note,
       tags: tags ?? this.tags,
@@ -115,6 +131,9 @@ class DiaryEntry {
       longitude: clearLocation ? null : longitude ?? this.longitude,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      rating: rating ?? this.rating,
+      audioAttachments: audioAttachments ?? this.audioAttachments,
+      fileAttachments: fileAttachments ?? this.fileAttachments,
     );
   }
 
@@ -152,6 +171,12 @@ class DiaryEntry {
     if (value is int) return value.toDouble();
     return double.tryParse(value?.toString() ?? '');
   }
+
+  static List<Map<String, dynamic>> _readAttachments(dynamic value) =>
+      (value as List? ?? const [])
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList(growable: false);
 }
 
 class MyDiaryController extends GetxController {
@@ -265,6 +290,9 @@ class MyDiaryController extends GetxController {
     String? locationName,
     double? latitude,
     double? longitude,
+    int rating = 0,
+    List<Map<String, dynamic>> audioAttachments = const [],
+    List<Map<String, dynamic>> fileAttachments = const [],
   }) async {
     final cleanTitle = title.trim().isEmpty ? 'Untitled Diary' : title.trim();
     final cleanNote = note.trim();
@@ -306,10 +334,14 @@ class MyDiaryController extends GetxController {
         longitude: longitude,
         createdAt: now,
         updatedAt: now,
+        rating: rating.clamp(0, 5),
+        audioAttachments: audioAttachments,
+        fileAttachments: fileAttachments,
       );
       entries.insert(0, entry);
     } else {
       entry = entries[existingIndex].copyWith(
+        date: entryDate,
         title: cleanTitle,
         note: cleanNote,
         tags: cleanTags,
@@ -320,6 +352,9 @@ class MyDiaryController extends GetxController {
         longitude: longitude,
         clearLocation: latitude == null || longitude == null,
         updatedAt: now,
+        rating: rating.clamp(0, 5),
+        audioAttachments: audioAttachments,
+        fileAttachments: fileAttachments,
       );
       entries[existingIndex] = entry;
     }

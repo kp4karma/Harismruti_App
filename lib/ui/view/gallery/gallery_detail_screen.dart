@@ -1327,6 +1327,9 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   bool _musicLoading = false;
   String? _musicError;
   StreamSubscription<int?>? _musicIndexSubscription;
+  StreamSubscription<Duration>? _musicPositionSubscription;
+  Timer? _musicFadeTimer;
+  bool _musicTransitioning = false;
   Offset _lastDoubleTapPosition = Offset.zero;
   int _gesturePointerCount = 1;
   double _dismissDragOffset = 0;
@@ -1348,6 +1351,9 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       if (!mounted || index == null) return;
       setState(() => _musicIndex = index);
     });
+    _musicPositionSubscription = _musicPlayer.positionStream.listen(
+      _handleMusicPosition,
+    );
     _index = widget.initialIndex;
     _allowIgnore = _isMySmruti;
     _loadIgnoreFeature();
@@ -1398,6 +1404,8 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   void dispose() {
     _slideshowTimer?.cancel();
     _musicIndexSubscription?.cancel();
+    _musicPositionSubscription?.cancel();
+    _musicFadeTimer?.cancel();
     _musicPlayer.dispose();
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -1444,11 +1452,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
       _slideshowTimer = null;
 
       if (_pageController.hasClients) {
-        final visiblePage = (_pageController.page ?? _index.toDouble())
-            .round()
-            .clamp(0, _photosList.length - 1);
-        _pageController.jumpToPage(visiblePage);
-        _index = visiblePage;
+        _pageController.jumpToPage(_index);
       }
 
       setState(() {
@@ -1468,24 +1472,22 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
 
     _slideshowTimer?.cancel();
     _slideshowTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (!mounted ||
-          !_isSlideshowPlaying ||
-          !_pageController.hasClients ||
-          _photosList.length < 2) {
+      if (!mounted || !_isSlideshowPlaying || _photosList.length < 2) {
         return;
       }
 
       final nextIndex = (_index + 1) % _photosList.length;
-      _pageController.animateToPage(
-        nextIndex,
-        duration: const Duration(milliseconds: 650),
-        curve: Curves.easeInOutCubic,
-      );
+      setState(() => _index = nextIndex);
+      _precacheAround(nextIndex);
+      _maybeLoadMoreRecent(nextIndex);
     });
   }
 
   Future<void> _startSlideshowMusic() async {
     if (_musicTracks.isNotEmpty) {
+      _musicFadeTimer?.cancel();
+      _musicTransitioning = false;
+      await _musicPlayer.setVolume(1);
       unawaited(_musicPlayer.play());
       return;
     }
@@ -1523,8 +1525,79 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
 
   Future<void> _selectMusicTrack(int index) async {
     if (index < 0 || index >= _musicTracks.length) return;
+    _musicFadeTimer?.cancel();
+    _musicTransitioning = false;
+    await _musicPlayer.setVolume(1);
     await _musicPlayer.seek(Duration.zero, index: index);
     unawaited(_musicPlayer.play());
+  }
+
+  Future<void> _previousMusicTrack() async {
+    if (_musicTracks.isEmpty) return;
+    final previous =
+        (_musicIndex - 1 + _musicTracks.length) % _musicTracks.length;
+    await _selectMusicTrack(previous);
+  }
+
+  Future<void> _nextMusicTrack() async {
+    if (_musicTracks.isEmpty) return;
+    await _selectMusicTrack((_musicIndex + 1) % _musicTracks.length);
+  }
+
+  void _handleMusicPosition(Duration position) {
+    if (_musicTransitioning || !_musicPlayer.playing) return;
+    final duration = _musicPlayer.duration;
+    if (duration == null || duration <= const Duration(seconds: 5)) return;
+
+    final remaining = duration - position;
+    const fadeWindow = Duration(seconds: 5);
+    if (remaining <= fadeWindow &&
+        remaining > const Duration(milliseconds: 900)) {
+      final volume = (remaining.inMilliseconds / fadeWindow.inMilliseconds)
+          .clamp(.18, 1.0)
+          .toDouble();
+      unawaited(_musicPlayer.setVolume(volume));
+    }
+
+    if (remaining <= const Duration(milliseconds: 900)) {
+      unawaited(_transitionToNextMusicTrack());
+    }
+  }
+
+  Future<void> _transitionToNextMusicTrack() async {
+    if (_musicTransitioning || _musicTracks.length < 2) return;
+    _musicTransitioning = true;
+    _musicFadeTimer?.cancel();
+    final nextIndex = (_musicIndex + 1) % _musicTracks.length;
+    try {
+      await _musicPlayer.setVolume(0);
+      await _musicPlayer.seek(Duration.zero, index: nextIndex);
+      unawaited(_musicPlayer.play());
+
+      const steps = 24;
+      var step = 0;
+      _musicFadeTimer = Timer.periodic(const Duration(milliseconds: 75), (
+        timer,
+      ) {
+        if (!_musicPlayer.playing) {
+          timer.cancel();
+          _musicTransitioning = false;
+          return;
+        }
+        step++;
+        final progress = (step / steps).clamp(0.0, 1.0);
+        final eased = Curves.easeInOutCubic.transform(progress);
+        unawaited(_musicPlayer.setVolume(eased));
+        if (step >= steps) {
+          timer.cancel();
+          _musicTransitioning = false;
+        }
+      });
+    } catch (error) {
+      _musicTransitioning = false;
+      await _musicPlayer.setVolume(1);
+      debugPrint('Unable to transition slideshow music: $error');
+    }
   }
 
   Future<void> _showMusicPicker() async {
@@ -2932,6 +3005,8 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
         : isDark
         ? scheme.surface
         : Colors.white;
+    final topBarVisible = _chromeVisible && !_isSlideshowPlaying;
+    final bottomControlsVisible = _chromeVisible || _isSlideshowPlaying;
     return Scaffold(
       backgroundColor: Color.lerp(
         viewerBackground,
@@ -2945,80 +3020,93 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
             child: Transform.scale(
               scale: dismissScale,
               child: _reactive(
-                () => Listener(
-                  behavior: HitTestBehavior.translucent,
-                  onPointerDown: _handleViewerPointerDown,
-                  onPointerUp: _handleViewerPointerEnd,
-                  onPointerCancel: _handleViewerPointerEnd,
-                  child: PageView.builder(
-                    controller: _pageController,
-                    itemCount: _photosList.length,
-                    allowImplicitScrolling: true,
-                    physics: _zoomModeActive
-                        ? const NeverScrollableScrollPhysics()
-                        : const PageScrollPhysics(),
-                    onPageChanged: (value) {
-                      setState(() {
-                        _index = value;
-                        _resetZoom(animated: false, restoreChrome: false);
-                      });
-                      _precacheAround(value);
-                      _centerThumbnail(value);
-                      _maybeLoadMoreRecent(value);
-                    },
-                    itemBuilder: (context, index) {
-                      final photo = _photosList[index];
-                      return ClipRect(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onDoubleTapDown: _rememberDoubleTapPosition,
-                          onDoubleTap: _toggleZoom,
-                          child: InteractiveViewer(
-                            transformationController: _transformationController,
-                            minScale: 1,
-                            maxScale: 5,
-                            scaleEnabled: true,
-                            panEnabled: _zoomModeActive,
-                            boundaryMargin: EdgeInsets.zero,
-                            clipBehavior: Clip.hardEdge,
-                            onInteractionStart: _handleZoomInteractionStart,
-                            onInteractionUpdate: _handleZoomInteractionUpdate,
-                            onInteractionEnd: _handleZoomInteractionEnd,
-                            child: Center(
-                              child: Hero(
-                                tag: 'photo-${photo.id}',
-                                flightShuttleBuilder:
-                                    (
-                                      flightContext,
-                                      animation,
-                                      direction,
-                                      fromContext,
-                                      toContext,
-                                    ) => _transparentPhotoHeroFlight(
-                                      flightContext,
-                                      animation,
-                                      direction,
-                                      fromContext,
-                                      toContext,
-                                      photo: photo,
-                                      headers: _controller.imageHeaders,
+                () => _isSlideshowPlaying
+                    ? _CinematicSlideshowPhoto(
+                        photo: _photo,
+                        title: widget.title,
+                        headers: _controller.imageHeaders,
+                        transitionIndex: _index,
+                        topControlInset: 0,
+                        bottomControlInset:
+                            66 + MediaQuery.paddingOf(context).bottom,
+                      )
+                    : Listener(
+                        behavior: HitTestBehavior.translucent,
+                        onPointerDown: _handleViewerPointerDown,
+                        onPointerUp: _handleViewerPointerEnd,
+                        onPointerCancel: _handleViewerPointerEnd,
+                        child: PageView.builder(
+                          controller: _pageController,
+                          itemCount: _photosList.length,
+                          allowImplicitScrolling: true,
+                          physics: _zoomModeActive
+                              ? const NeverScrollableScrollPhysics()
+                              : const PageScrollPhysics(),
+                          onPageChanged: (value) {
+                            setState(() {
+                              _index = value;
+                              _resetZoom(animated: false, restoreChrome: false);
+                            });
+                            _precacheAround(value);
+                            _centerThumbnail(value);
+                            _maybeLoadMoreRecent(value);
+                          },
+                          itemBuilder: (context, index) {
+                            final photo = _photosList[index];
+                            return ClipRect(
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onDoubleTapDown: _rememberDoubleTapPosition,
+                                onDoubleTap: _toggleZoom,
+                                child: InteractiveViewer(
+                                  transformationController:
+                                      _transformationController,
+                                  minScale: 1,
+                                  maxScale: 5,
+                                  scaleEnabled: true,
+                                  panEnabled: _zoomModeActive,
+                                  boundaryMargin: EdgeInsets.zero,
+                                  clipBehavior: Clip.hardEdge,
+                                  onInteractionStart:
+                                      _handleZoomInteractionStart,
+                                  onInteractionUpdate:
+                                      _handleZoomInteractionUpdate,
+                                  onInteractionEnd: _handleZoomInteractionEnd,
+                                  child: Center(
+                                    child: Hero(
+                                      tag: 'photo-${photo.id}',
+                                      flightShuttleBuilder:
+                                          (
+                                            flightContext,
+                                            animation,
+                                            direction,
+                                            fromContext,
+                                            toContext,
+                                          ) => _transparentPhotoHeroFlight(
+                                            flightContext,
+                                            animation,
+                                            direction,
+                                            fromContext,
+                                            toContext,
+                                            photo: photo,
+                                            headers: _controller.imageHeaders,
+                                          ),
+                                      child: RepaintBoundary(
+                                        child: _FullscreenImage(
+                                          photo: photo,
+                                          title: widget.title,
+                                          headers: _controller.imageHeaders,
+                                          chromeVisible: _chromeVisible,
+                                        ),
+                                      ),
                                     ),
-                                child: RepaintBoundary(
-                                  child: _FullscreenImage(
-                                    photo: photo,
-                                    title: widget.title,
-                                    headers: _controller.imageHeaders,
-                                    chromeVisible: _chromeVisible,
                                   ),
                                 ),
                               ),
-                            ),
-                          ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
-                ),
+                      ),
               ),
             ),
           ),
@@ -3026,12 +3114,12 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
             child: AnimatedSlide(
               duration: const Duration(milliseconds: 260),
               curve: Curves.easeOutCubic,
-              offset: _chromeVisible ? Offset.zero : const Offset(0, -1.25),
+              offset: topBarVisible ? Offset.zero : const Offset(0, -1.25),
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 180),
-                opacity: _chromeVisible ? 1 : 0,
+                opacity: topBarVisible ? 1 : 0,
                 child: IgnorePointer(
-                  ignoring: !_chromeVisible,
+                  ignoring: !topBarVisible,
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(18, 8, 18, 0),
                     child: _reactive(
@@ -3053,6 +3141,28 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
               ),
             ),
           ),
+          if (_isSlideshowPlaying)
+            Positioned(
+              left: 18,
+              right: 18,
+              bottom: 8 + MediaQuery.paddingOf(context).bottom,
+              child: _SlideshowMusicBar(
+                player: _musicPlayer,
+                track: _musicTracks.isEmpty
+                    ? null
+                    : _musicTracks[_musicIndex.clamp(
+                        0,
+                        _musicTracks.length - 1,
+                      )],
+                isLoading: _musicLoading,
+                error: _musicError,
+                onChooseTrack: _showMusicPicker,
+                onPrevious: _previousMusicTrack,
+                onNext: _nextMusicTrack,
+                onRetry: _startSlideshowMusic,
+                onStop: _toggleSlideshow,
+              ),
+            ),
           Positioned(
             left: 0,
             right: 0,
@@ -3082,94 +3192,82 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
             child: AnimatedSlide(
               duration: const Duration(milliseconds: 260),
               curve: Curves.easeOutCubic,
-              offset: _chromeVisible ? Offset.zero : const Offset(0, 1.3),
+              offset: bottomControlsVisible
+                  ? Offset.zero
+                  : const Offset(0, 1.3),
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 180),
-                opacity: _chromeVisible ? 1 : 0,
+                opacity: bottomControlsVisible ? 1 : 0,
                 child: IgnorePointer(
-                  ignoring: !_chromeVisible,
+                  ignoring: !bottomControlsVisible,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (_isSlideshowPlaying)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
-                          child: _SlideshowMusicBar(
-                            player: _musicPlayer,
-                            track: _musicTracks.isEmpty
-                                ? null
-                                : _musicTracks[_musicIndex.clamp(
-                                    0,
-                                    _musicTracks.length - 1,
-                                  )],
-                            isLoading: _musicLoading,
-                            error: _musicError,
-                            onChooseTrack: _showMusicPicker,
-                            onPrevious: () => _musicPlayer.seekToPrevious(),
-                            onNext: () => _musicPlayer.seekToNext(),
-                            onRetry: _startSlideshowMusic,
-                          ),
-                        ),
-                      AnimatedSize(
-                        duration: const Duration(milliseconds: 280),
-                        curve: Curves.easeOutCubic,
-                        alignment: Alignment.bottomCenter,
-                        child: _infoPanelOpen
-                            ? const SizedBox.shrink()
-                            : AnimatedOpacity(
-                                duration: const Duration(milliseconds: 160),
-                                opacity: _infoPanelOpen ? 0 : 1,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(bottom: 13),
-                                  child: _reactive(
-                                    () => _ViewerThumbStrip(
-                                      photos: _photosList,
-                                      selectedIndex: _index,
-                                      isLoadingMore:
-                                          widget.isRecentFeed &&
-                                          _controller.isRecentPageLoading.value,
-                                      controller: _thumbnailScrollController,
-                                      headers: _controller.imageHeaders,
-                                      onTap: (index) {
-                                        _pageController.animateToPage(
-                                          index,
-                                          duration: const Duration(
-                                            milliseconds: 260,
-                                          ),
-                                          curve: Curves.easeOutCubic,
-                                        );
-                                      },
+                      if (!_isSlideshowPlaying)
+                        AnimatedSize(
+                          duration: const Duration(milliseconds: 280),
+                          curve: Curves.easeOutCubic,
+                          alignment: Alignment.bottomCenter,
+                          child: _infoPanelOpen
+                              ? const SizedBox.shrink()
+                              : AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 160),
+                                  opacity: _infoPanelOpen ? 0 : 1,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(bottom: 13),
+                                    child: _reactive(
+                                      () => _ViewerThumbStrip(
+                                        photos: _photosList,
+                                        selectedIndex: _index,
+                                        isLoadingMore:
+                                            widget.isRecentFeed &&
+                                            _controller
+                                                .isRecentPageLoading
+                                                .value,
+                                        controller: _thumbnailScrollController,
+                                        headers: _controller.imageHeaders,
+                                        onTap: (index) {
+                                          _pageController.animateToPage(
+                                            index,
+                                            duration: const Duration(
+                                              milliseconds: 260,
+                                            ),
+                                            curve: Curves.easeOutCubic,
+                                          );
+                                        },
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                      ),
-                      AnimatedSize(
-                        duration: const Duration(milliseconds: 320),
-                        curve: Curves.easeOutCubic,
-                        alignment: Alignment.bottomCenter,
-                        child: _infoPanelOpen
-                            ? Padding(
-                                padding: const EdgeInsets.only(bottom: 13),
-                                child: _InlineInfoPanel(
-                                  photo: _photo,
-                                  attributesFuture: _attributesFor(_photo.id),
-                                  imageSizeFuture: _imageSizeFor(_photo),
-                                  storageSizeFuture: _storageSizeFor(_photo),
-                                  onDismiss: _toggleInfoPanel,
-                                ),
-                              )
-                            : const SizedBox(width: double.infinity),
-                      ),
-                      _ViewerActions(
-                        isFavorite: _controller.isFavorite(_photo.id),
-                        onShare: _sharePhoto,
-                        onFavorite: _toggleFavorite,
-                        onInfo: _toggleInfoPanel,
-                        isInfoOpen: _infoPanelOpen,
-                        onOptions: _showMoreOptions,
-                        onCollection: _openAddCollectionSheet,
-                      ),
+                        ),
+                      if (!_isSlideshowPlaying)
+                        AnimatedSize(
+                          duration: const Duration(milliseconds: 320),
+                          curve: Curves.easeOutCubic,
+                          alignment: Alignment.bottomCenter,
+                          child: _infoPanelOpen
+                              ? Padding(
+                                  padding: const EdgeInsets.only(bottom: 13),
+                                  child: _InlineInfoPanel(
+                                    photo: _photo,
+                                    attributesFuture: _attributesFor(_photo.id),
+                                    imageSizeFuture: _imageSizeFor(_photo),
+                                    storageSizeFuture: _storageSizeFor(_photo),
+                                    onDismiss: _toggleInfoPanel,
+                                  ),
+                                )
+                              : const SizedBox(width: double.infinity),
+                        ),
+                      if (!_isSlideshowPlaying)
+                        _ViewerActions(
+                          isFavorite: _controller.isFavorite(_photo.id),
+                          onShare: _sharePhoto,
+                          onFavorite: _toggleFavorite,
+                          onInfo: _toggleInfoPanel,
+                          isInfoOpen: _infoPanelOpen,
+                          onOptions: _showMoreOptions,
+                          onCollection: _openAddCollectionSheet,
+                        ),
                     ],
                   ),
                 ),
@@ -3177,6 +3275,82 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CinematicSlideshowPhoto extends StatelessWidget {
+  const _CinematicSlideshowPhoto({
+    required this.photo,
+    required this.title,
+    required this.headers,
+    required this.transitionIndex,
+    required this.topControlInset,
+    required this.bottomControlInset,
+  });
+
+  final GalleryPhoto photo;
+  final String title;
+  final Map<String, String>? headers;
+  final int transitionIndex;
+  final double topControlInset;
+  final double bottomControlInset;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: Colors.black,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 1050),
+        reverseDuration: const Duration(milliseconds: 850),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        layoutBuilder: (currentChild, previousChildren) => Stack(
+          fit: StackFit.expand,
+          alignment: Alignment.center,
+          children: [
+            ...previousChildren,
+            if (currentChild != null) currentChild,
+          ],
+        ),
+        transitionBuilder: (child, animation) {
+          final fade = FadeTransition(opacity: animation, child: child);
+          return switch (transitionIndex % 3) {
+            0 => ScaleTransition(
+              scale: Tween<double>(begin: 1.12, end: 1).animate(animation),
+              child: fade,
+            ),
+            1 => SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, .055),
+                end: Offset.zero,
+              ).animate(animation),
+              child: ScaleTransition(
+                scale: Tween<double>(begin: .96, end: 1).animate(animation),
+                child: fade,
+              ),
+            ),
+            _ => RotationTransition(
+              turns: Tween<double>(begin: -.008, end: 0).animate(animation),
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 1.06, end: 1).animate(animation),
+                child: fade,
+              ),
+            ),
+          };
+        },
+        child: RepaintBoundary(
+          key: ValueKey('slideshow-${photo.id}'),
+          child: _FullscreenImage(
+            photo: photo,
+            title: title,
+            headers: headers,
+            chromeVisible: false,
+            topInset: topControlInset,
+            bottomInset: bottomControlInset,
+          ),
+        ),
       ),
     );
   }
@@ -3574,18 +3748,24 @@ class _FullscreenImage extends StatelessWidget {
   final String title;
   final Map<String, String>? headers;
   final bool chromeVisible;
+  final double topInset;
+  final double bottomInset;
 
   const _FullscreenImage({
     required this.photo,
     required this.title,
     required this.headers,
     required this.chromeVisible,
+    this.topInset = 0,
+    this.bottomInset = 0,
   });
 
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.sizeOf(context);
-    final verticalPadding = chromeVisible ? 96 + 132 : 0;
+    final effectiveTopInset = chromeVisible ? 96.0 : topInset;
+    final effectiveBottomInset = chromeVisible ? 132.0 : bottomInset;
+    final verticalPadding = effectiveTopInset + effectiveBottomInset;
     // Cap decode resolution so pinch-zoom recompositing a giant source photo
     // doesn't have to raster/scale a huge texture every frame. Sized with
     // headroom above the max pinch scale (5x) so zoomed-in detail still
@@ -3602,9 +3782,9 @@ class _FullscreenImage extends StatelessWidget {
       curve: Curves.easeOutCubic,
       padding: EdgeInsets.fromLTRB(
         0,
-        chromeVisible ? 96 : 0,
+        effectiveTopInset,
         0,
-        chromeVisible ? 132 : 0,
+        effectiveBottomInset,
       ),
       child: SizedBox(
         width: screenSize.width,
@@ -3900,6 +4080,108 @@ class _ViewerThumbStrip extends StatelessWidget {
   }
 }
 
+class _AnimatedMusicEqualizer extends StatefulWidget {
+  const _AnimatedMusicEqualizer({required this.player});
+
+  final AudioPlayer player;
+
+  @override
+  State<_AnimatedMusicEqualizer> createState() =>
+      _AnimatedMusicEqualizerState();
+}
+
+class _AnimatedMusicEqualizerState extends State<_AnimatedMusicEqualizer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  StreamSubscription<PlayerState>? _playerStateSubscription;
+  bool _playing = false;
+
+  static const _colors = [
+    Color(0xFFD7DF16),
+    Color(0xFFF5B719),
+    Color(0xFFF07A3F),
+    Color(0xFFE74D68),
+    Color(0xFFC63691),
+    Color(0xFF744DA4),
+    Color(0xFF2997C8),
+    Color(0xFF11A9C2),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 920),
+    );
+    _playing = widget.player.playing;
+    if (_playing) _controller.repeat();
+    _playerStateSubscription = widget.player.playerStateStream.listen((state) {
+      if (!mounted || state.playing == _playing) return;
+      setState(() => _playing = state.playing);
+      if (_playing) {
+        _controller.repeat();
+      } else {
+        _controller.animateTo(
+          0,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _playerStateSubscription?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 62,
+      height: 40,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) => Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(13, (index) {
+            final centerShape = 1 - ((index - 6).abs() / 8);
+            final wave =
+                (math.sin((_controller.value * math.pi * 2) + (index * .82)) +
+                    1) /
+                2;
+            final energy = _playing ? (.42 + wave * .58) : .22;
+            final height = 5 + (30 * centerShape.clamp(.2, 1) * energy);
+            final colorIndex = (index * (_colors.length - 1) / 12).round();
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 110),
+              curve: Curves.easeOut,
+              width: 3.4,
+              height: height,
+              decoration: BoxDecoration(
+                color: _colors[colorIndex],
+                borderRadius: BorderRadius.circular(3),
+                boxShadow: _playing
+                    ? [
+                        BoxShadow(
+                          color: _colors[colorIndex].withAlpha(70),
+                          blurRadius: 5,
+                        ),
+                      ]
+                    : null,
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+}
+
 class _SlideshowMusicBar extends StatelessWidget {
   const _SlideshowMusicBar({
     required this.player,
@@ -3910,6 +4192,7 @@ class _SlideshowMusicBar extends StatelessWidget {
     required this.onPrevious,
     required this.onNext,
     required this.onRetry,
+    required this.onStop,
   });
 
   final AudioPlayer player;
@@ -3920,12 +4203,7 @@ class _SlideshowMusicBar extends StatelessWidget {
   final VoidCallback onPrevious;
   final VoidCallback onNext;
   final VoidCallback onRetry;
-
-  String _time(Duration value) {
-    final minutes = value.inMinutes;
-    final seconds = value.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
-  }
+  final VoidCallback onStop;
 
   @override
   Widget build(BuildContext context) {
@@ -3937,7 +4215,7 @@ class _SlideshowMusicBar extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
         child: Container(
           constraints: const BoxConstraints(maxWidth: 520),
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 9),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: isDark
                 ? Colors.black.withAlpha(150)
@@ -3979,143 +4257,88 @@ class _SlideshowMusicBar extends StatelessWidget {
                     TextButton(onPressed: onRetry, child: const Text('Retry')),
                   ],
                 )
-              : Column(
-                  mainAxisSize: MainAxisSize.min,
+              : Row(
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            CupertinoIcons.music_note_2,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: onChooseTrack,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  track?.name ?? 'Choose music',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: scheme.onSurface,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                                Text(
-                                  track?.folder ?? 'Smruti music',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: scheme.onSurfaceVariant,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: onPrevious,
-                          icon: const Icon(CupertinoIcons.backward_end_fill),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        StreamBuilder<PlayerState>(
-                          stream: player.playerStateStream,
-                          builder: (context, snapshot) {
-                            final playing = snapshot.data?.playing ?? false;
-                            return IconButton(
-                              onPressed: () =>
-                                  playing ? player.pause() : player.play(),
-                              icon: Icon(
-                                playing
-                                    ? CupertinoIcons.pause_circle_fill
-                                    : CupertinoIcons.play_circle_fill,
-                                size: 34,
-                                color: const Color(0xFF8B5CF6),
+                    _AnimatedMusicEqualizer(player: player),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: onChooseTrack,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              track?.name ?? 'Choose music',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: scheme.onSurface,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
                               ),
-                              visualDensity: VisualDensity.compact,
-                            );
-                          },
+                            ),
+                            Text(
+                              track?.folder ?? 'Smruti music',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: scheme.onSurfaceVariant,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
-                        IconButton(
-                          onPressed: onNext,
-                          icon: const Icon(CupertinoIcons.forward_end_fill),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        IconButton(
-                          onPressed: onChooseTrack,
-                          tooltip: 'Choose music',
-                          icon: const Icon(CupertinoIcons.music_note_list),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      ],
+                      ),
                     ),
-                    StreamBuilder<Duration?>(
-                      stream: player.durationStream,
-                      builder: (context, durationSnapshot) =>
-                          StreamBuilder<Duration>(
-                            stream: player.positionStream,
-                            builder: (context, positionSnapshot) {
-                              final duration =
-                                  durationSnapshot.data ?? Duration.zero;
-                              final position =
-                                  positionSnapshot.data ?? Duration.zero;
-                              final max = math
-                                  .max(1, duration.inMilliseconds)
-                                  .toDouble();
-                              final value = position.inMilliseconds
-                                  .clamp(0, max.toInt())
-                                  .toDouble();
-                              return Row(
-                                children: [
-                                  Text(
-                                    _time(position),
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      color: scheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: Slider(
-                                      value: value,
-                                      max: max,
-                                      min: 0,
-                                      onChanged: duration == Duration.zero
-                                          ? null
-                                          : (next) => player.seek(
-                                              Duration(
-                                                milliseconds: next.round(),
-                                              ),
-                                            ),
-                                    ),
-                                  ),
-                                  Text(
-                                    _time(duration),
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      color: scheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
+                    IconButton(
+                      onPressed: onPrevious,
+                      icon: const Icon(CupertinoIcons.backward_end_fill),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    StreamBuilder<PlayerState>(
+                      stream: player.playerStateStream,
+                      builder: (context, snapshot) {
+                        final playing = snapshot.data?.playing ?? false;
+                        return IconButton(
+                          onPressed: () =>
+                              playing ? player.pause() : player.play(),
+                          icon: Icon(
+                            playing
+                                ? CupertinoIcons.pause_circle_fill
+                                : CupertinoIcons.play_circle_fill,
+                            size: 34,
+                            color: const Color(0xFF8B5CF6),
                           ),
+                          visualDensity: VisualDensity.compact,
+                        );
+                      },
+                    ),
+                    IconButton(
+                      onPressed: onNext,
+                      icon: const Icon(CupertinoIcons.forward_end_fill),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    IconButton(
+                      onPressed: onStop,
+                      tooltip: 'Stop slideshow',
+                      icon: Container(
+                        width: 31,
+                        height: 31,
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent.withAlpha(28),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.redAccent.withAlpha(75),
+                          ),
+                        ),
+                        child: const Icon(
+                          CupertinoIcons.stop_fill,
+                          color: Colors.redAccent,
+                          size: 12,
+                        ),
+                      ),
+                      visualDensity: VisualDensity.compact,
                     ),
                   ],
                 ),
@@ -4125,11 +4348,78 @@ class _SlideshowMusicBar extends StatelessWidget {
   }
 }
 
-class _MusicPickerSheet extends StatelessWidget {
+class _MusicPickerSheet extends StatefulWidget {
   const _MusicPickerSheet({required this.tracks, required this.selectedIndex});
 
   final List<SlideshowTrack> tracks;
   final int selectedIndex;
+
+  @override
+  State<_MusicPickerSheet> createState() => _MusicPickerSheetState();
+}
+
+class _MusicPickerSheetState extends State<_MusicPickerSheet> {
+  List<String> _currentPath = const [];
+
+  SlideshowTrack? get _selectedTrack {
+    if (widget.selectedIndex < 0 ||
+        widget.selectedIndex >= widget.tracks.length) {
+      return null;
+    }
+    return widget.tracks[widget.selectedIndex];
+  }
+
+  List<String> _folderParts(SlideshowTrack track) {
+    final normalized = track.folder.replaceAll('\\', '/').trim();
+    if (normalized.isEmpty || normalized.toLowerCase() == 'smruti') {
+      return const [];
+    }
+    return normalized
+        .split('/')
+        .where((part) => part.trim().isNotEmpty)
+        .toList(growable: false);
+  }
+
+  bool _startsWithPath(List<String> parts) {
+    if (parts.length < _currentPath.length) return false;
+    for (var index = 0; index < _currentPath.length; index++) {
+      if (parts[index] != _currentPath[index]) return false;
+    }
+    return true;
+  }
+
+  List<String> get _childFolders {
+    final folders = <String>{};
+    for (final track in widget.tracks) {
+      final parts = _folderParts(track);
+      if (_startsWithPath(parts) && parts.length > _currentPath.length) {
+        folders.add(parts[_currentPath.length]);
+      }
+    }
+    final sorted = folders.toList()..sort((a, b) => a.compareTo(b));
+    return sorted;
+  }
+
+  List<SlideshowTrack> get _tracksHere => widget.tracks
+      .where((track) {
+        if (identical(track, _selectedTrack)) return false;
+        final parts = _folderParts(track);
+        if (parts.length != _currentPath.length) return false;
+        return _startsWithPath(parts);
+      })
+      .toList(growable: false);
+
+  int _folderTrackCount(String folder) {
+    final path = [..._currentPath, folder];
+    return widget.tracks.where((track) {
+      final parts = _folderParts(track);
+      if (parts.length < path.length) return false;
+      for (var index = 0; index < path.length; index++) {
+        if (parts[index] != path[index]) return false;
+      }
+      return true;
+    }).length;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -4156,19 +4446,55 @@ class _MusicPickerSheet extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 16, 12, 10),
               child: Row(
                 children: [
-                  const Icon(
-                    CupertinoIcons.music_note_list,
-                    color: Color(0xFF8B5CF6),
-                  ),
+                  if (_currentPath.isEmpty)
+                    const Icon(
+                      CupertinoIcons.music_note_list,
+                      color: Color(0xFF8B5CF6),
+                    )
+                  else
+                    IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 26,
+                        minHeight: 36,
+                      ),
+                      onPressed: () => setState(
+                        () => _currentPath = _currentPath.sublist(
+                          0,
+                          _currentPath.length - 1,
+                        ),
+                      ),
+                      icon: const Icon(CupertinoIcons.back, size: 22),
+                    ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
-                      'Slideshow music',
-                      style: TextStyle(
-                        color: scheme.onSurface,
-                        fontSize: 19,
-                        fontWeight: FontWeight.w900,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _currentPath.isEmpty
+                              ? 'Slideshow music'
+                              : _currentPath.last,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: scheme.onSurface,
+                            fontSize: 19,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        if (_currentPath.isNotEmpty)
+                          Text(
+                            'Smruti / ${_currentPath.join(' / ')}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: scheme.onSurfaceVariant,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                   IconButton(
@@ -4178,54 +4504,180 @@ class _MusicPickerSheet extends StatelessWidget {
                 ],
               ),
             ),
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 18),
-                itemCount: tracks.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 3),
-                itemBuilder: (context, index) {
-                  final track = tracks[index];
-                  final selected = index == selectedIndex;
-                  return ListTile(
-                    selected: selected,
-                    selectedTileColor: const Color(0xFF8B5CF6).withAlpha(24),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    leading: CircleAvatar(
-                      backgroundColor: selected
-                          ? const Color(0xFF8B5CF6)
-                          : scheme.surfaceContainerHighest,
-                      child: Icon(
-                        selected
-                            ? CupertinoIcons.speaker_2_fill
-                            : CupertinoIcons.music_note,
-                        color: selected
-                            ? Colors.white
-                            : scheme.onSurfaceVariant,
-                        size: 18,
+            if (_selectedTrack case final track?)
+              Container(
+                margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF8B5CF6).withAlpha(28),
+                      const Color(0xFFEC4899).withAlpha(18),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: const Color(0xFF8B5CF6).withAlpha(55),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
+                        ),
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                      child: const Icon(
+                        CupertinoIcons.speaker_2_fill,
+                        color: Colors.white,
+                        size: 20,
                       ),
                     ),
-                    title: Text(
-                      track.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'NOW PLAYING',
+                            style: TextStyle(
+                              color: Color(0xFF8B5CF6),
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.1,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            track.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: scheme.onSurface,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          Text(
+                            track.folder,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: scheme.onSurfaceVariant,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    subtitle: Text(
-                      track.folder,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    const Icon(
+                      CupertinoIcons.check_mark_circled_solid,
+                      color: Color(0xFF8B5CF6),
                     ),
-                    trailing: selected
-                        ? const Icon(
-                            CupertinoIcons.check_mark_circled_solid,
-                            color: Color(0xFF8B5CF6),
-                          )
-                        : null,
-                    onTap: () => Navigator.pop(context, index),
-                  );
-                },
+                  ],
+                ),
+              ),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 240),
+                child: ListView(
+                  key: ValueKey(_currentPath.join('/')),
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 18),
+                  children: [
+                    for (final folder in _childFolders)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 3),
+                        child: ListTile(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          leading: CircleAvatar(
+                            backgroundColor: const Color(
+                              0xFF8B5CF6,
+                            ).withAlpha(24),
+                            child: const Icon(
+                              CupertinoIcons.folder_fill,
+                              color: Color(0xFF8B5CF6),
+                              size: 19,
+                            ),
+                          ),
+                          title: Text(
+                            folder,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w900),
+                          ),
+                          subtitle: Text(
+                            '${_folderTrackCount(folder)} music files',
+                          ),
+                          trailing: const Icon(
+                            CupertinoIcons.chevron_forward,
+                            size: 18,
+                          ),
+                          onTap: () => setState(
+                            () => _currentPath = [..._currentPath, folder],
+                          ),
+                        ),
+                      ),
+                    for (final track in _tracksHere)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 3),
+                        child: Builder(
+                          builder: (context) {
+                            final index = widget.tracks.indexOf(track);
+                            final selected = index == widget.selectedIndex;
+                            return ListTile(
+                              selected: selected,
+                              selectedTileColor: const Color(
+                                0xFF8B5CF6,
+                              ).withAlpha(24),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              leading: CircleAvatar(
+                                backgroundColor: selected
+                                    ? const Color(0xFF8B5CF6)
+                                    : scheme.surfaceContainerHighest,
+                                child: Icon(
+                                  selected
+                                      ? CupertinoIcons.speaker_2_fill
+                                      : CupertinoIcons.music_note,
+                                  color: selected
+                                      ? Colors.white
+                                      : scheme.onSurfaceVariant,
+                                  size: 18,
+                                ),
+                              ),
+                              title: Text(
+                                track.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              subtitle: const Text('Music file'),
+                              trailing: selected
+                                  ? const Icon(
+                                      CupertinoIcons.check_mark_circled_solid,
+                                      color: Color(0xFF8B5CF6),
+                                    )
+                                  : null,
+                              onTap: () => Navigator.pop(context, index),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ],

@@ -622,10 +622,19 @@ class GalleryController extends GetxController {
     }
   }
 
-  Future<void> removeTagFromPhoto(int photoId, String tag) async {
-    if (!StorageHelper.isLogin()) return;
-    await _repository.removeTag(photoId: photoId, tag: tag);
-    await loadMyLibrary();
+  Future<bool> removeTagFromPhoto(int photoId, String tag) async {
+    if (!StorageHelper.isLogin()) return false;
+    try {
+      await _repository.removeTag(photoId: photoId, tag: tag);
+      await loadMyLibrary();
+      AnalyticsService.instance.track(
+        'Photo Tag Removed',
+        properties: {'photo_id': photoId},
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   int photoCountForTag(String tag) {
@@ -1791,7 +1800,6 @@ class GalleryController extends GetxController {
       (_mySmrutiAlbumFilterSlug, 'Album'),
       (_mySmrutiDarshanOfFilterSlug, 'Darshan Of'),
       (_mySmrutiSmrutiOfFilterSlug, 'Smruti Of'),
-      (_mySmrutiTagsFilterSlug, 'Tags'),
     ]) {
       final options = _buildMySmrutiOptions(definition.$1, selected: selected);
       if (options.isNotEmpty) {

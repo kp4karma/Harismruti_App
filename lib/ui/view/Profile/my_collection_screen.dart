@@ -29,10 +29,11 @@ class MyCollectionScreen extends StatelessWidget {
         body: Obx(() {
           final favorites = controller.favoritePhotos;
           final collections = controller.userCollections;
-          if (favorites.isEmpty && collections.isEmpty) {
+          final tags = controller.allUserTags;
+          if (favorites.isEmpty && collections.isEmpty && tags.isEmpty) {
             return const GalleryEmptyState(
               height: 360,
-              message: 'No favorites or collections yet',
+              message: 'No favorites, collections, or tags yet',
             );
           }
 
@@ -91,10 +92,11 @@ class MyCollectionScreen extends StatelessWidget {
                     message: 'Tags added to photos will show here',
                   )
                 else
-                  for (final tag in controller.allUserTags) ...[
+                  for (final tag in tags) ...[
                     _TagCard(
                       tag: tag,
                       photoCount: controller.photoCountForTag(tag),
+                      onTap: () => _openTagOptions(context, tag),
                       onEdit: () => _renameTag(context, tag),
                       onDelete: () => _confirmRemoveTag(context, tag),
                     ),
@@ -151,13 +153,48 @@ class MyCollectionScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _openTagOptions(BuildContext context, String tag) async {
+    final action = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (sheetContext) => CupertinoActionSheet(
+        title: Text(tag),
+        message: Text(
+          'Used on ${controller.photoCountForTag(tag)} '
+          '${controller.photoCountForTag(tag) == 1 ? 'photo' : 'photos'}',
+        ),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(sheetContext, 'edit'),
+            child: const Text('Edit Tag'),
+          ),
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(sheetContext, 'delete'),
+            child: const Text('Delete Permanently'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(sheetContext),
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
+    if (!context.mounted) return;
+    if (action == 'edit') {
+      await _renameTag(context, tag);
+    } else if (action == 'delete') {
+      await _confirmRemoveTag(context, tag);
+    }
+  }
+
   Future<void> _confirmRemoveTag(BuildContext context, String tag) async {
     final remove = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Remove Tag Everywhere?'),
+        title: const Text('Delete Tag Permanently?'),
         content: Text(
-          'Remove "$tag" from all ${controller.photoCountForTag(tag)} photos?',
+          'This will permanently delete "$tag" and remove it from all '
+          '${controller.photoCountForTag(tag)} photos. This cannot be undone.',
         ),
         actions: [
           TextButton(
@@ -166,7 +203,7 @@ class MyCollectionScreen extends StatelessWidget {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Remove'),
+            child: const Text('Delete Permanently'),
           ),
         ],
       ),
@@ -183,45 +220,138 @@ class MyCollectionScreen extends StatelessWidget {
     required String title,
     required String currentName,
   }) async {
-    final textController = TextEditingController(text: currentName);
-    final result = await showDialog<String>(
+    return showModalBottomSheet<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: textController,
-          autofocus: true,
-          maxLength: 128,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(labelText: 'Name'),
-          onSubmitted: (value) {
-            final clean = value.trim();
-            if (clean.isNotEmpty) Navigator.pop(dialogContext, clean);
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final clean = textController.text.trim();
-              if (clean.isNotEmpty) Navigator.pop(dialogContext, clean);
-            },
-            child: const Text('Update'),
-          ),
-        ],
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) => ResponsiveBottomCenter(
+        maxWidth: kSheetMaxWidth,
+        child: _RenameItemSheet(title: title, currentName: currentName),
       ),
     );
-    textController.dispose();
-    return result;
   }
 
   void _showError(BuildContext context, String message) {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class _RenameItemSheet extends StatefulWidget {
+  const _RenameItemSheet({required this.title, required this.currentName});
+
+  final String title;
+  final String currentName;
+
+  @override
+  State<_RenameItemSheet> createState() => _RenameItemSheetState();
+}
+
+class _RenameItemSheetState extends State<_RenameItemSheet> {
+  late final TextEditingController _textController;
+
+  @override
+  void initState() {
+    super.initState();
+    _textController = TextEditingController(text: widget.currentName);
+    _textController.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: widget.currentName.length,
+    );
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final name = _textController.text.trim();
+    if (name.isNotEmpty) Navigator.pop(context, name);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + bottomInset),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            decoration: BoxDecoration(
+              color: scheme.surface.withAlpha(215),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: Colors.white.withAlpha(85)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(35),
+                  blurRadius: 28,
+                  offset: const Offset(0, 12),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: scheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    widget.title,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  TextField(
+                    controller: _textController,
+                    autofocus: true,
+                    maxLength: 128,
+                    textCapitalization: TextCapitalization.words,
+                    textInputAction: TextInputAction.done,
+                    decoration: const InputDecoration(labelText: 'Name'),
+                    onSubmitted: (_) => _submit(),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: _submit,
+                          child: const Text('Update'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -517,12 +647,14 @@ class _TagCard extends StatelessWidget {
   const _TagCard({
     required this.tag,
     required this.photoCount,
+    required this.onTap,
     required this.onEdit,
     required this.onDelete,
   });
 
   final String tag;
   final int photoCount;
+  final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -534,6 +666,7 @@ class _TagCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
       ),
       child: ListTile(
+        onTap: onTap,
         leading: Icon(CupertinoIcons.tag, color: primaryColor),
         title: Text(tag, style: const TextStyle(fontWeight: FontWeight.w800)),
         subtitle: Text('$photoCount ${photoCount == 1 ? 'photo' : 'photos'}'),
@@ -547,7 +680,7 @@ class _TagCard extends StatelessWidget {
             ),
             IconButton(
               onPressed: onDelete,
-              tooltip: 'Remove tag everywhere',
+              tooltip: 'Delete tag permanently',
               icon: Icon(Icons.delete_outline_rounded, color: primaryColor),
             ),
           ],

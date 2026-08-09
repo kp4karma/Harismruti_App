@@ -28,6 +28,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>instagram-stories</string>
+	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSExceptionDomains</key>
@@ -61,6 +65,8 @@
 	<string>HariPrabodham Smruti uses the camera to capture face training photos for My Smruti.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>HariPrabodham Smruti uses the microphone when you speak an AI Smruti search.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>HariPrabodham Smruti uses your location when you add the current place to a diary entry.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>HariPrabodham Smruti converts your spoken search into text to find matching smrutis.</string>
 	<key>NSMotionUsageDescription</key>

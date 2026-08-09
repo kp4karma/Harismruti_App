@@ -51,6 +51,7 @@ class _HomeScreenState extends State<HomeScreen>
   String? _liveStreamUrl;
   bool _isLoadingLiveStream = false;
   DateTime? _lastSectionSettingsRefresh;
+  bool _sectionFillCheckScheduled = false;
 
   late AnimationController _appBarAnimationController;
   final StreamController<TiltStreamModel> streamController =
@@ -135,6 +136,10 @@ class _HomeScreenState extends State<HomeScreen>
       final displaySections = sortedVisibleSections
           .take(sectionController.visibleCount.value)
           .toList();
+      _scheduleSectionFillCheck(
+        displayedCount: displaySections.length,
+        totalCount: sortedVisibleSections.length,
+      );
       final bottomSystemInset = MediaQuery.of(context).viewPadding.bottom;
       final bottomContentPadding = sectionController.showBottomBar.value
           ? 96.0 + bottomSystemInset
@@ -240,6 +245,27 @@ class _HomeScreenState extends State<HomeScreen>
       myPhotosController.refreshSmrutiFlow(),
       _refreshLiveStreamForAuth(),
     ]);
+  }
+
+  void _scheduleSectionFillCheck({
+    required int displayedCount,
+    required int totalCount,
+  }) {
+    if (_sectionFillCheckScheduled || displayedCount >= totalCount) return;
+    _sectionFillCheckScheduled = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _sectionFillCheckScheduled = false;
+      if (!mounted || !_scrollController.hasClients) return;
+
+      // Section batches used to advance only after a scroll notification. If
+      // the current batch was shorter than the viewport, no notification was
+      // generated and the home screen showed an empty gap until the user
+      // dragged it. Fill another batch whenever the end is already visible.
+      if (_scrollController.position.extentAfter <= 120) {
+        sectionController.increaseVisibleCount();
+      }
+    });
   }
 
   Widget _buildOrderedHomeSection(
@@ -411,7 +437,9 @@ class _HomeScreenState extends State<HomeScreen>
 
   bool _hasHomeSectionContent(String title) {
     if (title == SmrutiSectionKeys.onThisDay) {
-      return galleryController.onThisDayPhotos.isNotEmpty;
+      // Keep the section visible so its designed empty state can explain when
+      // the next admin-configured story refresh will provide new memories.
+      return true;
     }
     if (title == SmrutiSectionKeys.myFavorite ||
         title == 'My Favot' ||

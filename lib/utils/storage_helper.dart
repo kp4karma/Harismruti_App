@@ -19,6 +19,7 @@ class StorageKeys {
   static const String appSectionCacheRevisions = 'appSectionCacheRevisionsV1';
   static const String myPhotos = 'myPhotos';
   static const String myDiaryEntries = 'myDiaryEntries';
+  static const String myDiarySettings = 'myDiarySettingsV1';
   static const String myPhotosSubmitted = 'myPhotosSubmitted';
   static const String mySmrutiRequestId = 'mySmrutiRequestId';
   static const String mySmrutiOwnerKey = 'mySmrutiOwnerKey';

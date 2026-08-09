@@ -114,5 +114,42 @@ import UIKit
         }
       }
     }
+
+    let instagramStoryChannel = FlutterMethodChannel(
+      name: "org.hp.harismruti/instagram_story",
+      binaryMessenger: registrar.messenger()
+    )
+    instagramStoryChannel.setMethodCallHandler { call, result in
+      guard call.method == "shareImage" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      guard
+        let arguments = call.arguments as? [String: Any],
+        let path = arguments["path"] as? String,
+        let imageData = try? Data(contentsOf: URL(fileURLWithPath: path)),
+        let storyURL = URL(string: "instagram-stories://share")
+      else {
+        result(
+          FlutterError(
+            code: "INVALID_ARGUMENT",
+            message: "A readable image file is required.",
+            details: nil
+          )
+        )
+        return
+      }
+      guard UIApplication.shared.canOpenURL(storyURL) else {
+        result(false)
+        return
+      }
+      UIPasteboard.general.setItems(
+        [["com.instagram.sharedSticker.backgroundImage": imageData]],
+        options: [.expirationDate: Date().addingTimeInterval(300)]
+      )
+      UIApplication.shared.open(storyURL, options: [:]) { opened in
+        result(opened)
+      }
+    }
   }
 }

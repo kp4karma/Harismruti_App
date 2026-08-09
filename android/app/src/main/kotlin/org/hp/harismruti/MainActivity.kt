@@ -99,6 +99,51 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            INSTAGRAM_STORY_CHANNEL,
+        ).setMethodCallHandler { call, result ->
+            if (call.method != "shareImage") {
+                result.notImplemented()
+                return@setMethodCallHandler
+            }
+            val path = call.argument<String>("path")
+            if (path.isNullOrBlank()) {
+                result.error("INVALID_ARGUMENT", "An image file is required.", null)
+                return@setMethodCallHandler
+            }
+            try {
+                val imageUri = FileProvider.getUriForFile(
+                    this,
+                    "$packageName.wallpaper_files",
+                    File(path),
+                )
+                val intent = Intent("com.instagram.share.ADD_TO_STORY").apply {
+                    setDataAndType(imageUri, "image/jpeg")
+                    setPackage("com.instagram.android")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    clipData = android.content.ClipData.newRawUri("story", imageUri)
+                }
+                if (intent.resolveActivity(packageManager) == null) {
+                    result.success(false)
+                } else {
+                    grantUriPermission(
+                        "com.instagram.android",
+                        imageUri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                    )
+                    startActivity(intent)
+                    result.success(true)
+                }
+            } catch (error: Exception) {
+                result.error(
+                    "INSTAGRAM_SHARE_FAILED",
+                    error.message ?: "Unable to open Instagram Stories.",
+                    null,
+                )
+            }
+        }
     }
 
     override fun onDestroy() {
@@ -108,5 +153,6 @@ class MainActivity : FlutterActivity() {
 
     companion object {
         private const val WALLPAPER_CHANNEL = "org.hp.harismruti/wallpaper"
+        private const val INSTAGRAM_STORY_CHANNEL = "org.hp.harismruti/instagram_story"
     }
 }
