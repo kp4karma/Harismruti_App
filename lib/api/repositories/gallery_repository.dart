@@ -192,7 +192,12 @@ class GalleryRepository {
   }) async {
     final response = await ApiClient.get(
       ApiEndpoints.onThisDay,
-      queryParams: _scopedQueryParams({'limit': limit}),
+      queryParams: _scopedQueryParams({
+        'limit': limit,
+        // The server must select the calendar day where the user currently
+        // is, rather than using one fixed server/India timezone.
+        'utc_offset_minutes': DateTime.now().timeZoneOffset.inMinutes,
+      }),
       cacheDuration: const Duration(hours: 1),
       forceRefresh: forceRefresh,
     );

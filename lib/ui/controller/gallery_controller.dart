@@ -886,6 +886,12 @@ class GalleryController extends GetxController {
   List<int> _uniqueInts(Iterable<int> values) => values.toSet().toList();
 
   Future<void> loadHome({bool force = false}) {
+    // A persisted or in-memory snapshot may have been loaded shortly before
+    // midnight. Age alone is not enough to decide freshness for On This Day.
+    final crossedDayBoundary =
+        _lastLoadedAt != null &&
+        !_isSameLocalDay(_lastLoadedAt!, DateTime.now());
+    force = force || crossedDayBoundary;
     final loadedRecently =
         _lastLoadedAt != null &&
         DateTime.now().difference(_lastLoadedAt!) < const Duration(minutes: 10);
@@ -1497,9 +1503,15 @@ class GalleryController extends GetxController {
   }
 
   bool _isSnapshotStale(_GalleryTabSnapshot snapshot) {
-    return DateTime.now().difference(snapshot.loadedAt) >=
-        const Duration(hours: 1);
+    final now = DateTime.now();
+    return !_isSameLocalDay(snapshot.loadedAt, now) ||
+        now.difference(snapshot.loadedAt) >= const Duration(hours: 1);
   }
+
+  bool _isSameLocalDay(DateTime first, DateTime second) =>
+      first.year == second.year &&
+      first.month == second.month &&
+      first.day == second.day;
 
   void _applySnapshot(_GalleryTabSnapshot snapshot) {
     _applyBundle(snapshot.bundle);

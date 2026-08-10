@@ -17,7 +17,7 @@ class LocationSmruti extends StatefulWidget {
 }
 
 class _LocationSmrutiState extends State<LocationSmruti>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const double _autoScrollPixelsPerSecond = 18;
   static const Duration _resumeDelay = Duration(milliseconds: 2500);
 
@@ -26,23 +26,72 @@ class _LocationSmrutiState extends State<LocationSmruti>
   Duration? _lastTickElapsed;
   Timer? _resumeTimer;
   bool _pausedByUser = false;
+  ScrollPosition? _homeScrollPosition;
+  bool _appIsActive = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     Get.find<GalleryController>().loadAllPlaces();
     _autoScrollTicker = createTicker(_handleAutoScrollTick);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _autoScrollTicker.start();
+      if (mounted) _updateAnimationVisibility();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final position = Scrollable.maybeOf(context)?.position;
+    if (identical(position, _homeScrollPosition)) return;
+    _homeScrollPosition?.removeListener(_updateAnimationVisibility);
+    _homeScrollPosition = position;
+    _homeScrollPosition?.addListener(_updateAnimationVisibility);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _updateAnimationVisibility();
     });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _homeScrollPosition?.removeListener(_updateAnimationVisibility);
     _resumeTimer?.cancel();
     _autoScrollTicker.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appIsActive = state == AppLifecycleState.resumed;
+    _updateAnimationVisibility();
+  }
+
+  void _updateAnimationVisibility() {
+    if (!mounted) return;
+    final renderObject = context.findRenderObject();
+    final visible =
+        renderObject is RenderBox &&
+        renderObject.hasSize &&
+        _isInsideViewport(renderObject);
+    if (_appIsActive && visible) {
+      if (!_autoScrollTicker.isActive) {
+        _lastTickElapsed = null;
+        _autoScrollTicker.start();
+      }
+    } else if (_autoScrollTicker.isActive) {
+      _autoScrollTicker.stop();
+      _lastTickElapsed = null;
+    }
+  }
+
+  bool _isInsideViewport(RenderBox box) {
+    final topLeft = box.localToGlobal(Offset.zero);
+    final bottomRight = box.localToGlobal(box.size.bottomRight(Offset.zero));
+    final viewport = Offset.zero & MediaQuery.sizeOf(context);
+    return viewport.overlaps(Rect.fromPoints(topLeft, bottomRight));
   }
 
   bool _handleScrollNotification(ScrollNotification notification) {

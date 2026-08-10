@@ -1,4 +1,6 @@
 // ignore_for_file: depend_on_referenced_packages
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +10,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:harismruti/api/api_client.dart';
 import 'package:harismruti/healper_service/notification_service.dart';
 import 'package:harismruti/services/analytics_service.dart';
+import 'package:harismruti/services/image_cache_maintenance_service.dart';
 import 'package:harismruti/utils/firebase_options.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 
@@ -30,6 +33,7 @@ Future<void> bootstrap() async {
     StorageHelper.init(),
     ApiClient.init(),
   ]);
+  unawaited(ImageCacheMaintenanceService.compactLegacyCacheOnce());
 }
 
 /// Notification permissions, token creation, and topic subscriptions can take

@@ -784,13 +784,13 @@ class _LocationTopPanel extends StatelessWidget {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: isDark
-                    ? Colors.black.withAlpha(105)
-                    : Colors.white.withAlpha(135),
+                    ? theme.colorScheme.surface.withAlpha(242)
+                    : theme.colorScheme.surface.withAlpha(246),
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
                   color: isDark
-                      ? Colors.white.withAlpha(38)
-                      : Colors.white.withAlpha(190),
+                      ? theme.colorScheme.outlineVariant.withAlpha(145)
+                      : theme.colorScheme.outlineVariant.withAlpha(100),
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -969,15 +969,15 @@ class _LocationSheetState extends State<_LocationSheet> {
                   padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
                   decoration: BoxDecoration(
                     color: isDark
-                        ? Colors.black.withAlpha(125)
-                        : Colors.white.withAlpha(145),
+                        ? theme.colorScheme.surface.withAlpha(248)
+                        : theme.colorScheme.surface.withAlpha(250),
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(28),
                     ),
                     border: Border.all(
                       color: isDark
-                          ? Colors.white.withAlpha(42)
-                          : Colors.white.withAlpha(205),
+                          ? theme.colorScheme.outlineVariant.withAlpha(155)
+                          : theme.colorScheme.outlineVariant.withAlpha(105),
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -1119,13 +1119,10 @@ class _CityListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     return Material(
       color: selected
-          ? primaryColor.withAlpha(24)
-          : isDark
-          ? Colors.white.withAlpha(17)
-          : Colors.white.withAlpha(90),
+          ? theme.colorScheme.primaryContainer
+          : theme.colorScheme.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -1136,10 +1133,8 @@ class _CityListTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: selected
-                  ? primaryColor.withAlpha(140)
-                  : isDark
-                  ? Colors.white.withAlpha(30)
-                  : Colors.white.withAlpha(155),
+                  ? theme.colorScheme.primary.withAlpha(150)
+                  : theme.colorScheme.outlineVariant,
             ),
           ),
           child: Row(
@@ -1151,7 +1146,7 @@ class _CityListTile extends StatelessWidget {
                   height: 52 * tabletScale(context),
                   child: card.coverUrl.isEmpty
                       ? ColoredBox(
-                          color: const Color(0xFFFFFFFF),
+                          color: theme.colorScheme.surfaceContainerHighest,
                           child: Icon(
                             CupertinoIcons.photo,
                             color: primaryColor,
@@ -1277,28 +1272,23 @@ class _CitySearchField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     return SizedBox(
       height: 48 * tabletScale(context),
       child: TextField(
         controller: controller,
         focusNode: focusNode,
         textInputAction: TextInputAction.search,
+        style: TextStyle(color: theme.colorScheme.onSurface),
         decoration: InputDecoration(
           hintText: 'Search city or country',
           prefixIcon: Icon(CupertinoIcons.search, color: primaryColor),
+          hintStyle: TextStyle(color: theme.colorScheme.onSurfaceVariant),
           filled: true,
-          fillColor: isDark
-              ? Colors.white.withAlpha(18)
-              : Colors.white.withAlpha(95),
+          fillColor: theme.colorScheme.surfaceContainerHighest,
           contentPadding: const EdgeInsets.symmetric(horizontal: 14),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(
-              color: isDark
-                  ? Colors.white.withAlpha(34)
-                  : Colors.white.withAlpha(170),
-            ),
+            borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
@@ -1306,11 +1296,7 @@ class _CitySearchField extends StatelessWidget {
           ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(
-              color: isDark
-                  ? Colors.white.withAlpha(34)
-                  : Colors.white.withAlpha(170),
-            ),
+            borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
           ),
         ),
       ),
@@ -1327,7 +1313,6 @@ class _LocationTitlePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
       child: BackdropFilter(
@@ -1336,15 +1321,9 @@ class _LocationTitlePill extends StatelessWidget {
           height: 54,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
-            color: isDark
-                ? Colors.white.withAlpha(18)
-                : Colors.white.withAlpha(85),
+            color: theme.colorScheme.surfaceContainerHigh,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: isDark
-                  ? Colors.white.withAlpha(30)
-                  : Colors.white.withAlpha(160),
-            ),
+            border: Border.all(color: theme.colorScheme.outlineVariant),
           ),
           child: Row(
             children: [
@@ -1394,14 +1373,12 @@ class _RoundMapButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
     return ClipOval(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Material(
-          color: isDark
-              ? Colors.black.withAlpha(115)
-              : Colors.white.withAlpha(155),
+          color: theme.colorScheme.surfaceContainerHigh,
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),

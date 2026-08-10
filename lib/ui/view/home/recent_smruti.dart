@@ -72,11 +72,13 @@ class _AutoSwapRecentCollagesState extends State<_AutoSwapRecentCollages>
     with WidgetsBindingObserver {
   static const _swapInterval = Duration(seconds: 6);
   static const _animationDuration = Duration(milliseconds: 650);
+  static const _maximumAutomaticSwaps = 5;
 
   Timer? _timer;
   int _frontGroup = 0;
   bool _didPrecache = false;
   bool _isMoving = false;
+  int _automaticSwapCount = 0;
 
   List<List<GalleryPhoto>> get _groups => [
     for (final photo in widget.photos) [photo],
@@ -106,6 +108,7 @@ class _AutoSwapRecentCollagesState extends State<_AutoSwapRecentCollages>
     if (_frontGroup >= _groupCount) _frontGroup = 0;
     if (oldWidget.photos.length != widget.photos.length ||
         oldWidget.autoplay != widget.autoplay) {
+      _automaticSwapCount = 0;
       _startTimer();
     }
     if (oldWidget.photos != widget.photos ||
@@ -132,23 +135,31 @@ class _AutoSwapRecentCollagesState extends State<_AutoSwapRecentCollages>
 
   void _startTimer() {
     _timer?.cancel();
-    if (!widget.autoplay || _groupCount <= 1) return;
-    _timer = Timer.periodic(_swapInterval, (_) {
+    if (!widget.autoplay ||
+        _groupCount <= 1 ||
+        _automaticSwapCount >= _maximumAutomaticSwaps) {
+      return;
+    }
+    _timer = Timer.periodic(_swapInterval, (timer) async {
       if (!mounted || !TickerMode.valuesOf(context).enabled) return;
-      unawaited(_move(1));
+      final moved = await _move(1);
+      if (!moved) return;
+      _automaticSwapCount++;
+      if (_automaticSwapCount >= _maximumAutomaticSwaps) timer.cancel();
     });
   }
 
-  Future<void> _move(int direction) async {
-    if (!mounted || _groupCount <= 1 || _isMoving) return;
+  Future<bool> _move(int direction) async {
+    if (!mounted || _groupCount <= 1 || _isMoving) return false;
     _isMoving = true;
     final nextFront = (_frontGroup + direction + _groupCount) % _groupCount;
     await _precacheVisibleGroups(nextFront);
-    if (!mounted) return;
+    if (!mounted) return false;
     setState(() {
       _frontGroup = nextFront;
     });
     _isMoving = false;
+    return true;
   }
 
   Future<void> _precacheVisibleGroups(int frontGroup) async {
@@ -199,10 +210,10 @@ class _AutoSwapRecentCollagesState extends State<_AutoSwapRecentCollages>
         final velocity = details.primaryVelocity ?? 0;
         if (velocity < -120) {
           _timer?.cancel();
-          unawaited(_move(1));
+          unawaited(_move(1).then<void>((_) {}));
         } else if (velocity > 120) {
           _timer?.cancel();
-          unawaited(_move(-1));
+          unawaited(_move(-1).then<void>((_) {}));
         }
       },
       child: Padding(

@@ -154,7 +154,7 @@ class _NetworkImageWithLoaderState extends State<NetworkImageWithLoader> {
         final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
         final decodeWidth = (logicalWidth * devicePixelRatio).ceil().clamp(
           1,
-          3000,
+          1600,
         );
         final displayImageUrl = _displayImageUrl;
 
@@ -166,7 +166,10 @@ class _NetworkImageWithLoaderState extends State<NetworkImageWithLoader> {
           fadeInDuration: Duration.zero,
           fadeOutDuration: Duration.zero,
           memCacheWidth: decodeWidth,
-          maxWidthDiskCache: 3000,
+          // Retaining 3000px copies of every viewed image could grow Android
+          // app storage by hundreds of megabytes. 1200px remains sharp on a
+          // phone while keeping the persistent cache compact.
+          maxWidthDiskCache: 1200,
           placeholder: (_, _) => _progressivePlaceholder(decodeWidth),
           errorWidget: (_, _, error) {
             _handleError(error);
@@ -195,7 +198,7 @@ class _NetworkImageWithLoaderState extends State<NetworkImageWithLoader> {
       fadeInDuration: Duration.zero,
       fadeOutDuration: Duration.zero,
       memCacheWidth: decodeWidth,
-      maxWidthDiskCache: 1000,
+      maxWidthDiskCache: 600,
       placeholder: (_, _) => _loadingPlaceholder(),
       errorWidget: (_, _, _) => _loadingPlaceholder(),
     );

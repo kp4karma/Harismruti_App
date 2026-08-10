@@ -112,9 +112,10 @@ class _HomeScreenState extends State<HomeScreen>
 
     final optionKey = galleryController.selectedSwami.value.apiValue;
     await sectionController.refreshGlobalVisibility(optionKey: optionKey);
-    if (sectionController.consumeCacheRefresh(optionKey)) {
-      await galleryController.loadHome(force: true);
-    }
+    final settingsChanged = sectionController.consumeCacheRefresh(optionKey);
+    // Always give the gallery controller a chance to invalidate yesterday's
+    // snapshot when the app resumes across midnight.
+    await galleryController.loadHome(force: settingsChanged);
   }
 
   @override
