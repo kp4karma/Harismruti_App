@@ -12,6 +12,7 @@ import 'package:harismruti/utils/size_config.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/widget/auth/country_dial_code_picker.dart';
 import 'package:harismruti/widget/appbar/detail_appbar.dart';
+import 'package:harismruti/widget/app_version_label.dart';
 import 'package:harismruti/widget/buttons/custom_button.dart';
 import 'package:harismruti/widget/carousel/auth_recent_carousel.dart';
 
@@ -318,6 +319,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                   ],
                                 ),
+                                const SizedBox(height: 12),
+                                const AppVersionLabel(),
                               ],
                             ),
                           ),

@@ -3073,30 +3073,38 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                                       _handleZoomInteractionUpdate,
                                   onInteractionEnd: _handleZoomInteractionEnd,
                                   child: Center(
-                                    child: Hero(
-                                      tag: 'photo-${photo.id}',
-                                      flightShuttleBuilder:
-                                          (
-                                            flightContext,
-                                            animation,
-                                            direction,
-                                            fromContext,
-                                            toContext,
-                                          ) => _transparentPhotoHeroFlight(
-                                            flightContext,
-                                            animation,
-                                            direction,
-                                            fromContext,
-                                            toContext,
+                                    child: HeroMode(
+                                      // PageView keeps the neighbouring pages
+                                      // alive. Registering their Heroes makes
+                                      // all three photos fly back at once.
+                                      // Only the image currently on screen
+                                      // should participate in the pop flight.
+                                      enabled: index == _index,
+                                      child: Hero(
+                                        tag: 'photo-${photo.id}',
+                                        flightShuttleBuilder:
+                                            (
+                                              flightContext,
+                                              animation,
+                                              direction,
+                                              fromContext,
+                                              toContext,
+                                            ) => _transparentPhotoHeroFlight(
+                                              flightContext,
+                                              animation,
+                                              direction,
+                                              fromContext,
+                                              toContext,
+                                              photo: photo,
+                                              headers: _controller.imageHeaders,
+                                            ),
+                                        child: RepaintBoundary(
+                                          child: _FullscreenImage(
                                             photo: photo,
+                                            title: widget.title,
                                             headers: _controller.imageHeaders,
+                                            chromeVisible: _chromeVisible,
                                           ),
-                                      child: RepaintBoundary(
-                                        child: _FullscreenImage(
-                                          photo: photo,
-                                          title: widget.title,
-                                          headers: _controller.imageHeaders,
-                                          chromeVisible: _chromeVisible,
                                         ),
                                       ),
                                     ),

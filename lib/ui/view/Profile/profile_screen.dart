@@ -21,6 +21,7 @@ import 'package:harismruti/utils/app_routes.dart';
 import 'package:harismruti/utils/responsive.dart';
 import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/widget/appbar/detail_appbar.dart';
+import 'package:harismruti/widget/app_version_label.dart';
 import 'package:harismruti/widget/background/custom_background.dart';
 import 'package:in_app_review/in_app_review.dart';
 
@@ -152,18 +153,15 @@ class ProfileScreen extends StatelessWidget {
             ),
 
             SafeArea(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    "V 1.0.0",
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: primaryColor,
-                      fontWeight: FontWeight.w600,
-                    ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: AppVersionLabel(
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: primaryColor,
+                    fontWeight: FontWeight.w700,
                   ),
-                ],
+                ),
               ),
             ),
           ],

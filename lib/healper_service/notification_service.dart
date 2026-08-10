@@ -234,7 +234,14 @@ class NotificationService {
       onDidReceiveNotificationResponse: (NotificationResponse response) {
         final payload = response.payload;
         if (payload != null && payload.isNotEmpty) {
-          _navigateFromData(jsonDecode(payload) as Map<String, dynamic>);
+          try {
+            final decoded = jsonDecode(payload);
+            if (decoded is Map) {
+              _handleNotificationData(Map<String, dynamic>.from(decoded));
+            }
+          } catch (error) {
+            debugPrint('Could not open notification payload: $error');
+          }
         }
       },
     );
@@ -284,6 +291,14 @@ class NotificationService {
       }
     }
 
+    final payload = Map<String, dynamic>.from(message.data);
+    if (imageUrl?.trim().isNotEmpty == true) {
+      payload['image_url'] = imageUrl!.trim();
+    }
+    if (notification.title?.trim().isNotEmpty == true) {
+      payload['notification_title'] = notification.title!.trim();
+    }
+
     await _plugin.show(
       notification.hashCode,
       notification.title,
@@ -308,8 +323,30 @@ class NotificationService {
               : [DarwinNotificationAttachment(iOSAttachmentPath)],
         ),
       ),
-      payload: jsonEncode(message.data),
+      payload: jsonEncode(payload),
     );
+  }
+
+  static void _handleNotificationData(Map<String, dynamic> data) {
+    final screen = data['screen']?.toString().trim() ?? '';
+    // A notification that names an app section must open that section. In
+    // particular, On This Day uses the image as notification artwork, not as
+    // a request to open the generic Recent Smruti viewer.
+    if (screen.isNotEmpty && screen != 'image' && screen != 'photo') {
+      _navigateFromData(data);
+      return;
+    }
+
+    final imageUrl = data['image_url']?.toString().trim() ?? '';
+    if (imageUrl.isNotEmpty) {
+      _openImage(
+        imageUrl,
+        data['notification_title']?.toString() ?? data['title']?.toString(),
+        photoId: int.tryParse('${data['photo_id'] ?? ''}'),
+      );
+      return;
+    }
+    _navigateFromData(data);
   }
 
   static void _navigateFromData(Map<String, dynamic> data) {
@@ -368,43 +405,30 @@ class NotificationService {
     if (!Platform.isIOS) {
       unawaited(_saveNotificationImage(message, requestAccess: true));
     }
-    if (message.data['screen'] == 'photo_enhancement') {
-      _navigateFromData(message.data);
-      return;
-    }
     final imageUrl = _imageUrl(message);
-    if (imageUrl.isNotEmpty) {
-      _openImage(
-        imageUrl,
-        message.notification?.title,
-        photoId: int.tryParse('${message.data['photo_id'] ?? ''}'),
-      );
-      return;
+    final data = Map<String, dynamic>.from(message.data);
+    if (imageUrl.isNotEmpty) data['image_url'] = imageUrl;
+    final title = message.notification?.title?.trim();
+    if (title?.isNotEmpty == true) {
+      data['notification_title'] = title;
     }
-    _navigateFromData(message.data);
+    _handleNotificationData(data);
   }
 
   static void openSavedNotification(Map<String, dynamic> entry) {
     final data = entry['data'];
-    if (data is Map && data['screen'] == 'photo_enhancement') {
-      _navigateFromData(Map<String, dynamic>.from(data));
-      return;
-    }
+    final notificationData = data is Map
+        ? Map<String, dynamic>.from(data)
+        : <String, dynamic>{};
     final imageUrl = entry['image_url']?.toString().trim() ?? '';
     if (imageUrl.isNotEmpty) {
-      final notificationData = data is Map
-          ? Map<String, dynamic>.from(data)
-          : const <String, dynamic>{};
-      _openImage(
-        imageUrl,
-        entry['title']?.toString(),
-        photoId: int.tryParse('${notificationData['photo_id'] ?? ''}'),
-      );
-      return;
+      notificationData['image_url'] = imageUrl;
     }
-    if (data is Map) {
-      _navigateFromData(Map<String, dynamic>.from(data));
+    final title = entry['title']?.toString().trim();
+    if (title?.isNotEmpty == true) {
+      notificationData['notification_title'] = title;
     }
+    _handleNotificationData(notificationData);
   }
 
   static Future<void> _saveEnhancedPhoto(Map<String, dynamic> data) async {

@@ -1181,7 +1181,7 @@ class _CityListTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: primaryColor,
+                        color: theme.colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w700,
                         fontSize: 12,
                       ),
@@ -1349,7 +1349,7 @@ class _LocationTitlePill extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: primaryColor,
+                        color: theme.colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w800,
                         fontSize: 12,
                       ),
