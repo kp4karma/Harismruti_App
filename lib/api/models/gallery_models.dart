@@ -210,7 +210,13 @@ class GalleryPhoto {
     // fall back to photo_date/taken_at because those can represent a different
     // calendar day from the curated event date.
     final eventDate = DateTime.tryParse(
-      _readString(json, const ['event_date', 'eventDate']) ?? '',
+      _readString(json, const [
+            'on_this_day_date',
+            'onThisDayDate',
+            'event_date',
+            'eventDate',
+          ]) ??
+          '',
     );
     // My Smruti returns the API's coalesced best date as `photo_date` while
     // preserving the curated event date separately. Keep both meanings so

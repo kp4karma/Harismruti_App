@@ -63,6 +63,17 @@ void main() {
       expect(photo.eventDate, DateTime.parse('2005-05-30T00:00:00Z'));
     });
 
+    test('prefers the On This Day calendar date over its UTC timestamp', () {
+      final photo = GalleryPhoto.fromJson({
+        'id': 46,
+        'on_this_day_date': '2024-08-10',
+        'event_date': '2024-08-09T18:30:00Z',
+      });
+
+      expect(photo.eventDate, DateTime(2024, 8, 10));
+      expect(photo.takenAt, DateTime(2024, 8, 10));
+    });
+
     test('does not substitute My Smruti photo_date for event_date', () {
       final photo = GalleryPhoto.fromJson({
         'id': 43,
