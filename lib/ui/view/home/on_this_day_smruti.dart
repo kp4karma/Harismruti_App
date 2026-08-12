@@ -186,17 +186,24 @@ class _OnThisDaySmrutiState extends State<OnThisDaySmruti> {
         if (fromNotification) 'source': 'notification',
       },
     );
-    Navigator.push(
-      context,
-      CupertinoPageRoute(
-        settings: RouteSettings(name: 'On This Day ${group.label} Story'),
-        builder: (_) => _OnThisDayStoryViewer(
-          group: group,
-          headers: controller.imageHeaders,
-        ),
-      ),
-    );
+    Navigator.push(context, _storyRoute(group: group, controller: controller));
   }
+}
+
+PageRouteBuilder<void> _storyRoute({
+  required _StoryGroup group,
+  required GalleryController controller,
+}) {
+  return PageRouteBuilder<void>(
+    settings: RouteSettings(name: 'On This Day ${group.label} Story'),
+    opaque: false,
+    transitionDuration: const Duration(milliseconds: 300),
+    reverseTransitionDuration: const Duration(milliseconds: 260),
+    pageBuilder: (_, __, ___) =>
+        _OnThisDayStoryViewer(group: group, headers: controller.imageHeaders),
+    transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+        child,
+  );
 }
 
 int _feedCycleSeed(String cycleKey) {
@@ -297,47 +304,50 @@ class _StoryCircle extends StatelessWidget {
         width: 92 * scale,
         child: Column(
           children: [
-            Container(
-              width: circleSize,
-              height: circleSize,
-              padding: EdgeInsets.all(3 * scale),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: isViewed
-                    ? const LinearGradient(
-                        colors: [Color(0xFFB9B9B9), Color(0xFF777777)],
-                      )
-                    : LinearGradient(
-                        colors: [
-                          primaryColor,
-                          const Color(0xFFE4A34C),
-                          primaryColor.withAlpha(180),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                boxShadow: [
-                  BoxShadow(
-                    color: isViewed
-                        ? Colors.black.withAlpha(18)
-                        : primaryColor.withAlpha(35),
-                    blurRadius: 12,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
+            Hero(
+              tag: 'on_this_day_story_${group.key}',
               child: Container(
+                width: circleSize,
+                height: circleSize,
                 padding: EdgeInsets.all(3 * scale),
                 decoration: BoxDecoration(
-                  color: scheme.surfaceContainer,
                   shape: BoxShape.circle,
-                  border: Border.all(color: scheme.outlineVariant),
+                  gradient: isViewed
+                      ? const LinearGradient(
+                          colors: [Color(0xFFB9B9B9), Color(0xFF777777)],
+                        )
+                      : LinearGradient(
+                          colors: [
+                            primaryColor,
+                            const Color(0xFFE4A34C),
+                            primaryColor.withAlpha(180),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: isViewed
+                          ? Colors.black.withAlpha(18)
+                          : primaryColor.withAlpha(35),
+                      blurRadius: 12,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
                 ),
-                child: ClipOval(
-                  child: NetworkImageWithLoader(
-                    imageUrl: group.photos.first.thumbnailUrl,
-                    title: group.label,
-                    headers: headers,
+                child: Container(
+                  padding: EdgeInsets.all(3 * scale),
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainer,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: scheme.outlineVariant),
+                  ),
+                  child: ClipOval(
+                    child: NetworkImageWithLoader(
+                      imageUrl: group.photos.first.thumbnailUrl,
+                      title: group.label,
+                      headers: headers,
+                    ),
                   ),
                 ),
               ),
@@ -385,22 +395,27 @@ class _OnThisDayStoryViewer extends StatefulWidget {
   State<_OnThisDayStoryViewer> createState() => _OnThisDayStoryViewerState();
 }
 
-class _OnThisDayStoryViewerState extends State<_OnThisDayStoryViewer> {
+class _OnThisDayStoryViewerState extends State<_OnThisDayStoryViewer>
+    with SingleTickerProviderStateMixin {
   static const _storyDuration = Duration(seconds: 4);
+  static const _dragDismissDistance = 220.0;
 
-  late final PageController _pageController;
+  late final AnimationController _snapBackController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 220),
+  );
   Timer? _timer;
   int _index = 0;
   bool _didPrecache = false;
   bool _isChangingPage = false;
   bool _isSharingToInstagram = false;
+  final ValueNotifier<double> _dragDy = ValueNotifier<double>(0);
 
   GalleryPhoto get _photo => widget.group.photos[_index];
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
     _scheduleNext();
   }
 
@@ -416,7 +431,8 @@ class _OnThisDayStoryViewerState extends State<_OnThisDayStoryViewer> {
   @override
   void dispose() {
     _timer?.cancel();
-    _pageController.dispose();
+    _snapBackController.dispose();
+    _dragDy.dispose();
     super.dispose();
   }
 
@@ -443,12 +459,49 @@ class _OnThisDayStoryViewerState extends State<_OnThisDayStoryViewer> {
     await _ensurePhotoReady(index);
     if (!mounted) return;
     _precacheAround(index);
-    await _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutCubic,
-    );
+    setState(() => _index = index);
+    _scheduleNext();
     _isChangingPage = false;
+  }
+
+  void _beginDrag() {
+    _timer?.cancel();
+    _snapBackController.stop();
+  }
+
+  void _updateDrag(DragUpdateDetails details) {
+    if (details.delta.dy < 0 && _dragDy.value <= 0) return;
+    _dragDy.value = (_dragDy.value + details.delta.dy).clamp(
+      0.0,
+      double.infinity,
+    );
+  }
+
+  void _endDrag(DragEndDetails details) {
+    final shouldDismiss =
+        _dragDy.value > _dragDismissDistance * 0.35 ||
+        details.velocity.pixelsPerSecond.dy > 700;
+    if (shouldDismiss) {
+      final animation = Tween<double>(begin: _dragDy.value, end: 800).animate(
+        CurvedAnimation(parent: _snapBackController, curve: Curves.easeIn),
+      );
+      void listener() => _dragDy.value = animation.value;
+      animation.addListener(listener);
+      _snapBackController.forward(from: 0).whenComplete(() {
+        animation.removeListener(listener);
+        if (mounted) Navigator.pop(context);
+      });
+      return;
+    }
+    final animation = Tween<double>(begin: _dragDy.value, end: 0).animate(
+      CurvedAnimation(parent: _snapBackController, curve: Curves.easeOutCubic),
+    );
+    void listener() => _dragDy.value = animation.value;
+    animation.addListener(listener);
+    _snapBackController.forward(from: 0).whenComplete(() {
+      animation.removeListener(listener);
+      if (mounted) _scheduleNext();
+    });
   }
 
   Future<void> _ensurePhotoReady(int index) async {
@@ -535,224 +588,246 @@ class _OnThisDayStoryViewerState extends State<_OnThisDayStoryViewer> {
   @override
   Widget build(BuildContext context) {
     final tags = _storyTags(_photo);
+    final heroTag = 'on_this_day_story_${widget.group.key}';
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          PageView.builder(
-            controller: _pageController,
-            itemCount: widget.group.photos.length,
-            onPageChanged: (index) {
-              setState(() => _index = index);
-              _precacheAround(index);
-              _scheduleNext();
+      backgroundColor: Colors.transparent,
+      body: GestureDetector(
+        onVerticalDragStart: (_) => _beginDrag(),
+        onVerticalDragUpdate: _updateDrag,
+        onVerticalDragEnd: _endDrag,
+        child: Hero(
+          tag: heroTag,
+          child: ValueListenableBuilder<double>(
+            valueListenable: _dragDy,
+            builder: (context, dragDy, child) {
+              final dragProgress = (dragDy / _dragDismissDistance).clamp(
+                0.0,
+                1.0,
+              );
+              return Transform.translate(
+                offset: Offset(0, dragDy),
+                child: Transform.scale(
+                  scale: 1 - (dragProgress * 0.22),
+                  child: Opacity(
+                    opacity: 1 - dragProgress * 0.55,
+                    child: child,
+                  ),
+                ),
+              );
             },
-            itemBuilder: (context, index) => NetworkImageWithLoader(
-              imageUrl: widget.group.photos[index].fullUrl,
-              title: widget.group.label,
-              headers: widget.headers,
-              fit: BoxFit.contain,
-            ),
-          ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withAlpha(165),
-                  Colors.transparent,
-                  Colors.black.withAlpha(185),
-                ],
-                stops: const [0, 0.34, 1],
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: _previous,
-                  ),
-                ),
-                Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: () => unawaited(_next()),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      for (
-                        var index = 0;
-                        index < widget.group.photos.length;
-                        index++
-                      )
-                        Expanded(
-                          child: Container(
-                            height: 3,
-                            margin: const EdgeInsets.symmetric(horizontal: 2),
-                            decoration: BoxDecoration(
-                              color: index <= _index
-                                  ? Colors.white
-                                  : Colors.white.withAlpha(75),
-                              borderRadius: BorderRadius.circular(99),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Icon(widget.group.icon, color: Colors.white, size: 20),
-                      const SizedBox(width: 7),
-                      Expanded(
-                        child: Text(
-                          widget.group.label,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                          ),
+            child: RepaintBoundary(
+              child: Material(
+                color: Colors.black,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeIn,
+                      transitionBuilder: (child, animation) =>
+                          FadeTransition(opacity: animation, child: child),
+                      child: NetworkImageWithLoader(
+                        key: ValueKey<int>(_index),
+                        imageUrl: _photo.fullUrl,
+                        title: widget.group.label,
+                        headers: widget.headers,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withAlpha(165),
+                            Colors.transparent,
+                            Colors.black.withAlpha(185),
+                          ],
+                          stops: const [0, 0.34, 1],
                         ),
                       ),
-                      Material(
-                        color: Colors.white.withAlpha(35),
-                        shape: const CircleBorder(),
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: _isSharingToInstagram
-                              ? null
-                              : _shareCurrentToInstagramStory,
-                          child: SizedBox.square(
-                            dimension: 42,
-                            child: _isSharingToInstagram
-                                ? const Padding(
-                                    padding: EdgeInsets.all(11),
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
+                    ),
+                    Positioned.fill(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.translucent,
+                              onTap: _previous,
+                            ),
+                          ),
+                          Expanded(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.translucent,
+                              onTap: () => unawaited(_next()),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                for (
+                                  var index = 0;
+                                  index < widget.group.photos.length;
+                                  index++
+                                )
+                                  Expanded(
+                                    child: Container(
+                                      height: 3,
+                                      margin: const EdgeInsets.symmetric(
+                                        horizontal: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: index <= _index
+                                            ? Colors.white
+                                            : Colors.white.withAlpha(75),
+                                        borderRadius: BorderRadius.circular(99),
+                                      ),
                                     ),
-                                  )
-                                : const Icon(
-                                    CupertinoIcons.camera_circle_fill,
-                                    color: Colors.white,
-                                    size: 23,
                                   ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Material(
-                        color: Colors.white.withAlpha(35),
-                        shape: const CircleBorder(),
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: () => Navigator.pop(context),
-                          child: const SizedBox.square(
-                            dimension: 42,
-                            child: Icon(
-                              CupertinoIcons.xmark,
-                              color: Colors.white,
-                              size: 20,
+                              ],
                             ),
-                          ),
+                            const SizedBox(height: 14),
+                            Row(
+                              children: [
+                                Icon(
+                                  widget.group.icon,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 7),
+                                Expanded(
+                                  child: Text(
+                                    widget.group.label,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                                Material(
+                                  color: Colors.white.withAlpha(35),
+                                  shape: const CircleBorder(),
+                                  child: InkWell(
+                                    customBorder: const CircleBorder(),
+                                    onTap: _isSharingToInstagram
+                                        ? null
+                                        : _shareCurrentToInstagramStory,
+                                    child: SizedBox.square(
+                                      dimension: 42,
+                                      child: _isSharingToInstagram
+                                          ? const Padding(
+                                              padding: EdgeInsets.all(11),
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
+                                            )
+                                          : const Icon(
+                                              CupertinoIcons.camera_circle_fill,
+                                              color: Colors.white,
+                                              size: 23,
+                                            ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Spacer(),
+                            Text(
+                              _contextLabel(widget.group.type, _photo),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            if (_photo.eventDate != null) ...[
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Icon(
+                                    CupertinoIcons.calendar,
+                                    color: Colors.white.withAlpha(215),
+                                    size: 15,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    _formatEventDate(_photo.eventDate!),
+                                    style: TextStyle(
+                                      color: Colors.white.withAlpha(225),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                            if (tags.isNotEmpty) ...[
+                              const SizedBox(height: 9),
+                              SizedBox(
+                                height: 30,
+                                child: ListView.separated(
+                                  scrollDirection: Axis.horizontal,
+                                  physics: const BouncingScrollPhysics(),
+                                  itemCount: tags.length,
+                                  separatorBuilder: (_, _) =>
+                                      const SizedBox(width: 6),
+                                  itemBuilder: (context, index) => Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 5,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withAlpha(32),
+                                      borderRadius: BorderRadius.circular(99),
+                                      border: Border.all(
+                                        color: Colors.white.withAlpha(65),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      '#${tags[index]}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 5),
+                            Text(
+                              '${_index + 1} of ${widget.group.photos.length}',
+                              style: TextStyle(
+                                color: Colors.white.withAlpha(190),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                  const Spacer(),
-                  Text(
-                    _contextLabel(widget.group.type, _photo),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  if (_photo.eventDate != null) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(
-                          CupertinoIcons.calendar,
-                          color: Colors.white.withAlpha(215),
-                          size: 15,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          _formatEventDate(_photo.eventDate!),
-                          style: TextStyle(
-                            color: Colors.white.withAlpha(225),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
                     ),
                   ],
-                  if (tags.isNotEmpty) ...[
-                    const SizedBox(height: 9),
-                    SizedBox(
-                      height: 30,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: tags.length,
-                        separatorBuilder: (_, _) => const SizedBox(width: 6),
-                        itemBuilder: (context, index) => Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withAlpha(32),
-                            borderRadius: BorderRadius.circular(99),
-                            border: Border.all(
-                              color: Colors.white.withAlpha(65),
-                            ),
-                          ),
-                          child: Text(
-                            '#${tags[index]}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 5),
-                  Text(
-                    '${_index + 1} of ${widget.group.photos.length}',
-                    style: TextStyle(
-                      color: Colors.white.withAlpha(190),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

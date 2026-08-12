@@ -167,6 +167,17 @@ private struct SmrutiWidget: Widget {
   let description: String
   let families: [WidgetFamily]
 
+  init(kind: String, name: String, description: String, families: [WidgetFamily]) {
+    self.kind = kind
+    self.name = name
+    self.description = description
+    self.families = families
+  }
+
+  init() {
+    self.init(kind: "SmrutiHomeWidgetProvider", name: "", description: "", families: [.systemSmall])
+  }
+
   var body: some WidgetConfiguration {
     StaticConfiguration(kind: kind, provider: SmrutiProvider(kind: kind)) { entry in
       SmrutiWidgetView(entry: entry)
