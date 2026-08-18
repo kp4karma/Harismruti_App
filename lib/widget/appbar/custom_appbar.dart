@@ -17,6 +17,7 @@ class CustomAppbar extends StatelessWidget implements PreferredSizeWidget {
   final bool? isShowSubTitle;
   final bool isLoginAppbar;
   final bool isCenterTitle;
+  final GlobalKey? profileButtonKey;
   const CustomAppbar({
     super.key,
     this.isLoginAppbar = false,
@@ -24,6 +25,7 @@ class CustomAppbar extends StatelessWidget implements PreferredSizeWidget {
     this.subtitle,
     this.isShowSubTitle = true,
     this.isCenterTitle = false,
+    this.profileButtonKey,
   });
 
   @override
@@ -124,6 +126,7 @@ class CustomAppbar extends StatelessWidget implements PreferredSizeWidget {
                     ),
                     const SizedBox(width: 8),
                     _ProfileAppbarButton(
+                      key: profileButtonKey,
                       onTap: () {
                         if (!StorageHelper.isLogin()) {
                           Get.toNamed(AppRoutes.loginMobile);
@@ -180,7 +183,7 @@ class _NotificationAppbarButton extends StatelessWidget {
 class _ProfileAppbarButton extends StatelessWidget {
   final VoidCallback onTap;
 
-  const _ProfileAppbarButton({required this.onTap});
+  const _ProfileAppbarButton({super.key, required this.onTap});
 
   @override
   Widget build(BuildContext context) {

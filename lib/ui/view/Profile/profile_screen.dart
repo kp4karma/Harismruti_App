@@ -24,13 +24,92 @@ import 'package:harismruti/widget/appbar/detail_appbar.dart';
 import 'package:harismruti/widget/app_version_label.dart';
 import 'package:harismruti/widget/background/custom_background.dart';
 import 'package:in_app_review/in_app_review.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
   final ProfileController profileController = Get.put(ProfileController());
   final SmrutiSectionController smrutiController =
       Get.find<SmrutiSectionController>();
+  final GlobalKey _mySmrutiKey = GlobalKey();
+  TutorialCoachMark? _mySmrutiSpotlight;
 
-  ProfileScreen({super.key});
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _showMySmrutiSpotlightIfNeeded(),
+    );
+  }
+
+  void _showMySmrutiSpotlightIfNeeded() {
+    if (StorageHelper.hasKey(StorageKeys.mySmrutiSpotlightSeen)) return;
+    if (_mySmrutiKey.currentContext == null) return;
+
+    final targets = [
+      TargetFocus(
+        identify: "my-smruti-option",
+        keyTarget: _mySmrutiKey,
+        shape: ShapeLightFocus.RRect,
+        radius: 12,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Add Your Smruti",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      "Tap here to upload and manage your smruti photos.",
+                      style: TextStyle(color: Colors.white, fontSize: 14),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    ];
+
+    _mySmrutiSpotlight = TutorialCoachMark(
+      targets: targets,
+      colorShadow: Colors.black,
+      opacityShadow: 0.8,
+      hideSkip: true,
+      onClickTarget: (_) => _dismissMySmrutiSpotlight(),
+      onClickOverlay: (_) => _dismissMySmrutiSpotlight(),
+      onFinish: _markMySmrutiSpotlightSeen,
+    )..show(context: context);
+  }
+
+  void _dismissMySmrutiSpotlight() {
+    _mySmrutiSpotlight?.finish();
+  }
+
+  void _markMySmrutiSpotlightSeen() {
+    StorageHelper.setValue(
+      key: StorageKeys.mySmrutiSpotlightSeen,
+      value: true,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -96,6 +175,7 @@ class ProfileScreen extends StatelessWidget {
                       _AdminManagedProfileOption(
                         featureKey: 'my_smruti',
                         child: _ProfileOption(
+                          key: _mySmrutiKey,
                           icon: Icons.face_retouching_natural_outlined,
                           label: 'My Smruti',
                           onTap: () => _openMySmrutiUpload(context),
@@ -609,6 +689,7 @@ class _ProfileOption extends StatelessWidget {
   final Widget? trailing;
 
   const _ProfileOption({
+    super.key,
     required this.icon,
     required this.label,
     required this.onTap,

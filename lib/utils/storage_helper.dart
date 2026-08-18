@@ -44,6 +44,11 @@ class StorageKeys {
   static const String onThisDayViewedStories = 'onThisDayViewedStoriesV1';
   static const String downloadedPhotos = 'downloadedPhotosV1';
   static const String compactImageCacheMigrated = 'compactImageCacheMigratedV1';
+  static const String profileSpotlightSeen = 'profileSpotlightSeenV1';
+  static const String mySmrutiSpotlightSeen = 'mySmrutiSpotlightSeenV1';
+  static const String photoOptionsSpotlightSeen =
+      'photoOptionsSpotlightSeenV1';
+  static const String editPhotoSpotlightSeen = 'editPhotoSpotlightSeenV1';
 }
 
 class StorageHelper {

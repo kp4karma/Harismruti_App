@@ -27,6 +27,7 @@ import 'package:harismruti/ui/view/gallery/gallery_filter_sheet.dart';
 import 'package:harismruti/ui/view/home/my_diary_smruti.dart';
 import 'package:harismruti/utils/app_color.dart';
 import 'package:harismruti/utils/responsive.dart';
+import 'package:harismruti/utils/storage_helper.dart';
 import 'package:harismruti/widget/appbar/frosted_appbar.dart';
 import 'package:harismruti/widget/gallery/gallery_states.dart';
 import 'package:harismruti/widget/network_Image_with_loader.dart';
@@ -35,6 +36,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pro_image_editor/pro_image_editor.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 
 const double _homeAppbarBlurSigma = 28;
 const MethodChannel _wallpaperChannel = MethodChannel(
@@ -1339,6 +1341,10 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
   bool _draggingToDismiss = false;
   final Set<int> _activeViewerPointers = <int>{};
   late final List<GalleryPhoto> _localPhotos;
+  final GlobalKey _optionsButtonKey = GlobalKey();
+  final GlobalKey _editPhotoOptionKey = GlobalKey();
+  TutorialCoachMark? _photoOptionsSpotlight;
+  TutorialCoachMark? _editPhotoSpotlight;
   bool get _isMySmruti =>
       widget.isMySmruti || widget.title.trim().toLowerCase() == 'my smruti';
 
@@ -1391,7 +1397,118 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _precacheAround(_index);
       _centerThumbnail(_index, animated: false);
+      _showPhotoOptionsSpotlightIfNeeded();
     });
+  }
+
+  void _showPhotoOptionsSpotlightIfNeeded() {
+    if (StorageHelper.hasKey(StorageKeys.photoOptionsSpotlightSeen)) return;
+    if (_optionsButtonKey.currentContext == null) return;
+
+    final targets = [
+      TargetFocus(
+        identify: "photo-options-button",
+        keyTarget: _optionsButtonKey,
+        shape: ShapeLightFocus.Circle,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      "Photo Options",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      "Tap here to edit, download, tag and more.",
+                      style: TextStyle(color: Colors.white, fontSize: 14),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    ];
+
+    _photoOptionsSpotlight = TutorialCoachMark(
+      targets: targets,
+      colorShadow: Colors.black,
+      opacityShadow: 0.8,
+      hideSkip: true,
+      onClickTarget: (_) => _dismissPhotoOptionsSpotlight(),
+      onClickOverlay: (_) => _dismissPhotoOptionsSpotlight(),
+      onFinish: () => StorageHelper.setValue(
+        key: StorageKeys.photoOptionsSpotlightSeen,
+        value: true,
+      ),
+    )..show(context: context, rootOverlay: true);
+  }
+
+  void _dismissPhotoOptionsSpotlight() {
+    _photoOptionsSpotlight?.finish();
+  }
+
+  void _showEditPhotoSpotlightIfNeeded() {
+    if (StorageHelper.hasKey(StorageKeys.editPhotoSpotlightSeen)) return;
+    final keyContext = _editPhotoOptionKey.currentContext;
+    if (keyContext == null) return;
+
+    final targets = [
+      TargetFocus(
+        identify: "edit-photo-option",
+        keyTarget: _editPhotoOptionKey,
+        shape: ShapeLightFocus.RRect,
+        radius: 10,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  "Tap here to crop, adjust and enhance your photo.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    ];
+
+    _editPhotoSpotlight = TutorialCoachMark(
+      targets: targets,
+      colorShadow: Colors.black,
+      opacityShadow: 0.75,
+      hideSkip: true,
+      onClickTarget: (_) => _dismissEditPhotoSpotlight(),
+      onClickOverlay: (_) => _dismissEditPhotoSpotlight(),
+      onFinish: () => StorageHelper.setValue(
+        key: StorageKeys.editPhotoSpotlightSeen,
+        value: true,
+      ),
+    )..show(context: keyContext, rootOverlay: true);
+  }
+
+  void _dismissEditPhotoSpotlight() {
+    _editPhotoSpotlight?.finish();
   }
 
   void _onThumbnailScroll() {
@@ -2885,12 +3002,15 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                   ],
                 ),
               ),
-            CupertinoActionSheetAction(
-              onPressed: () {
-                Navigator.pop(context);
-                _openPhotoEditor();
-              },
-              child: const Text('Edit Photo'),
+            KeyedSubtree(
+              key: _editPhotoOptionKey,
+              child: CupertinoActionSheetAction(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _openPhotoEditor();
+                },
+                child: const Text('Edit Photo'),
+              ),
             ),
             CupertinoActionSheetAction(
               onPressed: () {
@@ -2948,6 +3068,12 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
         ),
       ),
     );
+    if (!StorageHelper.hasKey(StorageKeys.editPhotoSpotlightSeen)) {
+      Future.delayed(
+        const Duration(milliseconds: 350),
+        _showEditPhotoSpotlightIfNeeded,
+      );
+    }
   }
 
   Future<String?> _askForText({
@@ -3268,6 +3394,7 @@ class _GalleryFullscreenViewerState extends State<GalleryFullscreenViewer>
                         ),
                       if (!_isSlideshowPlaying)
                         _ViewerActions(
+                          optionsButtonKey: _optionsButtonKey,
                           isFavorite: _controller.isFavorite(_photo.id),
                           onShare: _sharePhoto,
                           onFavorite: _toggleFavorite,
@@ -4703,8 +4830,10 @@ class _ViewerActions extends StatelessWidget {
   final VoidCallback onInfo;
   final VoidCallback onOptions;
   final VoidCallback onCollection;
+  final Key? optionsButtonKey;
 
   const _ViewerActions({
+    this.optionsButtonKey,
     required this.isFavorite,
     required this.isInfoOpen,
     required this.onShare,
@@ -4782,6 +4911,7 @@ class _ViewerActions extends StatelessWidget {
                         ),
                         _InfoToggleButton(isOpen: isInfoOpen, onTap: onInfo),
                         _ViewerPlainButton(
+                          key: optionsButtonKey,
                           icon: CupertinoIcons.slider_horizontal_3,
                           onTap: onOptions,
                         ),
@@ -4810,6 +4940,7 @@ class _ViewerPlainButton extends StatelessWidget {
   final VoidCallback onTap;
 
   const _ViewerPlainButton({
+    super.key,
     required this.icon,
     required this.onTap,
     this.color,
