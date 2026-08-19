@@ -4,6 +4,7 @@ import 'package:harismruti/ui/view/auth/login.dart';
 import 'package:harismruti/ui/view/auth/login_home.dart';
 import 'package:harismruti/ui/view/auth/register.dart';
 import 'package:harismruti/ui/view/home/home_screen.dart';
+import 'package:harismruti/ui/view/onboarding/onboarding_screen.dart';
 import 'package:harismruti/ui/view/splash/splash_screen.dart';
 
 class AppRoutes {
@@ -12,6 +13,7 @@ class AppRoutes {
   static const String loginMobile = "$login/mobile";
   static const String register = "/register";
   static const String home = "/home";
+  static const String onboarding = "/onboarding";
 
   static List<GetPage> routes = [
     GetPage(name: splash, page: () => const SplashScreen()),
@@ -37,6 +39,12 @@ class AppRoutes {
       transition: Transition.fadeIn,
       curve: Curves.easeOutCubic,
       transitionDuration: const Duration(milliseconds: 520),
+    ),
+    GetPage(
+      name: onboarding,
+      page: () => const OnboardingScreen(),
+      transition: Transition.fadeIn,
+      transitionDuration: const Duration(milliseconds: 420),
     ),
   ];
 }

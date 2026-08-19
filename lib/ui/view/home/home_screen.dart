@@ -5,7 +5,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tilt/flutter_tilt.dart';
 import 'package:get/get.dart';
-import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import 'package:harismruti/api/api_endpoints.dart';
 import 'package:harismruti/api/models/gallery_models.dart';
 import 'package:harismruti/api/repositories/gallery_repository.dart';
@@ -57,8 +56,6 @@ class _HomeScreenState extends State<HomeScreen>
   late AnimationController _appBarAnimationController;
   final StreamController<TiltStreamModel> streamController =
       StreamController<TiltStreamModel>.broadcast();
-  final GlobalKey _profileButtonKey = GlobalKey();
-  TutorialCoachMark? _profileSpotlight;
 
   @override
   void initState() {
@@ -76,7 +73,6 @@ class _HomeScreenState extends State<HomeScreen>
       unawaited(_refreshWebPanelSections());
       myPhotosController.refreshSmrutiFlow();
       if (authController.isLoggedIn.value) _loadLiveStream();
-      _showProfileSpotlightIfNeeded();
     });
     _scrollController.addListener(() {
       final offset = _scrollController.offset;
@@ -103,77 +99,6 @@ class _HomeScreenState extends State<HomeScreen>
     if (state == AppLifecycleState.resumed) {
       unawaited(_refreshWebPanelSections());
     }
-  }
-
-  void _showProfileSpotlightIfNeeded() {
-    if (StorageHelper.hasKey(StorageKeys.profileSpotlightSeen)) return;
-    if (_profileButtonKey.currentContext == null) return;
-
-    final isLoggedIn = StorageHelper.isLogin();
-    final title = isLoggedIn ? "Your Profile & Settings" : "Login to Continue";
-    final subtitle = isLoggedIn
-        ? "Tap here to view your profile, settings and more."
-        : "Tap here to login and unlock your profile, settings and more.";
-
-    final targets = [
-      TargetFocus(
-        identify: "profile-button",
-        keyTarget: _profileButtonKey,
-        shape: ShapeLightFocus.Circle,
-        contents: [
-          TargetContent(
-            align: ContentAlign.bottom,
-            builder: (context, controller) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    ];
-
-    _profileSpotlight = TutorialCoachMark(
-      targets: targets,
-      colorShadow: Colors.black,
-      opacityShadow: 0.8,
-      hideSkip: true,
-      onClickTarget: (_) => _dismissProfileSpotlight(),
-      onClickOverlay: (_) => _dismissProfileSpotlight(),
-      onFinish: _markProfileSpotlightSeen,
-    )..show(context: context);
-  }
-
-  void _dismissProfileSpotlight() {
-    _profileSpotlight?.finish();
-  }
-
-  void _markProfileSpotlightSeen() {
-    StorageHelper.setValue(
-      key: StorageKeys.profileSpotlightSeen,
-      value: true,
-    );
   }
 
   Future<void> _refreshWebPanelSections() async {
@@ -247,10 +172,7 @@ class _HomeScreenState extends State<HomeScreen>
               backgroundColor: Colors.transparent,
               extendBodyBehindAppBar: true,
               extendBody: true,
-              appBar: CustomAppbar(
-                isLoginAppbar: false,
-                profileButtonKey: _profileButtonKey,
-              ),
+              appBar: CustomAppbar(isLoginAppbar: false),
               bottomNavigationBar: AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 height: sectionController.showBottomBar.value
