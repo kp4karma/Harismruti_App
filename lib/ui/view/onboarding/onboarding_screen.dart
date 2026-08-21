@@ -28,6 +28,11 @@ const List<_OnboardingSlide> _slides = [
     subtitle: 'Capture your live selfie',
   ),
   _OnboardingSlide(
+    image: 'assets/onboarding/onboarding_photo_view.png',
+    title: 'Explore Photo Options',
+    subtitle: 'Click Here',
+  ),
+  _OnboardingSlide(
     image: 'assets/onboarding/onboarding_photo_tools.png',
     title: 'Explore Photo Options',
     subtitle:
@@ -37,6 +42,17 @@ const List<_OnboardingSlide> _slides = [
     image: 'assets/onboarding/onboarding_download_quality.png',
     title: 'Choose Download Quality',
     subtitle: 'Select your preferred photo quality before downloading.',
+  ),
+  _OnboardingSlide(
+    image: 'assets/onboarding/onboarding_edit_photo.png',
+    title: 'Personalize with Edit Photo',
+    subtitle: 'Add paint, text, filters, and more to make each Smruti your own.',
+  ),
+  _OnboardingSlide(
+    image: 'assets/onboarding/onboarding_home_widgets.png',
+    title: 'Add Widgets to Your Phone Home Screen',
+    subtitle:
+        'From Profile → Home Screen Widgets, choose and add your preferred widgets.',
   ),
 ];
 
