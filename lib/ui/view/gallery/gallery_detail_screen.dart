@@ -4810,6 +4810,7 @@ class _ViewerPlainButton extends StatelessWidget {
   final VoidCallback onTap;
 
   const _ViewerPlainButton({
+    super.key,
     required this.icon,
     required this.onTap,
     this.color,

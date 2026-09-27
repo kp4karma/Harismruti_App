@@ -1264,7 +1264,7 @@ class _SmrutiNotFoundPanel extends StatelessWidget {
           ),
           const SizedBox(height: 5),
           Text(
-            'No matching Smruti photos are available for your account.',
+            'We couldn’t find your Smruti on the Telegram 369 Channel. Please contact your Main Leader to share your Mandal Smruti.',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.black.withAlpha(135),

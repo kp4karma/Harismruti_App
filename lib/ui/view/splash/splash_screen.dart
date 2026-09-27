@@ -68,7 +68,10 @@ class SplashScreenState extends State<SplashScreen>
 
     if (!mounted) return;
 
-    NavigationHelper.navigateAndRemoveAll(AppRoutes.home);
+    final destination = StorageHelper.hasKey(StorageKeys.appOnboardingSeen)
+        ? AppRoutes.home
+        : AppRoutes.onboarding;
+    NavigationHelper.navigateAndRemoveAll(destination);
     if (hasInternet) {
       unawaited(_checkVersionAfterAppOpen());
     }

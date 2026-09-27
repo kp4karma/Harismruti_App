@@ -614,17 +614,18 @@ class MyPhotosController extends GetxController with WidgetsBindingObserver {
     matchedPhotos.assignAll(mapped);
     _statusTimer?.cancel();
     hasPhoneMapping.value = true;
-    faceSearchCompleted.value = mapped.isNotEmpty;
+    // A confirmed mapping with an empty result is still a completed lookup.
+    // Keeping this false leaves verified users on the loading state forever.
+    faceSearchCompleted.value = true;
     if (mapped.isNotEmpty) {
       faceSearchRequestId.value = null;
       StorageHelper.removeValue(StorageKeys.mySmrutiRequestId);
       helperMessage.value = 'Your Smruti photos are ready.';
     } else {
-      faceSearchCompleted.value = false;
       helperMessage.value =
-          'Your selfie is saved. We are still fetching your Smruti photos.';
+          'We couldn’t find your Smruti on the Telegram 369 Channel. Please contact your Main Leader to share your Mandal Smruti.';
     }
-    return mapped.isNotEmpty;
+    return true;
   }
 
   Future<void> _refreshRequestStatus(int requestId) async {
@@ -635,7 +636,7 @@ class MyPhotosController extends GetxController with WidgetsBindingObserver {
         _statusTimer?.cancel();
         _markFrontPhotoVerified();
         final found = await _loadPhoneMapping();
-        if (!found || !hasMatchedSmruti) {
+        if (!found) {
           matchedPhotos.clear();
           faceSearchCompleted.value = false;
           helperMessage.value =

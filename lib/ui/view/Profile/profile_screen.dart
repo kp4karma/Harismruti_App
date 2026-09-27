@@ -25,13 +25,17 @@ import 'package:harismruti/widget/app_version_label.dart';
 import 'package:harismruti/widget/background/custom_background.dart';
 import 'package:in_app_review/in_app_review.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
   final ProfileController profileController = Get.put(ProfileController());
   final SmrutiSectionController smrutiController =
       Get.find<SmrutiSectionController>();
-
-  ProfileScreen({super.key});
-
   @override
   Widget build(BuildContext context) {
     return CustomBackground(
@@ -609,6 +613,7 @@ class _ProfileOption extends StatelessWidget {
   final Widget? trailing;
 
   const _ProfileOption({
+    super.key,
     required this.icon,
     required this.label,
     required this.onTap,

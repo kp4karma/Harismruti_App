@@ -180,7 +180,7 @@ class _NotificationAppbarButton extends StatelessWidget {
 class _ProfileAppbarButton extends StatelessWidget {
   final VoidCallback onTap;
 
-  const _ProfileAppbarButton({required this.onTap});
+  const _ProfileAppbarButton({super.key, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
